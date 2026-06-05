@@ -2,7 +2,7 @@ import axios from 'axios';
 import type { Channel, GCPProfile, UploadJob, Asset, Prompt } from '../types';
 
 const api = axios.create({
-    baseURL: 'http://localhost:8000/api',
+    baseURL: '/api',
 });
 
 // Channels
