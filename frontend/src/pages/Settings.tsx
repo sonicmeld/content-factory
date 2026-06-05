@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import { getGCPProfiles } from '../services/api';
-import { Server, Cloud, FolderTree, KeyRound } from 'lucide-react';
+import { getGCPProfiles, getConfig } from '../services/api';
+import { Server, Cloud, FolderTree, KeyRound, Loader2 } from 'lucide-react';
 
 export default function Settings() {
     const { data: profiles = [] } = useQuery({ queryKey: ['gcp-profiles'], queryFn: getGCPProfiles });
+    const { data: config, isLoading: isConfigLoading } = useQuery({ queryKey: ['config'], queryFn: getConfig });
 
     return (
         <div className="max-w-4xl space-y-8">
@@ -20,12 +21,16 @@ export default function Settings() {
                     <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
                             <p className="text-muted-foreground mb-1">9Router Base URL</p>
-                            <p className="font-medium bg-secondary px-3 py-2 rounded">http://localhost:20128</p>
+                            <p className="font-medium bg-secondary px-3 py-2 rounded flex items-center h-9">
+                                {isConfigLoading ? <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /> : (config?.nine_router_url || 'Not configured')}
+                            </p>
                             <p className="text-xs text-muted-foreground mt-1">Base URL tanpa path. Contoh: http://localhost:20128</p>
                         </div>
                         <div>
                             <p className="text-muted-foreground mb-1">AI Model (Fallback)</p>
-                            <p className="font-medium bg-secondary px-3 py-2 rounded">gpt-3.5-turbo</p>
+                            <p className="font-medium bg-secondary px-3 py-2 rounded flex items-center h-9">
+                                {isConfigLoading ? <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /> : (config?.nine_router_model || 'Not configured')}
+                            </p>
                         </div>
                     </div>
                 </div>

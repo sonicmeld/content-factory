@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     NINE_ROUTER_URL: str = ""
     NINE_ROUTER_API_KEY: str = ""
     NINE_ROUTER_MODEL: str = ""
-    OAUTH_REDIRECT_URI: str = "http://localhost:3000/api/oauth/callback"
+    OAUTH_REDIRECT_URI: str = "https://oauth.sonicmeld.web.id/api/oauth/callback"
     ENCRYPTION_KEY: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")

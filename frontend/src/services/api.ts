@@ -14,6 +14,9 @@ export const createChannel = (data: Partial<Channel>) => api.post<Channel>('/cha
 export const getGCPProfiles = () => api.get<GCPProfile[]>('/gcp-profiles').then(res => res.data);
 export const createGCPProfile = (data: Partial<GCPProfile>) => api.post<GCPProfile>('/gcp-profiles', data).then(res => res.data);
 
+// System Config
+export const getConfig = () => api.get<any>('/config').then(res => res.data);
+
 // Assets
 export const getAssets = (channelId?: string, type?: string) => {
     let url = channelId === 'shared' ? '/assets/shared' : '/assets';

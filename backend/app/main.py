@@ -53,3 +53,10 @@ app.include_router(assets_router)
 app.include_router(prompts_router)
 app.include_router(uploads_router)
 app.include_router(health.router)
+
+@app.get("/api/config")
+def get_public_config():
+    return {
+        "nine_router_url": settings.NINE_ROUTER_URL,
+        "nine_router_model": settings.NINE_ROUTER_MODEL or "YT_Research"
+    }

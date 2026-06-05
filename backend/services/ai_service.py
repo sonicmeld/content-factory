@@ -17,7 +17,7 @@ def generate_prompt(db: Session, channel_id: str, theme: str, mood: str) -> Prom
     system_prompt = f"You are a helpful AI creating prompts for a YouTube channel named {channel.name}. The theme is {theme} and the mood is {mood}."
     
     payload = {
-        "model": settings.NINE_ROUTER_MODEL or "gpt-3.5-turbo",
+        "model": settings.NINE_ROUTER_MODEL or "YT_Research",
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": "Generate a creative prompt for the channel."}
@@ -72,7 +72,7 @@ def generate_metadata(db: Session, channel_id: str, theme: str, content_type: st
     system_prompt = f"You are a YouTube metadata generator for {channel.name}. Create metadata for a {content_type} about {theme}. Output should be structured with Title, Description, and Tags on new lines."
     
     payload = {
-        "model": settings.NINE_ROUTER_MODEL or "gpt-3.5-turbo",
+        "model": settings.NINE_ROUTER_MODEL or "YT_Research",
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": "Generate metadata."}
