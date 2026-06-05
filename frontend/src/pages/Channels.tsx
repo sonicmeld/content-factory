@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getChannels } from '../services/api';
-import { PlusCircle, MonitorPlay, KeyRound } from 'lucide-react';
+import { PlusCircle, MonitorPlay, KeyRound, X } from 'lucide-react';
 
 export default function Channels() {
     const { data: channels = [] } = useQuery({ queryKey: ['channels'], queryFn: getChannels });
+    const [isAddChannelOpen, setIsAddChannelOpen] = useState(false);
 
     const handleConnectOAuth = (slug: string) => {
         window.location.href = `http://localhost:8000/api/oauth/connect?channel_slug=${slug}`;
@@ -13,7 +15,10 @@ export default function Channels() {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <h1 className="text-2xl font-bold">Channels</h1>
-                <button className="bg-primary text-primary-foreground px-4 py-2 rounded-md font-medium text-sm hover:bg-primary/90 flex items-center gap-2">
+                <button 
+                    onClick={() => setIsAddChannelOpen(true)}
+                    className="bg-primary text-primary-foreground px-4 py-2 rounded-md font-medium text-sm hover:bg-primary/90 flex items-center gap-2"
+                >
                     <PlusCircle className="w-4 h-4" /> Add Channel
                 </button>
             </div>
@@ -62,6 +67,61 @@ export default function Channels() {
                     </div>
                 )}
             </div>
+
+            {/* Add Channel Modal */}
+            {isAddChannelOpen && (
+                <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-card border border-border rounded-lg shadow-lg w-full max-w-md overflow-hidden">
+                        <div className="flex items-center justify-between p-4 border-b border-border">
+                            <h2 className="font-semibold text-lg">Add New Channel</h2>
+                            <button 
+                                onClick={() => setIsAddChannelOpen(false)}
+                                className="text-muted-foreground hover:text-foreground"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="p-4 space-y-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Channel Name</label>
+                                <input 
+                                    type="text" 
+                                    placeholder="e.g. My Tech Channel" 
+                                    className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Channel Slug</label>
+                                <input 
+                                    type="text" 
+                                    placeholder="e.g. my-tech-channel" 
+                                    className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Description</label>
+                                <textarea 
+                                    placeholder="Short description..." 
+                                    className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm min-h-[80px]"
+                                />
+                            </div>
+                        </div>
+                        <div className="p-4 border-t border-border flex justify-end gap-2">
+                            <button 
+                                onClick={() => setIsAddChannelOpen(false)}
+                                className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md"
+                            >
+                                Create Channel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

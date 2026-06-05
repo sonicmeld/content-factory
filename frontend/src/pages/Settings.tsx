@@ -1,10 +1,12 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getGCPProfiles, getConfig } from '../services/api';
-import { Server, Cloud, FolderTree, KeyRound, Loader2 } from 'lucide-react';
+import { Server, Cloud, FolderTree, KeyRound, Loader2, X } from 'lucide-react';
 
 export default function Settings() {
     const { data: profiles = [] } = useQuery({ queryKey: ['gcp-profiles'], queryFn: getGCPProfiles });
     const { data: config, isLoading: isConfigLoading } = useQuery({ queryKey: ['config'], queryFn: getConfig });
+    const [isAddProfileOpen, setIsAddProfileOpen] = useState(false);
 
     return (
         <div className="max-w-4xl space-y-8">
@@ -40,7 +42,12 @@ export default function Settings() {
                         <div className="flex items-center gap-2 font-semibold text-lg">
                             <Cloud className="w-5 h-5 text-blue-400" /> GCP OAuth Profiles
                         </div>
-                        <button className="text-sm bg-primary text-primary-foreground px-3 py-1.5 rounded font-medium">Add Profile</button>
+                        <button 
+                            onClick={() => setIsAddProfileOpen(true)}
+                            className="text-sm bg-primary text-primary-foreground px-3 py-1.5 rounded font-medium"
+                        >
+                            Add Profile
+                        </button>
                     </div>
                     
                     <div className="space-y-3">
@@ -73,6 +80,62 @@ export default function Settings() {
                     </div>
                 </div>
             </div>
+
+            {/* Add Profile Modal */}
+            {isAddProfileOpen && (
+                <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-card border border-border rounded-lg shadow-lg w-full max-w-md overflow-hidden">
+                        <div className="flex items-center justify-between p-4 border-b border-border">
+                            <h2 className="font-semibold text-lg">Add GCP Profile</h2>
+                            <button 
+                                onClick={() => setIsAddProfileOpen(false)}
+                                className="text-muted-foreground hover:text-foreground"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="p-4 space-y-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Profile Name</label>
+                                <input 
+                                    type="text" 
+                                    placeholder="e.g. My Main Account" 
+                                    className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Client ID</label>
+                                <input 
+                                    type="text" 
+                                    placeholder="Your GCP Client ID" 
+                                    className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Client Secret</label>
+                                <input 
+                                    type="password" 
+                                    placeholder="Your GCP Client Secret" 
+                                    className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm"
+                                />
+                            </div>
+                        </div>
+                        <div className="p-4 border-t border-border flex justify-end gap-2">
+                            <button 
+                                onClick={() => setIsAddProfileOpen(false)}
+                                className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md"
+                            >
+                                Save Profile
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
