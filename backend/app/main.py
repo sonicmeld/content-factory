@@ -41,7 +41,8 @@ app.add_middleware(
 
 @app.exception_handler(404)
 async def not_found_handler(request: Request, exc):
-    return JSONResponse(status_code=404, content={"error": "Not Found"})
+    detail = getattr(exc, "detail", "Not Found")
+    return JSONResponse(status_code=404, content={"error": detail})
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
