@@ -3,12 +3,16 @@ from fastapi.responses import JSONResponse
 from api.channels import router as channels_router
 from api.gcp_profiles import router as gcp_profiles_router
 from api.oauth import router as oauth_router
+from api.assets import router as assets_router
+from api.prompts import router as prompts_router
 
 app = FastAPI(title="Content Factory API", version="1.0.0")
 
 app.include_router(channels_router)
 app.include_router(gcp_profiles_router)
 app.include_router(oauth_router)
+app.include_router(assets_router)
+app.include_router(prompts_router)
 
 
 @app.get("/api/assets")

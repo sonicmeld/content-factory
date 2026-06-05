@@ -51,3 +51,29 @@ class GCPProfileResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+class AssetResponse(BaseModel):
+    id: str
+    channel_id: str
+    type: str
+    filename: str
+    filepath: str
+    tags: Optional[str] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+class PromptGenerateRequest(BaseModel):
+    channel_id: str
+    theme: str
+    mood: str
+
+class PromptResponse(BaseModel):
+    id: str
+    channel_id: str
+    title: Optional[str] = None
+    prompt: str
+    category: Optional[str] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

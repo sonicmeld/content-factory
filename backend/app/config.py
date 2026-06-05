@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     DATA_PATH: str = "../data"
     NINE_ROUTER_URL: str = ""
     NINE_ROUTER_API_KEY: str = ""
+    NINE_ROUTER_MODEL: str = ""
     OAUTH_REDIRECT_URI: str = "http://localhost:3000/api/oauth/callback"
     ENCRYPTION_KEY: str = ""
 

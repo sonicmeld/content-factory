@@ -1,0 +1,61 @@
+import os
+import uuid
+import requests
+from sqlalchemy.orm import Session
+from fastapi import HTTPException
+from database.models import Prompt
+from repositories import prompt_repository
+from services import channel_service
+from app.config import settings
+
+def generate_prompt(db: Session, channel_id: str, theme: str, mood: str) -> Prompt:
+    channel = channel_service.get_channel(db, channel_id)
+    
+    if not settings.NINE_ROUTER_URL or not settings.NINE_ROUTER_API_KEY:
+        raise HTTPException(status_code=500, detail="9Router API not configured")
+        
+    system_prompt = f"You are a helpful AI creating prompts for a YouTube channel named {channel.name}. The theme is {theme} and the mood is {mood}."
+    
+    payload = {
+        "model": settings.NINE_ROUTER_MODEL or "gpt-3.5-turbo",
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": "Generate a creative prompt for the channel."}
+        ]
+    }
+    
+    headers = {
+        "Authorization": f"Bearer {settings.NINE_ROUTER_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    
+    try:
+        response = requests.post(settings.NINE_ROUTER_URL, json=payload, headers=headers)
+        response.raise_for_status()
+        data = response.json()
+        generated_text = data.get("choices", [{}])[0].get("message", {}).get("content", "Failed to generate text")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AI generation failed: {str(e)}")
+        
+    prompt_id = str(uuid.uuid4())
+    
+    # Save to file
+    base_dir = os.path.join(settings.DATA_PATH, "channels", channel.slug, "assets", "prompts")
+    os.makedirs(base_dir, exist_ok=True)
+    filepath = os.path.join(base_dir, f"{prompt_id}.txt")
+    
+    try:
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(generated_text)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to write prompt file: {str(e)}")
+        
+    db_prompt = Prompt(
+        id=prompt_id,
+        channel_id=channel.id,
+        title=theme,
+        prompt=generated_text,
+        category=mood
+    )
+    
+    return prompt_repository.create_prompt(db, db_prompt)

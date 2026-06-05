@@ -38,3 +38,24 @@ class OAuthToken(Base):
     refresh_token = Column(String)
     expires_at = Column(DateTime)
     created_at = Column(DateTime, default=func.now())
+
+class Asset(Base):
+    __tablename__ = "assets"
+
+    id = Column(String, primary_key=True, index=True)
+    channel_id = Column(String, nullable=False, index=True)
+    type = Column(String, nullable=False)
+    filename = Column(String, nullable=False)
+    filepath = Column(String, nullable=False)
+    tags = Column(String)
+    created_at = Column(DateTime, default=func.now())
+
+class Prompt(Base):
+    __tablename__ = "prompts"
+
+    id = Column(String, primary_key=True, index=True)
+    channel_id = Column(String, nullable=False, index=True)
+    title = Column(String)
+    prompt = Column(String, nullable=False)
+    category = Column(String)
+    created_at = Column(DateTime, default=func.now())
