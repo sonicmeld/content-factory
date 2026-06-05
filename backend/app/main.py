@@ -1,15 +1,11 @@
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
+from api.channels import router as channels_router
 
 app = FastAPI(title="Content Factory API", version="1.0.0")
 
-@app.get("/api/channels")
-async def get_channels():
-    return JSONResponse(content={"message": "Placeholder for GET /api/channels"})
+app.include_router(channels_router)
 
-@app.post("/api/channels")
-async def create_channel():
-    return JSONResponse(content={"message": "Placeholder for POST /api/channels"})
 
 @app.get("/api/assets")
 async def get_assets():
