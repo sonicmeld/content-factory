@@ -59,3 +59,29 @@ class Prompt(Base):
     prompt = Column(String, nullable=False)
     category = Column(String)
     created_at = Column(DateTime, default=func.now())
+
+class UploadJob(Base):
+    __tablename__ = "upload_jobs"
+
+    id = Column(String, primary_key=True, index=True)
+    channel_id = Column(String, nullable=False, index=True)
+    video_path = Column(String, nullable=False)
+    title = Column(String)
+    description = Column(String)
+    thumbnail_path = Column(String)
+    status = Column(String, nullable=False, default="pending")
+    retry_count = Column(Integer, default=0)
+    error_message = Column(String)
+    scheduled_at = Column(DateTime)
+    published_at = Column(DateTime)
+    created_at = Column(DateTime, default=func.now())
+
+class MetadataTemplate(Base):
+    __tablename__ = "metadata_templates"
+
+    id = Column(String, primary_key=True, index=True)
+    channel_id = Column(String, nullable=False, index=True)
+    title_template = Column(String)
+    description_template = Column(String)
+    tags_template = Column(String)
+    created_at = Column(DateTime, default=func.now())

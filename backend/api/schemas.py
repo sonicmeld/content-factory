@@ -77,3 +77,40 @@ class PromptResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+class UploadJobCreate(BaseModel):
+    channel_id: str
+    video_path: str
+    title: Optional[str] = None
+    description: Optional[str] = None
+    thumbnail_path: Optional[str] = None
+    scheduled_at: Optional[datetime] = None
+
+class UploadJobUpdateStatus(BaseModel):
+    status: str
+
+class UploadJobResponse(BaseModel):
+    id: str
+    channel_id: str
+    video_path: str
+    title: Optional[str] = None
+    description: Optional[str] = None
+    thumbnail_path: Optional[str] = None
+    status: str
+    retry_count: int
+    error_message: Optional[str] = None
+    scheduled_at: Optional[datetime] = None
+    published_at: Optional[datetime] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+class MetadataTemplateResponse(BaseModel):
+    id: str
+    channel_id: str
+    title_template: Optional[str] = None
+    description_template: Optional[str] = None
+    tags_template: Optional[str] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

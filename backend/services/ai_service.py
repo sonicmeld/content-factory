@@ -59,3 +59,59 @@ def generate_prompt(db: Session, channel_id: str, theme: str, mood: str) -> Prom
     )
     
     return prompt_repository.create_prompt(db, db_prompt)
+
+from database.models import MetadataTemplate
+
+def generate_metadata(db: Session, channel_id: str, theme: str, content_type: str) -> MetadataTemplate:
+    channel = channel_service.get_channel(db, channel_id)
+    
+    if not settings.NINE_ROUTER_URL or not settings.NINE_ROUTER_API_KEY:
+        raise HTTPException(status_code=500, detail="9Router API not configured")
+        
+    system_prompt = f"You are a YouTube metadata generator for {channel.name}. Create metadata for a {content_type} about {theme}. Output should be structured with Title, Description, and Tags on new lines."
+    
+    payload = {
+        "model": settings.NINE_ROUTER_MODEL or "gpt-3.5-turbo",
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": "Generate metadata."}
+        ]
+    }
+    
+    headers = {
+        "Authorization": f"Bearer {settings.NINE_ROUTER_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    
+    try:
+        response = requests.post(settings.NINE_ROUTER_URL, json=payload, headers=headers)
+        response.raise_for_status()
+        data = response.json()
+        generated_text = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AI generation failed: {str(e)}")
+        
+    title_template = "Generated Title"
+    desc_template = generated_text
+    tags_template = "tag1, tag2"
+    
+    lines = generated_text.split('\n')
+    for line in lines:
+        if line.lower().startswith("title:"):
+            title_template = line.split(":", 1)[1].strip()
+        elif line.lower().startswith("tags:"):
+            tags_template = line.split(":", 1)[1].strip()
+
+    template_id = str(uuid.uuid4())
+    db_template = MetadataTemplate(
+        id=template_id,
+        channel_id=channel.id,
+        title_template=title_template,
+        description_template=desc_template,
+        tags_template=tags_template
+    )
+    
+    db.add(db_template)
+    db.commit()
+    db.refresh(db_template)
+    return db_template
