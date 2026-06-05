@@ -19,8 +19,9 @@ export default function Settings() {
                     </div>
                     <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
-                            <p className="text-muted-foreground mb-1">API URL Endpoint</p>
-                            <p className="font-medium bg-secondary px-3 py-2 rounded">https://api.9router.com/v1/chat/completions</p>
+                            <p className="text-muted-foreground mb-1">9Router Base URL</p>
+                            <p className="font-medium bg-secondary px-3 py-2 rounded">http://localhost:20128</p>
+                            <p className="text-xs text-muted-foreground mt-1">Base URL tanpa path. Contoh: http://localhost:20128</p>
                         </div>
                         <div>
                             <p className="text-muted-foreground mb-1">AI Model (Fallback)</p>

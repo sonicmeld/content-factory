@@ -34,7 +34,7 @@ def _generate_image(prompt: str, model: str, output_path: str):
                 "size": "1024x1024"
             }
             
-            api_url = settings.NINE_ROUTER_IMAGE_URL.rstrip('/') + "/v1/images/generations"
+            api_url = f"{settings.NINE_ROUTER_URL.rstrip('/')}/v1/images/generations"
             
             response = requests.post(api_url, json=payload, headers=headers, timeout=60)
             response.raise_for_status()
