@@ -80,6 +80,8 @@ class UploadJob(Base):
     description = Column(String)
     thumbnail_path = Column(String)
     status = Column(String, nullable=False)
+    retry_count = Column(Integer, default=0)
+    error_message = Column(String)
     scheduled_at = Column(DateTime)
     published_at = Column(DateTime)
     created_at = Column(DateTime, default=func.now())

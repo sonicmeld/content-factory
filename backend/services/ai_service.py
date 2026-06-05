@@ -30,7 +30,10 @@ def generate_prompt(db: Session, channel_id: str, theme: str, mood: str) -> Prom
     }
     
     try:
-        api_url = f"{settings.NINE_ROUTER_URL.rstrip('/')}/v1/chat/completions"
+        base_url = settings.NINE_ROUTER_URL.rstrip('/')
+        if not base_url.endswith('/v1'):
+            base_url = f"{base_url}/v1"
+        api_url = f"{base_url}/chat/completions"
         response = requests.post(api_url, json=payload, headers=headers)
         response.raise_for_status()
         data = response.json()
@@ -85,7 +88,10 @@ def generate_metadata(db: Session, channel_id: str, theme: str, content_type: st
     }
     
     try:
-        api_url = f"{settings.NINE_ROUTER_URL.rstrip('/')}/v1/chat/completions"
+        base_url = settings.NINE_ROUTER_URL.rstrip('/')
+        if not base_url.endswith('/v1'):
+            base_url = f"{base_url}/v1"
+        api_url = f"{base_url}/chat/completions"
         response = requests.post(api_url, json=payload, headers=headers)
         response.raise_for_status()
         data = response.json()
