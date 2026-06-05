@@ -14,12 +14,17 @@ from api.uploads import router as uploads_router
 from api import health
 from app.config import settings
 
+from database.database import init_db
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Base directories setup
+    # Create required directories on startup
     os.makedirs(settings.DATA_PATH, exist_ok=True)
-    os.makedirs(os.path.join(settings.DATA_PATH, "shared-assets"), exist_ok=True)
+    os.makedirs(os.path.join(settings.DATA_PATH, "channels"), exist_ok=True)
     os.makedirs(os.path.join(settings.DATA_PATH, "temp"), exist_ok=True)
+    
+    # Initialize database
+    init_db()
     
     yield
     # Shutdown logic if any

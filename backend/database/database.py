@@ -23,3 +23,14 @@ def get_db():
         yield db
     finally:
         db.close()
+
+def init_db():
+    from sqlalchemy import text
+    with engine.begin() as conn:
+        schema_path = os.path.join(os.path.dirname(__file__), "schema.sql")
+        if os.path.exists(schema_path):
+            with open(schema_path, "r", encoding="utf-8") as f:
+                statements = f.read().split(";")
+                for statement in statements:
+                    if statement.strip():
+                        conn.execute(text(statement))
