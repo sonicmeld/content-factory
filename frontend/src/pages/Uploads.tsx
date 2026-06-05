@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getUploadJobs, retryUploadJob, getChannels } from '../services/api';
-import { RefreshCw, PlayCircle } from 'lucide-react';
+import { getUploadJobs, retryUploadJob, getChannels, createUploadJob } from '../services/api';
+import { RefreshCw, PlayCircle, X } from 'lucide-react';
 
 export default function Uploads() {
     const queryClient = useQueryClient();
+    const [isAddQueueOpen, setIsAddQueueOpen] = useState(false);
     
     // Auto refresh every 10 seconds per requirements
     const { data: uploads = [], isFetching } = useQuery({ 
@@ -14,12 +16,30 @@ export default function Uploads() {
     
     const { data: channels = [] } = useQuery({ queryKey: ['channels'], queryFn: getChannels });
 
+    const [channelId, setChannelId] = useState('');
+    const [videoPath, setVideoPath] = useState('');
+
     const retryMutation = useMutation({
         mutationFn: retryUploadJob,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['uploads'] });
         }
     });
+
+    const createMutation = useMutation({
+        mutationFn: createUploadJob,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['uploads'] });
+            setIsAddQueueOpen(false);
+            setChannelId('');
+            setVideoPath('');
+        }
+    });
+
+    const handleSave = () => {
+        if (!channelId || !videoPath) return;
+        createMutation.mutate({ channel_id: channelId, video_path: videoPath });
+    };
 
     return (
         <div className="space-y-6">
@@ -28,7 +48,10 @@ export default function Uploads() {
                     Upload Queue
                     {isFetching && <RefreshCw className="w-4 h-4 animate-spin text-muted-foreground" />}
                 </h1>
-                <button className="bg-primary text-primary-foreground px-4 py-2 rounded-md font-medium text-sm hover:bg-primary/90 transition-colors">
+                <button 
+                    onClick={() => setIsAddQueueOpen(true)}
+                    className="bg-primary text-primary-foreground px-4 py-2 rounded-md font-medium text-sm hover:bg-primary/90 transition-colors"
+                >
                     + Add to Queue
                 </button>
             </div>
@@ -81,6 +104,63 @@ export default function Uploads() {
                     </tbody>
                 </table>
             </div>
+
+            {/* Add Queue Modal */}
+            {isAddQueueOpen && (
+                <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-card border border-border rounded-lg shadow-lg w-full max-w-md overflow-hidden">
+                        <div className="flex items-center justify-between p-4 border-b border-border">
+                            <h2 className="font-semibold text-lg">Add to Queue</h2>
+                            <button 
+                                onClick={() => setIsAddQueueOpen(false)}
+                                className="text-muted-foreground hover:text-foreground"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="p-4 space-y-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Select Channel</label>
+                                <select 
+                                    value={channelId}
+                                    onChange={e => setChannelId(e.target.value)}
+                                    className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm"
+                                >
+                                    <option value="">-- Choose Channel --</option>
+                                    {channels.map(c => (
+                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Video Path</label>
+                                <input 
+                                    type="text" 
+                                    value={videoPath}
+                                    onChange={e => setVideoPath(e.target.value)}
+                                    placeholder="e.g. /data/shared-assets/my-video.mp4" 
+                                    className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm"
+                                />
+                            </div>
+                        </div>
+                        <div className="p-4 border-t border-border flex justify-end gap-2">
+                            <button 
+                                onClick={() => setIsAddQueueOpen(false)}
+                                className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={handleSave}
+                                disabled={createMutation.isPending || !channelId || !videoPath}
+                                className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md disabled:opacity-50"
+                            >
+                                {createMutation.isPending ? "Adding..." : "Add to Queue"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

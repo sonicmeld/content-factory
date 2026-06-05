@@ -1,14 +1,35 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { getChannels } from '../services/api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getChannels, createChannel } from '../services/api';
 import { PlusCircle, MonitorPlay, KeyRound, X } from 'lucide-react';
 
 export default function Channels() {
+    const queryClient = useQueryClient();
     const { data: channels = [] } = useQuery({ queryKey: ['channels'], queryFn: getChannels });
     const [isAddChannelOpen, setIsAddChannelOpen] = useState(false);
 
+    const [name, setName] = useState('');
+    const [slug, setSlug] = useState('');
+    const [description, setDescription] = useState('');
+
+    const createMutation = useMutation({
+        mutationFn: createChannel,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['channels'] });
+            setIsAddChannelOpen(false);
+            setName('');
+            setSlug('');
+            setDescription('');
+        }
+    });
+
     const handleConnectOAuth = (slug: string) => {
         window.location.href = `http://localhost:8000/api/oauth/connect?channel_slug=${slug}`;
+    };
+
+    const handleSave = () => {
+        if (!name || !slug) return;
+        createMutation.mutate({ name, slug, description });
     };
 
     return (
@@ -86,6 +107,8 @@ export default function Channels() {
                                 <label className="text-sm font-medium">Channel Name</label>
                                 <input 
                                     type="text" 
+                                    value={name}
+                                    onChange={e => setName(e.target.value)}
                                     placeholder="e.g. My Tech Channel" 
                                     className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm"
                                 />
@@ -94,6 +117,8 @@ export default function Channels() {
                                 <label className="text-sm font-medium">Channel Slug</label>
                                 <input 
                                     type="text" 
+                                    value={slug}
+                                    onChange={e => setSlug(e.target.value)}
                                     placeholder="e.g. my-tech-channel" 
                                     className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm"
                                 />
@@ -101,6 +126,8 @@ export default function Channels() {
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">Description</label>
                                 <textarea 
+                                    value={description}
+                                    onChange={e => setDescription(e.target.value)}
                                     placeholder="Short description..." 
                                     className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm min-h-[80px]"
                                 />
@@ -114,9 +141,11 @@ export default function Channels() {
                                 Cancel
                             </button>
                             <button 
-                                className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md"
+                                onClick={handleSave}
+                                disabled={createMutation.isPending || !name || !slug}
+                                className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md disabled:opacity-50"
                             >
-                                Create Channel
+                                {createMutation.isPending ? "Creating..." : "Create Channel"}
                             </button>
                         </div>
                     </div>

@@ -66,6 +66,8 @@ CREATE TABLE IF NOT EXISTS upload_jobs (
     description TEXT,
     thumbnail_path TEXT,
     status TEXT NOT NULL,
+    retry_count INTEGER DEFAULT 0,
+    error_message TEXT,
     scheduled_at DATETIME,
     published_at DATETIME,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP

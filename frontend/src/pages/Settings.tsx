@@ -1,12 +1,34 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { getGCPProfiles, getConfig } from '../services/api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getGCPProfiles, getConfig, createGCPProfile } from '../services/api';
 import { Server, Cloud, FolderTree, KeyRound, Loader2, X } from 'lucide-react';
 
 export default function Settings() {
+    const queryClient = useQueryClient();
     const { data: profiles = [] } = useQuery({ queryKey: ['gcp-profiles'], queryFn: getGCPProfiles });
     const { data: config, isLoading: isConfigLoading } = useQuery({ queryKey: ['config'], queryFn: getConfig });
     const [isAddProfileOpen, setIsAddProfileOpen] = useState(false);
+    
+    // Form state
+    const [name, setName] = useState('');
+    const [clientId, setClientId] = useState('');
+    const [clientSecret, setClientSecret] = useState('');
+
+    const createMutation = useMutation({
+        mutationFn: createGCPProfile,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['gcp-profiles'] });
+            setIsAddProfileOpen(false);
+            setName('');
+            setClientId('');
+            setClientSecret('');
+        }
+    });
+
+    const handleSave = () => {
+        if (!name || !clientId || !clientSecret) return;
+        createMutation.mutate({ name, client_id: clientId, client_secret: clientSecret });
+    };
 
     return (
         <div className="max-w-4xl space-y-8">
@@ -99,6 +121,8 @@ export default function Settings() {
                                 <label className="text-sm font-medium">Profile Name</label>
                                 <input 
                                     type="text" 
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
                                     placeholder="e.g. My Main Account" 
                                     className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm"
                                 />
@@ -107,6 +131,8 @@ export default function Settings() {
                                 <label className="text-sm font-medium">Client ID</label>
                                 <input 
                                     type="text" 
+                                    value={clientId}
+                                    onChange={(e) => setClientId(e.target.value)}
                                     placeholder="Your GCP Client ID" 
                                     className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm"
                                 />
@@ -115,6 +141,8 @@ export default function Settings() {
                                 <label className="text-sm font-medium">Client Secret</label>
                                 <input 
                                     type="password" 
+                                    value={clientSecret}
+                                    onChange={(e) => setClientSecret(e.target.value)}
                                     placeholder="Your GCP Client Secret" 
                                     className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm"
                                 />
@@ -128,9 +156,11 @@ export default function Settings() {
                                 Cancel
                             </button>
                             <button 
-                                className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md"
+                                onClick={handleSave}
+                                disabled={createMutation.isPending || !name || !clientId || !clientSecret}
+                                className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md disabled:opacity-50"
                             >
-                                Save Profile
+                                {createMutation.isPending ? "Saving..." : "Save Profile"}
                             </button>
                         </div>
                     </div>
