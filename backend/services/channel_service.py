@@ -5,7 +5,7 @@ import json
 from sqlalchemy.orm import Session
 from api.schemas import ChannelCreate, ChannelUpdate
 from database.models import Channel
-from repositories import channel_repository
+from repositories import channel_repository, gcp_profile_repository, oauth_repository
 from app.config import settings
 from fastapi import HTTPException
 
@@ -48,6 +48,11 @@ def create_channel_folders(slug: str, channel_in: ChannelCreate):
             json.dump(config_data, f, indent=4)
 
 def create_channel(db: Session, channel_in: ChannelCreate) -> Channel:
+    if channel_in.gcp_profile_id:
+        profile = gcp_profile_repository.get_profile(db, channel_in.gcp_profile_id)
+        if not profile:
+            raise HTTPException(status_code=404, detail="Assigned GCP profile not found")
+
     slug = generate_slug(channel_in.name)
     existing = channel_repository.get_channel_by_slug(db, slug)
     if existing:
@@ -67,16 +72,30 @@ def create_channel(db: Session, channel_in: ChannelCreate) -> Channel:
     
     return created_channel
 
+def populate_oauth_status(db: Session, channel: Channel):
+    token = oauth_repository.get_token_by_channel(db, channel.id)
+    channel.oauth_status = True if token else False
+    return channel
+
 def get_channels(db: Session, skip: int = 0, limit: int = 100):
-    return channel_repository.get_channels(db, skip, limit)
+    channels = channel_repository.get_channels(db, skip, limit)
+    for c in channels:
+        populate_oauth_status(db, c)
+    return channels
 
 def get_channel(db: Session, channel_id: str) -> Channel:
     channel = channel_repository.get_channel(db, channel_id)
     if not channel:
         raise HTTPException(status_code=404, detail="Channel not found")
+    populate_oauth_status(db, channel)
     return channel
 
 def update_channel(db: Session, channel_id: str, channel_in: ChannelUpdate) -> Channel:
+    if channel_in.gcp_profile_id:
+        profile = gcp_profile_repository.get_profile(db, channel_in.gcp_profile_id)
+        if not profile:
+            raise HTTPException(status_code=404, detail="Assigned GCP profile not found")
+
     channel = get_channel(db, channel_id)
     updates = channel_in.model_dump(exclude_unset=True)
     return channel_repository.update_channel(db, channel, updates)

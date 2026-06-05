@@ -5,3 +5,7 @@ alembic==1.13.1
 APScheduler==3.10.4
 python-dotenv==1.0.1
 pydantic-settings==2.2.1
+cryptography==42.0.5
+google-auth==2.28.2
+google-auth-oauthlib==1.2.0
+requests==2.31.0

@@ -22,5 +22,32 @@ class ChannelResponse(ChannelBase):
     slug: str
     is_active: int
     created_at: datetime
+    oauth_status: bool = False
+
+    model_config = ConfigDict(from_attributes=True)
+
+class GCPProfileBase(BaseModel):
+    name: str
+    client_id: str
+    client_secret: str
+    project_id: Optional[str] = None
+
+class GCPProfileCreate(GCPProfileBase):
+    pass
+
+class GCPProfileUpdate(BaseModel):
+    name: Optional[str] = None
+    client_id: Optional[str] = None
+    client_secret: Optional[str] = None
+    project_id: Optional[str] = None
+    is_active: Optional[int] = None
+
+class GCPProfileResponse(BaseModel):
+    id: str
+    name: str
+    client_id: str
+    project_id: Optional[str] = None
+    is_active: int
+    created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

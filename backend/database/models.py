@@ -17,3 +17,24 @@ class Channel(Base):
     metadata_style = Column(String)
     is_active = Column(Integer, default=1)
     created_at = Column(DateTime, default=func.now())
+
+class GCPProfile(Base):
+    __tablename__ = "gcp_profiles"
+
+    id = Column(String, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    client_id = Column(String, nullable=False)
+    client_secret = Column(String, nullable=False)
+    project_id = Column(String)
+    is_active = Column(Integer, default=1)
+    created_at = Column(DateTime, default=func.now())
+
+class OAuthToken(Base):
+    __tablename__ = "oauth_tokens"
+
+    id = Column(String, primary_key=True, index=True)
+    channel_id = Column(String, nullable=False, index=True)
+    access_token = Column(String)
+    refresh_token = Column(String)
+    expires_at = Column(DateTime)
+    created_at = Column(DateTime, default=func.now())
