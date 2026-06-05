@@ -3,10 +3,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 import time
 import os
-from database.config import get_db
+from database.database import get_db
 from app.config import settings
 
-router = APIRouter(prefix="/health", tags=["Health"])
+router = APIRouter(prefix="/api/health", tags=["Health"])
 
 START_TIME = time.time()
 

@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
@@ -52,28 +53,3 @@ app.include_router(assets_router)
 app.include_router(prompts_router)
 app.include_router(uploads_router)
 app.include_router(health.router)
-
-
-@app.get("/api/assets")
-async def get_assets():
-    return JSONResponse(content={"message": "Placeholder for GET /api/assets"})
-
-@app.post("/api/assets")
-async def create_asset():
-    return JSONResponse(content={"message": "Placeholder for POST /api/assets"})
-
-@app.post("/api/prompts/generate")
-async def generate_prompts():
-    return JSONResponse(content={"message": "Placeholder for POST /api/prompts/generate"})
-
-@app.post("/api/uploads")
-async def create_upload():
-    return JSONResponse(content={"message": "Placeholder for POST /api/uploads"})
-
-@app.post("/api/oauth/connect")
-async def oauth_connect():
-    return JSONResponse(content={"message": "Placeholder for POST /api/oauth/connect"})
-
-@app.get("/api/gcp-profiles")
-async def get_gcp_profiles():
-    return JSONResponse(content={"message": "Placeholder for GET /api/gcp-profiles"})
