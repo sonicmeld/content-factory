@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getAssets, getChannels } from '../services/api';
-import { FileImage, FileText, FileVideo, Download, UploadCloud } from 'lucide-react';
+import { FileText, FileVideo, Download, UploadCloud } from 'lucide-react';
 
 export default function Assets() {
     const [selectedChannel, setSelectedChannel] = useState<string>('shared');
+    const [filterType, setFilterType] = useState<string>('all');
     const { data: channels = [] } = useQuery({ queryKey: ['channels'], queryFn: getChannels });
     const { data: assets = [], isFetching } = useQuery({ 
         queryKey: ['assets', selectedChannel], 
@@ -25,6 +26,16 @@ export default function Assets() {
                         <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
                 </select>
+                <select 
+                    className="bg-card border border-border text-sm rounded-md px-3 py-2"
+                    value={filterType}
+                    onChange={(e) => setFilterType(e.target.value)}
+                >
+                    <option value="all">All Types</option>
+                    <option value="thumbnail">Thumbnails</option>
+                    <option value="footage">Footage</option>
+                    <option value="prompt">Prompts</option>
+                </select>
             </div>
 
             <div className="border-2 border-dashed border-border rounded-xl p-8 text-center bg-card hover:bg-secondary/20 transition-colors cursor-pointer">
@@ -34,17 +45,25 @@ export default function Assets() {
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 mt-6">
-                {assets.map(asset => (
+                {assets.filter(a => filterType === 'all' || a.type === filterType).map(asset => {
+                    const slug = channels.find(c => c.id === asset.channel_id)?.slug || 'shared';
+                    const imgUrl = `http://localhost:8000/data/channels/${slug}/assets/${asset.type}s/${asset.filename}`;
+
+                    return (
                     <div key={asset.id} className="bg-card border border-border rounded-lg overflow-hidden group">
                         <div className="h-32 bg-secondary flex items-center justify-center relative">
-                            {asset.type === 'thumbnail' ? <FileImage className="w-10 h-10 text-muted-foreground" /> :
-                             asset.type === 'prompt' ? <FileText className="w-10 h-10 text-muted-foreground" /> :
-                             <FileVideo className="w-10 h-10 text-muted-foreground" />}
+                            {asset.type === 'thumbnail' ? (
+                                <img src={imgUrl} alt={asset.filename} className="w-full h-full object-cover" />
+                            ) : asset.type === 'prompt' ? (
+                                <FileText className="w-10 h-10 text-muted-foreground" />
+                            ) : (
+                                <FileVideo className="w-10 h-10 text-muted-foreground" />
+                            )}
                              
                             <div className="absolute inset-0 bg-background/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button className="bg-primary text-primary-foreground p-2 rounded-full">
+                                <a href={imgUrl} download className="bg-primary text-primary-foreground p-2 rounded-full">
                                     <Download className="w-4 h-4" />
-                                </button>
+                                </a>
                             </div>
                         </div>
                         <div className="p-3">
@@ -52,7 +71,7 @@ export default function Assets() {
                             <p className="text-xs text-muted-foreground mt-1 uppercase tracking-wider">{asset.type}</p>
                         </div>
                     </div>
-                ))}
+                )})}
                 {!isFetching && assets.length === 0 && (
                     <div className="col-span-full py-12 text-center text-muted-foreground">
                         No assets found for this selection.

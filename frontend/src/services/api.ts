@@ -44,7 +44,10 @@ export const createUploadJob = (data: Partial<UploadJob>) => api.post<UploadJob>
 export const retryUploadJob = (id: string) => api.post<UploadJob>(`/uploads/${id}/retry`).then(res => res.data);
 
 // Prompts & Metadata
-export const generatePrompt = (channelId: string, theme: string, mood: string) => 
-    api.post<Prompt>('/prompts/generate', { channel_id: channelId, theme, mood }).then(res => res.data);
+export const generatePrompt = (data: { channel_id: string, theme: string, mood: string }) => 
+    api.post<Prompt>('/prompts/generate', data).then(res => res.data);
+
+export const generateThumbnail = (data: { channel_id: string, prompt: string }) => 
+    api.post<Asset>('/prompts/thumbnails/generate', data).then(res => res.data);
 
 export default api;

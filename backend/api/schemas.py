@@ -60,8 +60,11 @@ class AssetResponse(BaseModel):
     filepath: str
     tags: Optional[str] = None
     created_at: datetime
-
     model_config = ConfigDict(from_attributes=True)
+
+class GenerateThumbnailRequest(BaseModel):
+    channel_id: str
+    prompt: str
 
 class PromptGenerateRequest(BaseModel):
     channel_id: str
