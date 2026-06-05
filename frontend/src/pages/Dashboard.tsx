@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { getChannels, getUploadJobs } from '../services/api';
+import { formatToJakartaTime } from '../utils/formatDate';
 import { MonitorPlay, Upload, CheckCircle, XCircle } from 'lucide-react';
 
 export default function Dashboard() {
@@ -69,7 +70,7 @@ export default function Dashboard() {
                                         {job.status.toUpperCase()}
                                     </span>
                                 </td>
-                                <td className="px-6 py-4 text-muted-foreground">{job.scheduled_at ? new Date(job.scheduled_at).toLocaleString() : 'Immediate'}</td>
+                                <td className="px-6 py-4 text-muted-foreground">{job.scheduled_at ? formatToJakartaTime(job.scheduled_at) : 'Immediate'}</td>
                             </tr>
                         ))}
                         {uploads.length === 0 && (

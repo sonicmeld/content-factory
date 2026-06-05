@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getUploadJobs, retryUploadJob, getChannels, createUploadJob } from '../services/api';
+import { formatToJakartaTime } from '../utils/formatDate';
 import { RefreshCw, PlayCircle, X } from 'lucide-react';
 
 export default function Uploads() {
@@ -83,7 +84,7 @@ export default function Uploads() {
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 text-muted-foreground">{job.retry_count} / 3</td>
-                                <td className="px-6 py-4 text-muted-foreground">{job.scheduled_at ? new Date(job.scheduled_at).toLocaleString() : 'N/A'}</td>
+                                <td className="px-6 py-4 text-muted-foreground">{job.scheduled_at ? formatToJakartaTime(job.scheduled_at) : 'N/A'}</td>
                                 <td className="px-6 py-4">
                                     {job.status === 'failed' && (
                                         <button 

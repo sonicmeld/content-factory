@@ -1,16 +1,18 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getChannels, createChannel } from '../services/api';
+import { getChannels, createChannel, getGCPProfiles, connectOAuth } from '../services/api';
 import { PlusCircle, MonitorPlay, KeyRound, X } from 'lucide-react';
 
 export default function Channels() {
     const queryClient = useQueryClient();
     const { data: channels = [] } = useQuery({ queryKey: ['channels'], queryFn: getChannels });
+    const { data: gcpProfiles = [] } = useQuery({ queryKey: ['gcp-profiles'], queryFn: getGCPProfiles });
     const [isAddChannelOpen, setIsAddChannelOpen] = useState(false);
 
     const [name, setName] = useState('');
     const [slug, setSlug] = useState('');
     const [description, setDescription] = useState('');
+    const [gcpProfileId, setGcpProfileId] = useState('');
 
     const createMutation = useMutation({
         mutationFn: createChannel,
@@ -20,16 +22,24 @@ export default function Channels() {
             setName('');
             setSlug('');
             setDescription('');
+            setGcpProfileId('');
         }
     });
 
-    const handleConnectOAuth = (slug: string) => {
-        window.location.href = `http://localhost:8000/api/oauth/connect?channel_slug=${slug}`;
+    const connectOAuthMutation = useMutation({
+        mutationFn: connectOAuth,
+        onSuccess: (data) => {
+            window.location.href = data.url;
+        }
+    });
+
+    const handleConnectOAuth = (id: string) => {
+        connectOAuthMutation.mutate({ channel_id: id });
     };
 
     const handleSave = () => {
         if (!name || !slug) return;
-        createMutation.mutate({ name, slug, description });
+        createMutation.mutate({ name, slug, description, gcp_profile_id: gcpProfileId || undefined });
     };
 
     return (
@@ -69,14 +79,15 @@ export default function Channels() {
                         <div className="pt-4 border-t border-border flex items-center justify-between">
                             <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                                 <KeyRound className="w-4 h-4" />
-                                {channel.gcp_profile_id ? 'OAuth Connected' : 'Disconnected'}
+                                {channel.oauth_status ? 'OAuth Connected' : (channel.gcp_profile_id ? 'Ready to Connect' : 'No GCP Profile')}
                             </span>
-                            {!channel.gcp_profile_id && (
+                            {!channel.oauth_status && channel.gcp_profile_id && (
                                 <button 
-                                    onClick={() => handleConnectOAuth(channel.slug)}
-                                    className="text-xs bg-secondary hover:bg-secondary/80 text-foreground px-3 py-1.5 rounded font-medium transition-colors"
+                                    onClick={() => handleConnectOAuth(channel.id)}
+                                    disabled={connectOAuthMutation.isPending}
+                                    className="text-xs bg-secondary hover:bg-secondary/80 text-foreground px-3 py-1.5 rounded font-medium transition-colors disabled:opacity-50"
                                 >
-                                    Connect OAuth
+                                    {connectOAuthMutation.isPending ? 'Connecting...' : 'Connect OAuth'}
                                 </button>
                             )}
                         </div>
@@ -131,6 +142,19 @@ export default function Channels() {
                                     placeholder="Short description..." 
                                     className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm min-h-[80px]"
                                 />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">GCP Profile (Optional)</label>
+                                <select 
+                                    value={gcpProfileId}
+                                    onChange={e => setGcpProfileId(e.target.value)}
+                                    className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm"
+                                >
+                                    <option value="">-- No GCP Profile --</option>
+                                    {gcpProfiles.map((p: any) => (
+                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                    ))}
+                                </select>
                             </div>
                         </div>
                         <div className="p-4 border-t border-border flex justify-end gap-2">
