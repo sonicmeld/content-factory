@@ -1,0 +1,15 @@
+[Unit]
+Description=Content Factory Scheduler Worker
+After=network.target
+
+[Service]
+User=root
+Group=root
+WorkingDirectory=/opt/apps/content-factory/backend
+Environment="PATH=/opt/apps/content-factory/backend/venv/bin"
+ExecStart=/opt/apps/content-factory/backend/venv/bin/python -m workers.scheduler_runner
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

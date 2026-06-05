@@ -1,0 +1,15 @@
+[Unit]
+Description=Content Factory YouTube Uploader Worker
+After=network.target
+
+[Service]
+User=root
+Group=root
+WorkingDirectory=/opt/apps/content-factory/backend
+Environment="PATH=/opt/apps/content-factory/backend/venv/bin"
+ExecStart=/opt/apps/content-factory/backend/venv/bin/python -m workers.uploader_runner
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

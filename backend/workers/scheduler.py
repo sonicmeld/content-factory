@@ -4,7 +4,6 @@ from datetime import datetime, timezone
 from database.database import SessionLocal
 from workers.logger_setup import scheduler_logger
 from repositories import upload_repository
-from workers.uploader import upload_to_youtube
 from database.models import UploadJob
 
 def process_upload_queue():
@@ -28,23 +27,9 @@ def process_upload_queue():
                 try:
                     if os.path.exists(job.video_path):
                         shutil.move(job.video_path, new_path)
-                        upload_repository.update_job(db, job, {"video_path": new_path})
+                        upload_repository.update_job(db, job, {"video_path": new_path, "status": "scheduled"})
                 except Exception as e:
                     scheduler_logger.error(f"Failed to move file for job {job.id}: {e}")
                     continue
-            
-            upload_to_youtube(db, job.id)
-            
-            db.refresh(job)
-            final_dir = "published" if job.status == "published" else "failed"
-            if job.status in ["published", "failed"]:
-                final_path = job.video_path.replace("scheduled", final_dir)
-                os.makedirs(os.path.dirname(final_path), exist_ok=True)
-                try:
-                    if os.path.exists(job.video_path):
-                        shutil.move(job.video_path, final_path)
-                        upload_repository.update_job(db, job, {"video_path": final_path})
-                except Exception as e:
-                    scheduler_logger.error(f"Failed to move finalized file for job {job.id}: {e}")
     finally:
         db.close()
