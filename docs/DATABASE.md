@@ -1,12 +1,34 @@
-gcp_profiles
-channels
-oauth_tokens
-assets
-prompts
-metadata_templates
-upload_jobs
-scheduler_jobs
+# Database Documentation
 
+## Engine
+SQLite
+
+## Location
+The only valid database path for production deployment is:
+`/opt/apps/content-factory/database/content_factory.db`
+
+Do NOT use local or relative repository paths (`backend/database/content_factory.db`) for production or testing unless specified by local `.env`. The repository must remain clean of `.db` files.
+
+---
+
+## Migration Notes (Alembic)
+
+This project uses **Alembic** to manage database schema migrations. 
+
+**Never modify the database schema manually or drop the database.**
+
+*   **Generate a new migration:** `alembic revision --autogenerate -m "description"`
+*   **Apply migrations to database:** `alembic upgrade head`
+*   **Rollback one step:** `alembic downgrade -1`
+
+Migrations are stored in the `backend/alembic/versions/` directory.
+
+---
+
+## Schema
+
+### gcp_profiles
+```sql
 CREATE TABLE gcp_profiles (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -16,7 +38,10 @@ CREATE TABLE gcp_profiles (
     is_active INTEGER DEFAULT 1,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+```
 
+### channels
+```sql
 CREATE TABLE channels (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -29,7 +54,10 @@ CREATE TABLE channels (
     is_active INTEGER DEFAULT 1,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+```
 
+### oauth_tokens
+```sql
 CREATE TABLE oauth_tokens (
     id TEXT PRIMARY KEY,
     channel_id TEXT NOT NULL,
@@ -38,7 +66,10 @@ CREATE TABLE oauth_tokens (
     expires_at DATETIME,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+```
 
+### assets
+```sql
 CREATE TABLE assets (
     id TEXT PRIMARY KEY,
     channel_id TEXT NOT NULL,
@@ -48,7 +79,10 @@ CREATE TABLE assets (
     tags TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+```
 
+### prompts
+```sql
 CREATE TABLE prompts (
     id TEXT PRIMARY KEY,
     channel_id TEXT NOT NULL,
@@ -57,7 +91,10 @@ CREATE TABLE prompts (
     category TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+```
 
+### metadata_templates
+```sql
 CREATE TABLE metadata_templates (
     id TEXT PRIMARY KEY,
     channel_id TEXT NOT NULL,
@@ -66,7 +103,10 @@ CREATE TABLE metadata_templates (
     tags_template TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+```
 
+### upload_jobs
+```sql
 CREATE TABLE upload_jobs (
     id TEXT PRIMARY KEY,
     channel_id TEXT NOT NULL,
@@ -75,11 +115,16 @@ CREATE TABLE upload_jobs (
     description TEXT,
     thumbnail_path TEXT,
     status TEXT NOT NULL,
+    retry_count INTEGER DEFAULT 0,
+    error_message TEXT,
     scheduled_at DATETIME,
     published_at DATETIME,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+```
 
+### scheduler_jobs
+```sql
 CREATE TABLE scheduler_jobs (
     id TEXT PRIMARY KEY,
     channel_id TEXT NOT NULL,
@@ -87,6 +132,10 @@ CREATE TABLE scheduler_jobs (
     is_enabled INTEGER DEFAULT 1,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+```
+
+### channel_profiles
+```sql
 CREATE TABLE channel_profiles (
     id TEXT PRIMARY KEY,
     channel_id TEXT NOT NULL,
@@ -97,3 +146,4 @@ CREATE TABLE channel_profiles (
     asset_prompt TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+```

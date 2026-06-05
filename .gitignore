@@ -19,3 +19,4 @@ build/
 
 __pycache__/
 *.pyc
+cloudflared-linux-amd64.deb
