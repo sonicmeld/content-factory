@@ -75,7 +75,7 @@ export default function Assets() {
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
 
-    const getFileIcon = (mimeType: string, assetType: string) => {
+    const getFileIcon = (mimeType: string) => {
         if (mimeType.startsWith('image/')) return <ImageIcon className="w-10 h-10 text-muted-foreground" />;
         if (mimeType.startsWith('video/')) return <FileVideo className="w-10 h-10 text-muted-foreground" />;
         if (mimeType.startsWith('audio/')) return <Music className="w-10 h-10 text-muted-foreground" />;
@@ -156,7 +156,7 @@ export default function Assets() {
                                 ) : isText ? (
                                     <TextPreviewSnippet url={downloadUrl} />
                                 ) : (
-                                    getFileIcon(asset.mime_type, asset.asset_type)
+                                    getFileIcon(asset.mime_type)
                                 )}
                                  
                                 <div className="absolute inset-0 bg-background/80 flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
