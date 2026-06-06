@@ -120,3 +120,26 @@ class MetadataTemplateResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+class ContentPackageBase(BaseModel):
+    channel_id: str
+    package_number: str
+    video_asset_id: str
+    timestamp_asset_id: Optional[str] = None
+    status: Optional[str] = "draft"
+
+class ContentPackageCreate(ContentPackageBase):
+    pass
+
+class ContentPackageUpdate(BaseModel):
+    package_number: Optional[str] = None
+    video_asset_id: Optional[str] = None
+    timestamp_asset_id: Optional[str] = None
+    status: Optional[str] = None
+
+class ContentPackageResponse(ContentPackageBase):
+    id: str
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

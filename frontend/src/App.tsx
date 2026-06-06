@@ -12,6 +12,7 @@ import Settings from './pages/Settings';
 import WorkspaceOverview from './pages/workspace/WorkspaceOverview';
 import ContentPackages from './pages/workspace/ContentPackages';
 import CreatePackage from './pages/workspace/CreatePackage';
+import PackageDetail from './pages/workspace/PackageDetail';
 import UploadQueue from './pages/workspace/UploadQueue';
 import PublishedVideos from './pages/workspace/PublishedVideos';
 import ChannelSettings from './pages/workspace/ChannelSettings';
@@ -37,6 +38,7 @@ function App() {
           <Route index element={<WorkspaceOverview />} />
           <Route path="packages" element={<ContentPackages />} />
           <Route path="packages/create" element={<CreatePackage />} />
+          <Route path="packages/:packageId" element={<PackageDetail />} />
           <Route path="queue" element={<UploadQueue />} />
           <Route path="published" element={<PublishedVideos />} />
           <Route path="assets" element={<Assets />} />

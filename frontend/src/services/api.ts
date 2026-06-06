@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Channel, GCPProfile, UploadJob, Asset, Prompt } from '../types';
+import type { Channel, GCPProfile, UploadJob, Asset, Prompt, ContentPackage } from '../types';
 
 const api = axios.create({
     baseURL: '/api',
@@ -58,5 +58,17 @@ export const generatePrompt = (data: { channel_id: string, theme: string, mood: 
 
 export const generateThumbnail = (data: { channel_id: string, prompt: string }) => 
     api.post<Asset>('/prompts/thumbnails/generate', data).then(res => res.data);
+
+// Content Packages
+export const getPackages = (channelId?: string, status?: string) => {
+    const params: any = {};
+    if (channelId) params.channel_id = channelId;
+    if (status) params.status = status;
+    return api.get<ContentPackage[]>('/packages', { params }).then(res => res.data);
+};
+export const getPackage = (id: string) => api.get<ContentPackage>(`/packages/${id}`).then(res => res.data);
+export const createPackage = (data: Partial<ContentPackage>) => api.post<ContentPackage>('/packages', data).then(res => res.data);
+export const updatePackage = (id: string, data: Partial<ContentPackage>) => api.put<ContentPackage>(`/packages/${id}`, data).then(res => res.data);
+export const deletePackage = (id: string) => api.delete(`/packages/${id}`).then(res => res.data);
 
 export default api;

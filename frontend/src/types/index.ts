@@ -65,3 +65,14 @@ export interface MetadataTemplate {
     tags_template?: string;
     created_at: string;
 }
+
+export interface ContentPackage {
+    id: string;
+    channel_id: string;
+    package_number: string;
+    video_asset_id: string;
+    timestamp_asset_id?: string;
+    status: string;
+    created_at: string;
+    updated_at: string;
+}

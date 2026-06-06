@@ -107,3 +107,15 @@ class ChannelProfile(Base):
     metadata_prompt = Column(String)
     asset_prompt = Column(String)
     created_at = Column(DateTime, default=func.now())
+
+class ContentPackage(Base):
+    __tablename__ = "content_packages"
+
+    id = Column(String, primary_key=True)
+    channel_id = Column(String, nullable=False)
+    package_number = Column(String, nullable=False)
+    video_asset_id = Column(String, nullable=False)
+    timestamp_asset_id = Column(String)
+    status = Column(String, default="draft")
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
