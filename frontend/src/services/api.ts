@@ -9,6 +9,8 @@ const api = axios.create({
 export const getChannels = () => api.get<Channel[]>('/channels').then(res => res.data);
 export const getChannel = (id: string) => api.get<Channel>(`/channels/${id}`).then(res => res.data);
 export const createChannel = (data: Partial<Channel>) => api.post<Channel>('/channels', data).then(res => res.data);
+export const updateChannel = (id: string, data: Partial<Channel>) => api.put<Channel>(`/channels/${id}`, data).then(res => res.data);
+export const deleteChannel = (id: string) => api.delete(`/channels/${id}`).then(res => res.data);
 
 // GCP Profiles
 export const getGCPProfiles = () => api.get<GCPProfile[]>('/gcp-profiles').then(res => res.data);
@@ -46,8 +48,9 @@ export const getUploadJobs = (channelId?: string, status?: string) => {
     if (status) params.status = status;
     return api.get<UploadJob[]>('/uploads', { params }).then(res => res.data);
 };
-export const createUploadJob = (data: Partial<UploadJob>) => api.post<UploadJob>('/uploads', data).then(res => res.data);
 export const retryUploadJob = (id: string) => api.post<UploadJob>(`/uploads/${id}/retry`).then(res => res.data);
+export const createUploadJob = (data: Partial<UploadJob>) => api.post<UploadJob>('/uploads', data).then(res => res.data);
+export const deleteUploadJob = (id: string) => api.delete(`/uploads/${id}`).then(res => res.data);
 
 // Prompts & Metadata
 export const generatePrompt = (data: { channel_id: string, theme: string, mood: string }) => 

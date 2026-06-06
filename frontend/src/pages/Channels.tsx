@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getChannels, createChannel, getGCPProfiles, connectOAuth } from '../services/api';
-import { PlusCircle, MonitorPlay, KeyRound, X } from 'lucide-react';
+import { getChannels, createChannel, updateChannel, deleteChannel, getGCPProfiles, connectOAuth } from '../services/api';
+import { PlusCircle, MonitorPlay, KeyRound, X, Trash2, Edit2, AlertTriangle } from 'lucide-react';
+import type { Channel } from '../types';
 
 export default function Channels() {
     const queryClient = useQueryClient();
@@ -13,6 +14,45 @@ export default function Channels() {
     const [slug, setSlug] = useState('');
     const [description, setDescription] = useState('');
     const [gcpProfileId, setGcpProfileId] = useState('');
+
+    const [isEditChannelOpen, setIsEditChannelOpen] = useState(false);
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+    const updateMutation = useMutation({
+        mutationFn: (data: Partial<Channel> & { id: string }) => updateChannel(data.id, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['channels'] });
+            setIsEditChannelOpen(false);
+            setEditingId(null);
+            setName('');
+            setSlug('');
+            setDescription('');
+            setGcpProfileId('');
+        }
+    });
+
+    const deleteMutation = useMutation({
+        mutationFn: deleteChannel,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['channels'] });
+            setDeleteConfirmId(null);
+        }
+    });
+
+    const openEditModal = (channel: Channel) => {
+        setEditingId(channel.id);
+        setName(channel.name);
+        setSlug(channel.slug);
+        setDescription(channel.description || '');
+        setGcpProfileId(channel.gcp_profile_id || '');
+        setIsEditChannelOpen(true);
+    };
+
+    const handleUpdate = () => {
+        if (!editingId || !name || !slug) return;
+        updateMutation.mutate({ id: editingId, name, slug, description, gcp_profile_id: gcpProfileId || undefined });
+    };
 
     const createMutation = useMutation({
         mutationFn: createChannel,
@@ -79,17 +119,25 @@ export default function Channels() {
                         <div className="pt-4 border-t border-border flex items-center justify-between">
                             <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                                 <KeyRound className="w-4 h-4" />
-                                {channel.oauth_status ? 'OAuth Connected' : (channel.gcp_profile_id ? 'Ready to Connect' : 'No GCP Profile')}
+                                {channel.oauth_status === 'OAuth Missing' && channel.gcp_profile_id ? 'Ready to Connect' : channel.oauth_status}
                             </span>
-                            {!channel.oauth_status && channel.gcp_profile_id && (
-                                <button 
-                                    onClick={() => handleConnectOAuth(channel.id)}
-                                    disabled={connectOAuthMutation.isPending}
-                                    className="text-xs bg-secondary hover:bg-secondary/80 text-foreground px-3 py-1.5 rounded font-medium transition-colors disabled:opacity-50"
-                                >
-                                    {connectOAuthMutation.isPending ? 'Connecting...' : 'Connect OAuth'}
+                            <div className="flex items-center gap-2">
+                                {channel.oauth_status !== 'OAuth Connected' && channel.gcp_profile_id && (
+                                    <button 
+                                        onClick={() => handleConnectOAuth(channel.id)}
+                                        disabled={connectOAuthMutation.isPending}
+                                        className="text-xs bg-secondary hover:bg-secondary/80 text-foreground px-3 py-1.5 rounded font-medium transition-colors disabled:opacity-50"
+                                    >
+                                        {connectOAuthMutation.isPending ? 'Connecting...' : 'Connect OAuth'}
+                                    </button>
+                                )}
+                                <button onClick={() => openEditModal(channel)} className="p-1.5 text-muted-foreground hover:text-blue-400 bg-secondary/50 rounded transition-colors">
+                                    <Edit2 className="w-4 h-4" />
                                 </button>
-                            )}
+                                <button onClick={() => setDeleteConfirmId(channel.id)} className="p-1.5 text-muted-foreground hover:text-red-400 bg-secondary/50 rounded transition-colors">
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            </div>
                         </div>
                     </div>
                 ))}
@@ -171,6 +219,116 @@ export default function Channels() {
                             >
                                 {createMutation.isPending ? "Creating..." : "Create Channel"}
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Edit Channel Modal */}
+            {isEditChannelOpen && (
+                <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-card border border-border rounded-lg shadow-lg w-full max-w-md overflow-hidden">
+                        <div className="flex items-center justify-between p-4 border-b border-border">
+                            <h2 className="font-semibold text-lg">Edit Channel</h2>
+                            <button 
+                                onClick={() => {
+                                    setIsEditChannelOpen(false);
+                                    setName(''); setSlug(''); setDescription(''); setGcpProfileId('');
+                                }}
+                                className="text-muted-foreground hover:text-foreground"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="p-4 space-y-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Channel Name</label>
+                                <input 
+                                    type="text" 
+                                    value={name}
+                                    onChange={e => setName(e.target.value)}
+                                    className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Channel Slug</label>
+                                <input 
+                                    type="text" 
+                                    value={slug}
+                                    onChange={e => setSlug(e.target.value)}
+                                    className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Description</label>
+                                <textarea 
+                                    value={description}
+                                    onChange={e => setDescription(e.target.value)}
+                                    className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm min-h-[80px]"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">GCP Profile (Optional)</label>
+                                <select 
+                                    value={gcpProfileId}
+                                    onChange={e => setGcpProfileId(e.target.value)}
+                                    className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm"
+                                >
+                                    <option value="">-- No GCP Profile --</option>
+                                    {gcpProfiles.map((p: any) => (
+                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                        <div className="p-4 border-t border-border flex justify-end gap-2">
+                            <button 
+                                onClick={() => {
+                                    setIsEditChannelOpen(false);
+                                    setName(''); setSlug(''); setDescription(''); setGcpProfileId('');
+                                }}
+                                className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={handleUpdate}
+                                disabled={updateMutation.isPending || !name || !slug}
+                                className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md disabled:opacity-50"
+                            >
+                                {updateMutation.isPending ? "Saving..." : "Save Changes"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {deleteConfirmId && (
+                <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-card border border-red-500/20 rounded-lg shadow-lg w-full max-w-sm overflow-hidden">
+                        <div className="p-6 text-center space-y-4">
+                            <div className="w-12 h-12 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mx-auto">
+                                <AlertTriangle className="w-6 h-6" />
+                            </div>
+                            <h2 className="text-lg font-semibold">Delete Channel?</h2>
+                            <p className="text-sm text-muted-foreground">
+                                This will permanently remove the channel and disconnect its OAuth token. This action cannot be undone.
+                            </p>
+                            <div className="flex justify-center gap-3 pt-4">
+                                <button 
+                                    onClick={() => setDeleteConfirmId(null)}
+                                    className="px-4 py-2 text-sm font-medium bg-secondary hover:bg-secondary/80 rounded-md"
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    onClick={() => deleteMutation.mutate(deleteConfirmId)}
+                                    disabled={deleteMutation.isPending}
+                                    className="px-4 py-2 text-sm font-medium bg-red-500 hover:bg-red-600 text-white rounded-md disabled:opacity-50"
+                                >
+                                    {deleteMutation.isPending ? "Deleting..." : "Yes, Delete"}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

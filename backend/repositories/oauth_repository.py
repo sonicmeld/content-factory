@@ -17,3 +17,9 @@ def create_or_update_token(db: Session, token_data: dict):
     db.commit()
     db.refresh(token)
     return token
+
+def delete_token_by_channel(db: Session, channel_id: str):
+    token = get_token_by_channel(db, channel_id)
+    if token:
+        db.delete(token)
+        db.commit()

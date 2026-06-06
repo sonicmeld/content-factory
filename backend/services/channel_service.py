@@ -72,9 +72,17 @@ def create_channel(db: Session, channel_in: ChannelCreate) -> Channel:
     
     return created_channel
 
+from datetime import datetime
+
 def populate_oauth_status(db: Session, channel: Channel):
     token = oauth_repository.get_token_by_channel(db, channel.id)
-    channel.oauth_status = True if token else False
+    if not token:
+        channel.oauth_status = "OAuth Missing"
+    else:
+        if token.expires_at and token.expires_at < datetime.utcnow():
+            channel.oauth_status = "OAuth Expired"
+        else:
+            channel.oauth_status = "OAuth Connected"
     return channel
 
 def get_channels(db: Session, skip: int = 0, limit: int = 100):
@@ -102,4 +110,5 @@ def update_channel(db: Session, channel_id: str, channel_in: ChannelUpdate) -> C
 
 def delete_channel(db: Session, channel_id: str):
     channel = get_channel(db, channel_id)
+    oauth_repository.delete_token_by_channel(db, channel_id)
     channel_repository.delete_channel(db, channel)

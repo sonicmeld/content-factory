@@ -46,3 +46,7 @@ def retry_job(db: Session, job_id: str) -> UploadJob:
         "retry_count": 0,
         "error_message": None
     })
+
+def delete_job(db: Session, job_id: str):
+    job = get_job(db, job_id)
+    upload_repository.delete_job(db, job)

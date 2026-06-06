@@ -7,7 +7,7 @@ export interface Channel {
     upload_frequency?: string;
     thumbnail_style?: string;
     metadata_style?: string;
-    oauth_status?: boolean;
+    oauth_status?: string;
     is_active: number;
     created_at: string;
 }

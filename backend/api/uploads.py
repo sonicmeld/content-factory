@@ -33,3 +33,8 @@ def update_status(job_id: str, payload: UploadJobUpdateStatus, db: Session = Dep
 @router.post("/{job_id}/retry", response_model=UploadJobResponse)
 def retry_job(job_id: str, db: Session = Depends(get_db)):
     return upload_service.retry_job(db, job_id)
+
+@router.delete("/{job_id}")
+def delete_upload_job(job_id: str, db: Session = Depends(get_db)):
+    upload_service.delete_job(db, job_id)
+    return {"message": "Upload job deleted successfully"}

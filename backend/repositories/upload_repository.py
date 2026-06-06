@@ -24,3 +24,7 @@ def update_job(db: Session, job: UploadJob, updates: dict):
     db.commit()
     db.refresh(job)
     return job
+
+def delete_job(db: Session, job: UploadJob):
+    db.delete(job)
+    db.commit()

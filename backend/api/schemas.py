@@ -15,6 +15,8 @@ class ChannelCreate(ChannelBase):
 
 class ChannelUpdate(ChannelBase):
     name: Optional[str] = None
+    slug: Optional[str] = None
+    description: Optional[str] = None
     is_active: Optional[int] = None
 
 class ChannelResponse(ChannelBase):
@@ -22,7 +24,7 @@ class ChannelResponse(ChannelBase):
     slug: str
     is_active: int
     created_at: datetime
-    oauth_status: bool = False
+    oauth_status: str = "OAuth Missing"
 
     model_config = ConfigDict(from_attributes=True)
 

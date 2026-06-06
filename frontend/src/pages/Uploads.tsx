@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getUploadJobs, retryUploadJob, getChannels, createUploadJob } from '../services/api';
+import { getUploadJobs, retryUploadJob, getChannels, createUploadJob, deleteUploadJob } from '../services/api';
 import { formatToJakartaTime } from '../utils/formatDate';
-import { RefreshCw, PlayCircle, X } from 'lucide-react';
+import { RefreshCw, PlayCircle, X, Trash2, AlertTriangle } from 'lucide-react';
 
 export default function Uploads() {
     const queryClient = useQueryClient();
@@ -19,6 +19,15 @@ export default function Uploads() {
 
     const [channelId, setChannelId] = useState('');
     const [videoPath, setVideoPath] = useState('');
+    const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+    const deleteMutation = useMutation({
+        mutationFn: deleteUploadJob,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['uploads'] });
+            setDeleteConfirmId(null);
+        }
+    });
 
     const retryMutation = useMutation({
         mutationFn: retryUploadJob,
@@ -86,14 +95,23 @@ export default function Uploads() {
                                 <td className="px-6 py-4 text-muted-foreground">{job.retry_count} / 3</td>
                                 <td className="px-6 py-4 text-muted-foreground">{job.scheduled_at ? formatToJakartaTime(job.scheduled_at) : 'N/A'}</td>
                                 <td className="px-6 py-4">
-                                    {job.status === 'failed' && (
+                                    <div className="flex items-center gap-2">
+                                        {job.status === 'failed' && (
+                                            <button 
+                                                onClick={() => retryMutation.mutate(job.id)}
+                                                className="flex items-center gap-1.5 text-blue-400 hover:text-blue-300 text-xs font-medium bg-blue-400/10 px-2 py-1 rounded"
+                                            >
+                                                <PlayCircle className="w-3.5 h-3.5" /> Retry
+                                            </button>
+                                        )}
                                         <button 
-                                            onClick={() => retryMutation.mutate(job.id)}
-                                            className="flex items-center gap-1.5 text-blue-400 hover:text-blue-300 text-xs font-medium bg-blue-400/10 px-2 py-1 rounded"
+                                            onClick={() => setDeleteConfirmId(job.id)}
+                                            className="p-1.5 text-muted-foreground hover:text-red-400 bg-secondary/50 rounded transition-colors"
+                                            title="Delete Job"
                                         >
-                                            <PlayCircle className="w-3.5 h-3.5" /> Retry
+                                            <Trash2 className="w-4 h-4" />
                                         </button>
-                                    )}
+                                    </div>
                                 </td>
                             </tr>
                         ))}
@@ -158,6 +176,37 @@ export default function Uploads() {
                             >
                                 {createMutation.isPending ? "Adding..." : "Add to Queue"}
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Delete Confirmation Modal */}
+            {deleteConfirmId && (
+                <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-card border border-red-500/20 rounded-lg shadow-lg w-full max-w-sm overflow-hidden">
+                        <div className="p-6 text-center space-y-4">
+                            <div className="w-12 h-12 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mx-auto">
+                                <AlertTriangle className="w-6 h-6" />
+                            </div>
+                            <h2 className="text-lg font-semibold">Delete Upload Job?</h2>
+                            <p className="text-sm text-muted-foreground">
+                                This will remove the job from the queue. The video file will not be deleted from storage.
+                            </p>
+                            <div className="flex justify-center gap-3 pt-4">
+                                <button 
+                                    onClick={() => setDeleteConfirmId(null)}
+                                    className="px-4 py-2 text-sm font-medium bg-secondary hover:bg-secondary/80 rounded-md"
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    onClick={() => deleteMutation.mutate(deleteConfirmId)}
+                                    disabled={deleteMutation.isPending}
+                                    className="px-4 py-2 text-sm font-medium bg-red-500 hover:bg-red-600 text-white rounded-md disabled:opacity-50"
+                                >
+                                    {deleteMutation.isPending ? "Deleting..." : "Yes, Delete"}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
