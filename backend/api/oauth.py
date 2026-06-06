@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, HTMLResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -23,7 +23,34 @@ def connect_youtube(request: ConnectRequest, db: Session = Depends(get_db)):
 def oauth_callback(state: str, code: str, db: Session = Depends(get_db)):
     try:
         oauth_service.handle_callback(db, state=state, code=code)
-        # Redirect to frontend channels page
-        return RedirectResponse("http://localhost:5173/channels")
+        
+        html_content = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>OAuth Success</title>
+            <meta charset="utf-8">
+            <style>
+                body{
+                    font-family:sans-serif;
+                    text-align:center;
+                    margin-top:100px;
+                }
+            </style>
+        </head>
+        <body>
+            <h2>✅ YouTube OAuth berhasil</h2>
+            <p>Token telah tersimpan ke database.</p>
+            <p>Anda dapat menutup tab ini.</p>
+
+            <script>
+                setTimeout(() => {
+                    window.close();
+                }, 3000);
+            </script>
+        </body>
+        </html>
+        """
+        return HTMLResponse(content=html_content)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"OAuth callback failed: {str(e)}")

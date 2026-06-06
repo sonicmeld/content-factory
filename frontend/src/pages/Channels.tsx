@@ -29,7 +29,7 @@ export default function Channels() {
     const connectOAuthMutation = useMutation({
         mutationFn: connectOAuth,
         onSuccess: (data) => {
-            window.location.href = data.url;
+            window.open(data.url, "_blank");
         }
     });
 
