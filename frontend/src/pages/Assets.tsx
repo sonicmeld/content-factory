@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getAssets, getChannels, uploadAsset, deleteAsset } from '../services/api';
 import { FileText, FileVideo, Download, UploadCloud, Trash2, X, Image as ImageIcon, Music, HardDrive } from 'lucide-react';
 import { toast } from 'sonner';
+import { useParams } from 'react-router-dom';
 const TextPreviewSnippet = ({ url }: { url: string }) => {
     const { data: snippet, isLoading } = useQuery({
         queryKey: ['textPreview', url],
@@ -20,6 +21,7 @@ const TextPreviewSnippet = ({ url }: { url: string }) => {
 };
 
 export default function Assets() {
+    const { slug: workspaceSlug } = useParams();
     const queryClient = useQueryClient();
     const [activeTab, setActiveTab] = useState<string>('shared');
     const [filterType, setFilterType] = useState<string>('all');
@@ -32,9 +34,13 @@ export default function Assets() {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const { data: channels = [] } = useQuery({ queryKey: ['channels'], queryFn: getChannels });
+    
+    const workspaceChannel = workspaceSlug ? channels.find(c => c.slug === workspaceSlug) : null;
+    const resolvedTab = workspaceSlug ? (workspaceChannel?.id || 'shared') : activeTab;
+
     const { data: assets = [], isFetching } = useQuery({ 
-        queryKey: ['assets', activeTab, filterType !== 'all' ? filterType : undefined], 
-        queryFn: () => getAssets(activeTab, filterType !== 'all' ? filterType : undefined) 
+        queryKey: ['assets', resolvedTab, filterType !== 'all' ? filterType : undefined], 
+        queryFn: () => getAssets(resolvedTab, filterType !== 'all' ? filterType : undefined) 
     });
 
     const deleteMutation = useMutation({
@@ -49,7 +55,7 @@ export default function Assets() {
     const uploadMutation = useMutation({
         mutationFn: () => {
             if (!uploadFile) throw new Error("No file selected");
-            return uploadAsset(uploadFile, uploadChannelId, uploadAssetType);
+            return uploadAsset(uploadFile, workspaceSlug ? (workspaceChannel?.id || 'shared') : uploadChannelId, uploadAssetType);
         },
         onSuccess: () => {
             toast.success("Asset uploaded successfully");
@@ -100,23 +106,31 @@ export default function Assets() {
 
             {/* Navigation & Filters */}
             <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between bg-card p-4 rounded-xl border border-border shadow-sm">
-                <div className="flex gap-2 w-full lg:w-auto overflow-x-auto pb-2 lg:pb-0 scrollbar-hide">
-                    <button 
-                        onClick={() => setActiveTab('shared')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${activeTab === 'shared' ? 'bg-primary text-primary-foreground shadow-sm' : 'hover:bg-secondary text-muted-foreground'}`}
-                    >
-                        Shared Assets
-                    </button>
-                    {channels.map(c => (
+                {!workspaceSlug ? (
+                    <div className="flex gap-2 w-full lg:w-auto overflow-x-auto pb-2 lg:pb-0 scrollbar-hide">
                         <button 
-                            key={c.id}
-                            onClick={() => setActiveTab(c.id)}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${activeTab === c.id ? 'bg-primary text-primary-foreground shadow-sm' : 'hover:bg-secondary text-muted-foreground'}`}
+                            onClick={() => setActiveTab('shared')}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${activeTab === 'shared' ? 'bg-primary text-primary-foreground shadow-sm' : 'hover:bg-secondary text-muted-foreground'}`}
                         >
-                            {c.name}
+                            Shared Assets
                         </button>
-                    ))}
-                </div>
+                        {channels.map(c => (
+                            <button 
+                                key={c.id}
+                                onClick={() => setActiveTab(c.id)}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${activeTab === c.id ? 'bg-primary text-primary-foreground shadow-sm' : 'hover:bg-secondary text-muted-foreground'}`}
+                            >
+                                {c.name}
+                            </button>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="flex gap-2 w-full lg:w-auto">
+                        <span className="px-4 py-2 rounded-lg text-sm font-medium bg-primary text-primary-foreground shadow-sm whitespace-nowrap">
+                            Channel Assets
+                        </span>
+                    </div>
+                )}
                 
                 <div className="flex gap-2 w-full lg:w-auto">
                     <select 
@@ -214,19 +228,19 @@ export default function Assets() {
                         </div>
                         
                         <div className="p-6 space-y-5">
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Destination</label>
-                                <select 
-                                    className="w-full bg-background border border-border text-sm rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-ring focus:border-primary shadow-sm"
-                                    value={uploadChannelId}
-                                    onChange={(e) => setUploadChannelId(e.target.value)}
-                                >
-                                    <option value="shared">Shared Assets</option>
-                                    {channels.map(c => (
-                                        <option key={c.id} value={c.id}>{c.name}</option>
-                                    ))}
-                                </select>
-                            </div>
+                                {!workspaceSlug && (
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1.5 text-muted-foreground">Target Channel</label>
+                                        <select 
+                                            className="w-full bg-secondary border border-border text-sm rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-ring focus:border-primary"
+                                            value={uploadChannelId}
+                                            onChange={(e) => setUploadChannelId(e.target.value)}
+                                        >
+                                            <option value="shared">Shared Assets (Global)</option>
+                                            {channels.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                        </select>
+                                    </div>
+                                )}
 
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">Asset Type</label>

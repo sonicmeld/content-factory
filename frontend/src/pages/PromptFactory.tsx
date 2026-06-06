@@ -3,9 +3,14 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { getChannels, generatePrompt, generateThumbnail } from '../services/api';
 import { Sparkles, Copy, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useParams } from 'react-router-dom';
 
 export default function PromptFactory() {
+    const { slug } = useParams();
     const { data: channels = [] } = useQuery({ queryKey: ['channels'], queryFn: getChannels });
+    
+    // Automatically find channel by slug if in workspace
+    const workspaceChannel = slug ? channels.find(c => c.slug === slug) : null;
     
     const [channelId, setChannelId] = useState('');
     const [theme, setTheme] = useState('');
@@ -14,7 +19,7 @@ export default function PromptFactory() {
     const [generatedThumbnail, setGeneratedThumbnail] = useState<string | null>(null);
 
     const promptMutation = useMutation({
-        mutationFn: () => generatePrompt({ channel_id: channelId, theme, mood }),
+        mutationFn: () => generatePrompt({ channel_id: workspaceChannel?.id || channelId, theme, mood }),
         onSuccess: (data) => {
             setGeneratedPrompt(data.prompt);
             toast.success("Prompt generated successfully!");
@@ -25,9 +30,9 @@ export default function PromptFactory() {
     });
 
     const thumbnailMutation = useMutation({
-        mutationFn: () => generateThumbnail({ channel_id: channelId, prompt: generatedPrompt }),
+        mutationFn: () => generateThumbnail({ channel_id: workspaceChannel?.id || channelId, prompt: generatedPrompt }),
         onSuccess: (data) => {
-            const staticUrl = `/data/channels/${channels.find(c => c.id === channelId)?.slug || 'shared'}/assets/thumbnails/${data.filename}`;
+            const staticUrl = `/data/channels/${workspaceChannel?.slug || channels.find(c => c.id === channelId)?.slug || 'shared'}/assets/thumbnails/${data.filename}`;
             setGeneratedThumbnail(staticUrl);
             toast.success("Thumbnail generated successfully!");
         },
@@ -55,17 +60,19 @@ export default function PromptFactory() {
                     </h3>
                     
                     <div className="space-y-3">
-                        <div>
-                            <label className="text-sm text-muted-foreground mb-1 block">Channel Target</label>
-                            <select 
-                                className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm"
-                                value={channelId}
-                                onChange={(e) => setChannelId(e.target.value)}
-                            >
-                                <option value="">Select a Channel...</option>
-                                {channels.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                            </select>
-                        </div>
+                        {!slug && (
+                            <div>
+                                <label className="text-sm text-muted-foreground mb-1 block">Channel Target</label>
+                                <select 
+                                    className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm"
+                                    value={channelId}
+                                    onChange={(e) => setChannelId(e.target.value)}
+                                >
+                                    <option value="">Select a Channel...</option>
+                                    {channels.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                </select>
+                            </div>
+                        )}
                         <div>
                             <label className="text-sm text-muted-foreground mb-1 block">Theme / Subject</label>
                             <input 
@@ -90,7 +97,7 @@ export default function PromptFactory() {
 
                     <button 
                         onClick={() => promptMutation.mutate()}
-                        disabled={!channelId || !theme || !mood || promptMutation.isPending}
+                        disabled={(!slug && !channelId) || !theme || !mood || promptMutation.isPending}
                         className="w-full bg-primary text-primary-foreground py-2 rounded-md font-medium text-sm hover:bg-primary/90 disabled:opacity-50 flex items-center justify-center gap-2 transition-colors"
                     >
                         {promptMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}

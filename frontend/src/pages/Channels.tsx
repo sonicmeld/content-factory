@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getChannels, createChannel, updateChannel, deleteChannel, getGCPProfiles, connectOAuth } from '../services/api';
-import { PlusCircle, MonitorPlay, KeyRound, X, Trash2, Edit2, AlertTriangle } from 'lucide-react';
+import { PlusCircle, MonitorPlay, KeyRound, X, Trash2, Edit2, AlertTriangle, ArrowRight } from 'lucide-react';
 import type { Channel } from '../types';
+import { useNavigate } from 'react-router-dom';
 
 export default function Channels() {
+    const navigate = useNavigate();
     const queryClient = useQueryClient();
     const { data: channels = [] } = useQuery({ queryKey: ['channels'], queryFn: getChannels });
     const { data: gcpProfiles = [] } = useQuery({ queryKey: ['gcp-profiles'], queryFn: getGCPProfiles });
@@ -109,7 +111,11 @@ export default function Channels() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {channels.map(channel => (
-                    <div key={channel.id} className="bg-card border border-border p-6 rounded-lg shadow-sm space-y-4">
+                    <div 
+                        key={channel.id} 
+                        onClick={() => navigate(`/workspace/${channel.slug}`)}
+                        className="bg-card border border-border p-6 rounded-lg shadow-sm space-y-4 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer group relative"
+                    >
                         <div className="flex items-start justify-between">
                             <div className="flex items-center gap-3">
                                 <div className="w-12 h-12 bg-secondary rounded-full flex items-center justify-center">
@@ -137,17 +143,17 @@ export default function Channels() {
                             <div className="flex items-center gap-2">
                                 {channel.oauth_status !== 'OAuth Connected' && channel.gcp_profile_id && (
                                     <button 
-                                        onClick={() => handleConnectOAuth(channel.id)}
+                                        onClick={(e) => { e.stopPropagation(); handleConnectOAuth(channel.id); }}
                                         disabled={connectOAuthMutation.isPending}
                                         className="text-xs bg-secondary hover:bg-secondary/80 text-foreground px-3 py-1.5 rounded font-medium transition-colors disabled:opacity-50"
                                     >
                                         {connectOAuthMutation.isPending ? 'Connecting...' : 'Connect OAuth'}
                                     </button>
                                 )}
-                                <button onClick={() => openEditModal(channel)} className="p-1.5 text-muted-foreground hover:text-blue-400 bg-secondary/50 rounded transition-colors">
+                                <button onClick={(e) => { e.stopPropagation(); openEditModal(channel); }} className="p-1.5 text-muted-foreground hover:text-blue-400 bg-secondary/50 rounded transition-colors">
                                     <Edit2 className="w-4 h-4" />
                                 </button>
-                                <button onClick={() => setDeleteConfirmId(channel.id)} className="p-1.5 text-muted-foreground hover:text-red-400 bg-secondary/50 rounded transition-colors">
+                                <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(channel.id); }} className="p-1.5 text-muted-foreground hover:text-red-400 bg-secondary/50 rounded transition-colors">
                                     <Trash2 className="w-4 h-4" />
                                 </button>
                             </div>
