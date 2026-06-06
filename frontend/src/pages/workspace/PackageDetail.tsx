@@ -1,7 +1,7 @@
 import { ArrowLeft, Trash2, Loader2, FileVideo, Clock, Calendar, CheckCircle2 } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getPackage, deletePackage, getChannels } from '../../services/api';
+import { getPackage, deletePackage } from '../../services/api';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
@@ -9,9 +9,6 @@ export default function PackageDetail() {
     const { slug, packageId } = useParams();
     const navigate = useNavigate();
     const queryClient = useQueryClient();
-
-    const { data: channels = [] } = useQuery({ queryKey: ['channels'], queryFn: getChannels });
-    const currentChannel = channels.find(c => c.slug === slug);
 
     const { data: pkg, isLoading: isLoadingPackage } = useQuery({
         queryKey: ['package', packageId],
