@@ -27,7 +27,7 @@ export default function PromptFactory() {
     const thumbnailMutation = useMutation({
         mutationFn: () => generateThumbnail({ channel_id: channelId, prompt: generatedPrompt }),
         onSuccess: (data) => {
-            const staticUrl = `http://localhost:8000/data/channels/${channels.find(c => c.id === channelId)?.slug || 'shared'}/assets/thumbnails/${data.filename}`;
+            const staticUrl = `/data/channels/${channels.find(c => c.id === channelId)?.slug || 'shared'}/assets/thumbnails/${data.filename}`;
             setGeneratedThumbnail(staticUrl);
             toast.success("Thumbnail generated successfully!");
         },

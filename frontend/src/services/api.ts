@@ -23,23 +23,23 @@ export const connectOAuth = (data: { channel_id: string }) => api.post<{ url: st
 export const getConfig = () => api.get<any>('/config').then(res => res.data);
 
 // Assets
-export const getAssets = (channelId?: string, type?: string) => {
+export const getAssets = (channelId?: string, assetType?: string) => {
     let url = channelId === 'shared' ? '/assets/shared' : '/assets';
     const params: any = {};
     if (channelId && channelId !== 'shared') params.channel_id = channelId;
-    if (type) params.type = type;
+    if (assetType) params.asset_type = assetType;
     return api.get<Asset[]>(url, { params }).then(res => res.data);
 };
-export const uploadAsset = (file: File, channelId: string, type: string, tags?: string) => {
+export const uploadAsset = (file: File, channelId: string, assetType: string) => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('channel_id', channelId);
-    formData.append('type', type);
-    if (tags) formData.append('tags', tags);
+    formData.append('asset_type', assetType);
     
     const url = channelId === 'shared' ? '/assets/shared' : '/assets';
     return api.post<Asset>(url, formData).then(res => res.data);
 };
+export const deleteAsset = (id: string) => api.delete(`/assets/${id}`).then(res => res.data);
 
 // Uploads
 export const getUploadJobs = (channelId?: string, status?: string) => {

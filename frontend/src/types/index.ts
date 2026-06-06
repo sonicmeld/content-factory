@@ -39,11 +39,12 @@ export interface UploadJob {
 
 export interface Asset {
     id: string;
-    channel_id: string;
-    type: string;
+    channel_id?: string;
+    asset_type: string;
     filename: string;
-    filepath: string;
-    tags?: string;
+    file_path: string;
+    file_size: number;
+    mime_type: string;
     created_at: string;
 }
 

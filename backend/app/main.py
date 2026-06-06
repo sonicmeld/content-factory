@@ -16,12 +16,15 @@ from app.config import settings
 
 from database.database import init_db
 
+from fastapi.staticfiles import StaticFiles
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Create required directories on startup
-    os.makedirs(settings.DATA_PATH, exist_ok=True)
-    os.makedirs(os.path.join(settings.DATA_PATH, "channels"), exist_ok=True)
-    os.makedirs(os.path.join(settings.DATA_PATH, "temp"), exist_ok=True)
+    data_dir = os.path.abspath(settings.DATA_PATH)
+    os.makedirs(data_dir, exist_ok=True)
+    os.makedirs(os.path.join(data_dir, "channels"), exist_ok=True)
+    os.makedirs(os.path.join(data_dir, "temp"), exist_ok=True)
     
     # Initialize database
     init_db()
@@ -33,11 +36,17 @@ app = FastAPI(title="Content Factory API", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=[
+        settings.FRONTEND_URL,
+        "http://localhost:5173", 
+        "http://127.0.0.1:5173"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.mount("/data", StaticFiles(directory=os.path.abspath(settings.DATA_PATH)), name="data")
 
 @app.exception_handler(404)
 async def not_found_handler(request: Request, exc):

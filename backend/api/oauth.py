@@ -46,7 +46,7 @@ def oauth_callback(state: str, code: str, db: Session = Depends(get_db)):
             <script>
                 setTimeout(() => {
                     window.close();
-                }, 3000);
+                }, 1000);
             </script>
         </body>
         </html>

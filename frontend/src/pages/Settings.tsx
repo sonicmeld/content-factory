@@ -48,7 +48,7 @@ export default function Settings() {
                             <p className="font-medium bg-secondary px-3 py-2 rounded flex items-center h-9">
                                 {isConfigLoading ? <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /> : (config?.nine_router_url || 'Not configured')}
                             </p>
-                            <p className="text-xs text-muted-foreground mt-1">Base URL tanpa path. Contoh: http://localhost:20128</p>
+                            <p className="text-xs text-muted-foreground mt-1">Base URL tanpa path. Contoh: http://api.example.com</p>
                         </div>
                         <div>
                             <p className="text-muted-foreground mb-1">AI Model (Fallback)</p>

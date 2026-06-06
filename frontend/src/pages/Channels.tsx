@@ -69,7 +69,20 @@ export default function Channels() {
     const connectOAuthMutation = useMutation({
         mutationFn: connectOAuth,
         onSuccess: (data) => {
-            window.open(data.url, "_blank");
+            const width = 500;
+            const height = 600;
+            const left = window.screenX + (window.outerWidth - width) / 2;
+            const top = window.screenY + (window.outerHeight - height) / 2;
+            const popup = window.open(data.url, "OAuth", `width=${width},height=${height},left=${left},top=${top}`);
+            
+            if (popup) {
+                const timer = setInterval(() => {
+                    if (popup.closed) {
+                        clearInterval(timer);
+                        queryClient.invalidateQueries({ queryKey: ['channels'] });
+                    }
+                }, 1000);
+            }
         }
     });
 
