@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getChannels, createChannel, updateChannel, deleteChannel, getGCPProfiles, connectOAuth } from '../services/api';
-import { PlusCircle, MonitorPlay, KeyRound, X, Trash2, Edit2, AlertTriangle, ArrowRight } from 'lucide-react';
+import { PlusCircle, MonitorPlay, KeyRound, X, Trash2, Edit2, AlertTriangle } from 'lucide-react';
 import type { Channel } from '../types';
 import { useNavigate } from 'react-router-dom';
 

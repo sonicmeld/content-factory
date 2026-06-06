@@ -1,9 +1,6 @@
 import { PlaySquare } from 'lucide-react';
-import { useParams } from 'react-router-dom';
 
 export default function PublishedVideos() {
-    const { slug } = useParams();
-
     return (
         <div className="space-y-6">
             <div>

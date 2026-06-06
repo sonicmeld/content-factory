@@ -1,5 +1,5 @@
 import { NavLink, useParams } from 'react-router-dom';
-import { LayoutDashboard, MonitorPlay, Package, UploadCloud, PlaySquare, ImageIcon, Sparkles, Settings, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { LayoutDashboard, Package, UploadCloud, PlaySquare, ImageIcon, Sparkles, Settings, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { getChannels } from '../services/api';
@@ -41,7 +41,7 @@ export default function WorkspaceSidebar() {
                     </h2>
                     <div className="flex items-center gap-2 mt-1">
                         <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded-md truncate">/{slug}</span>
-                        {currentChannel?.oauth_token && (
+                        {currentChannel?.oauth_status === 'OAuth Connected' && (
                             <span className="flex items-center text-[10px] font-medium text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
                                 <CheckCircle2 className="w-3 h-3 mr-1" />
                                 Connected

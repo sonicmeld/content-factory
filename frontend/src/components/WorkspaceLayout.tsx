@@ -1,4 +1,4 @@
-import React from 'react';
+
 import WorkspaceSidebar from './WorkspaceSidebar';
 import Header from './Header';
 import { Outlet } from 'react-router-dom';

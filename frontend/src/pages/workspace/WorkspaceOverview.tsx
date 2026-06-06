@@ -1,9 +1,6 @@
 import { Package, AlertCircle, Clock, Activity } from 'lucide-react';
-import { useParams } from 'react-router-dom';
 
 export default function WorkspaceOverview() {
-    const { slug } = useParams();
-
     return (
         <div className="space-y-6 max-w-5xl">
             <div>

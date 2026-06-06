@@ -1,9 +1,6 @@
 import { Settings } from 'lucide-react';
-import { useParams } from 'react-router-dom';
 
 export default function ChannelSettings() {
-    const { slug } = useParams();
-
     return (
         <div className="space-y-6 max-w-4xl">
             <div>
