@@ -147,7 +147,6 @@ export default function Assets() {
                 </div>
             </div>
 
-// ... existing code in Assets ...
             {/* Asset Grid */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
                 {assets.map(asset => {
