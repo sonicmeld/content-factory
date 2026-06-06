@@ -1,4 +1,4 @@
-import { Package, AlertCircle, Clock, Activity, FileVideo, FileAudio, FileText, Image as ImageIcon } from 'lucide-react';
+import { Package, Clock, Activity, FileVideo, FileAudio, FileText, Image as ImageIcon } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getChannels, getPackages, getAssets } from '../../services/api';

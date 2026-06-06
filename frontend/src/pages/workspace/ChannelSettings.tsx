@@ -1,4 +1,4 @@
-import { Settings, Info, Youtube, Plug, AlertTriangle, CheckCircle2, Loader2, Save } from 'lucide-react';
+import { Info, PlaySquare, Plug, AlertTriangle, CheckCircle2, Loader2, Save } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getChannels, updateChannel, connectOAuth, disconnectOAuth } from '../../services/api';
@@ -127,7 +127,7 @@ export default function ChannelSettings() {
             {/* OAuth Management */}
             <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
                 <div className="px-6 py-4 border-b border-border bg-secondary/30 flex items-center gap-2">
-                    <Youtube className="w-5 h-5 text-red-500" />
+                    <PlaySquare className="w-5 h-5 text-red-500" />
                     <h3 className="font-semibold text-lg">YouTube API Connection</h3>
                 </div>
                 <div className="p-6">
