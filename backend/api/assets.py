@@ -9,27 +9,25 @@ from services import asset_service
 router = APIRouter(prefix="/api/assets", tags=["assets"])
 
 @router.post("/shared", response_model=AssetResponse)
-def upload_shared_asset(
+async def upload_shared_asset(
     asset_type: str = Form(...),
     file: UploadFile = File(...),
-    tags: Optional[str] = Form(None),
     db: Session = Depends(get_db)
 ):
-    return asset_service.upload_asset(db, file, "shared", asset_type, tags)
+    return await asset_service.upload_asset(db, file, "shared", asset_type)
 
 @router.get("/shared", response_model=List[AssetResponse])
 def get_shared_assets(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     return asset_service.get_assets(db, channel_id="shared", asset_type=None, skip=skip, limit=limit)
 
 @router.post("", response_model=AssetResponse)
-def upload_channel_asset(
+async def upload_channel_asset(
     channel_id: str = Form(...),
     asset_type: str = Form(...),
     file: UploadFile = File(...),
-    tags: Optional[str] = Form(None),
     db: Session = Depends(get_db)
 ):
-    return asset_service.upload_asset(db, file, channel_id, asset_type, tags)
+    return await asset_service.upload_asset(db, file, channel_id, asset_type)
 
 @router.get("", response_model=List[AssetResponse])
 def get_channel_assets(

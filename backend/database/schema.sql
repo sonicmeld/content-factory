@@ -32,11 +32,12 @@ CREATE TABLE IF NOT EXISTS oauth_tokens (
 
 CREATE TABLE IF NOT EXISTS assets (
     id TEXT PRIMARY KEY,
-    channel_id TEXT NOT NULL,
-    type TEXT NOT NULL,
+    channel_id TEXT,
+    asset_type TEXT NOT NULL,
     filename TEXT NOT NULL,
-    filepath TEXT NOT NULL,
-    tags TEXT,
+    file_path TEXT NOT NULL,
+    file_size INTEGER NOT NULL,
+    mime_type TEXT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

@@ -56,11 +56,12 @@ class GCPProfileResponse(BaseModel):
 
 class AssetResponse(BaseModel):
     id: str
-    channel_id: str
-    type: str
+    channel_id: Optional[str] = None
+    asset_type: str
     filename: str
-    filepath: str
-    tags: Optional[str] = None
+    file_path: str
+    file_size: int
+    mime_type: str
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 

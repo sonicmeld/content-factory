@@ -6,7 +6,7 @@ def get_assets(db: Session, channel_id: str = None, asset_type: str = None, skip
     if channel_id:
         query = query.filter(Asset.channel_id == channel_id)
     if asset_type:
-        query = query.filter(Asset.type == asset_type)
+        query = query.filter(Asset.asset_type == asset_type)
     return query.offset(skip).limit(limit).all()
 
 def get_asset(db: Session, asset_id: str):

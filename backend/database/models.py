@@ -43,11 +43,12 @@ class Asset(Base):
     __tablename__ = "assets"
 
     id = Column(String, primary_key=True)
-    channel_id = Column(String, nullable=False)
-    type = Column(String, nullable=False)
+    channel_id = Column(String, nullable=True)
+    asset_type = Column(String, nullable=False)
     filename = Column(String, nullable=False)
-    filepath = Column(String, nullable=False)
-    tags = Column(String)
+    file_path = Column(String, nullable=False)
+    file_size = Column(Integer, nullable=False)
+    mime_type = Column(String, nullable=False)
     created_at = Column(DateTime, default=func.now())
 
 class Prompt(Base):
