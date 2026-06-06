@@ -3,8 +3,11 @@ from database.models import Asset
 
 def get_assets(db: Session, channel_id: str = None, asset_type: str = None, skip: int = 0, limit: int = 100):
     query = db.query(Asset)
-    if channel_id:
+    if channel_id == "shared":
+        query = query.filter(Asset.channel_id.is_(None))
+    elif channel_id:
         query = query.filter(Asset.channel_id == channel_id)
+        
     if asset_type:
         query = query.filter(Asset.asset_type == asset_type)
     return query.offset(skip).limit(limit).all()
