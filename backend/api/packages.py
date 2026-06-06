@@ -7,7 +7,7 @@ from api.schemas import ContentPackageCreate, ContentPackageUpdate, ContentPacka
 from repositories import packages as package_repo
 from services import packages as package_service
 
-router = APIRouter(prefix="/packages", tags=["content_packages"])
+router = APIRouter(prefix="/api/packages", tags=["content_packages"])
 
 @router.get("", response_model=List[ContentPackageResponse])
 def list_packages(

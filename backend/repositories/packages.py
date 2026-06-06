@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from app.models import ContentPackage
+from database.models import ContentPackage
 from api.schemas import ContentPackageCreate, ContentPackageUpdate
 import uuid
 

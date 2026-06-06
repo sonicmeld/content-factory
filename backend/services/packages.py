@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from api.schemas import ContentPackageCreate, ContentPackageUpdate
 from repositories import packages as package_repo
-from repositories import assets as asset_repo
+from repositories import asset_repository as asset_repo
 
 def validate_package_assets(db: Session, channel_id: str, video_asset_id: str, timestamp_asset_id: str = None):
     # Verify video asset
