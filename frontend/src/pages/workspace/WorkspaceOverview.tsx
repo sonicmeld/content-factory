@@ -8,7 +8,6 @@ import {
     CheckCircle2,
     XCircle,
     PlaySquare,
-    Youtube,
     UploadCloud,
     FolderOpen,
     FolderKanban,
@@ -148,7 +147,7 @@ export default function WorkspaceOverview() {
                     {/* Published Videos (Future) */}
                     <div className="bg-card border border-border p-5 rounded-xl shadow-sm flex flex-col justify-between h-28 opacity-70">
                         <span className="text-sm text-muted-foreground font-medium flex items-center gap-1.5">
-                            Published Videos <Youtube className="w-4 h-4 text-red-500" />
+                            Published Videos <PlaySquare className="w-4 h-4 text-red-500" />
                         </span>
                         <div className="mt-auto">
                             {publishedPackages.length > 0 ? (
