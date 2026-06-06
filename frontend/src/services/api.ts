@@ -68,7 +68,7 @@ export const getPackages = (channelId?: string, status?: string) => {
     return api.get<ContentPackage[]>('/packages', { params }).then(res => res.data);
 };
 export const getPackage = (id: string) => api.get<ContentPackage>(`/packages/${id}`).then(res => res.data);
-export const createPackage = (data: Partial<ContentPackage>) => api.post<ContentPackage>('/packages', data).then(res => res.data);
+export const createPackage = (data: FormData) => api.post<ContentPackage>('/packages', data).then(res => res.data);
 export const updatePackage = (id: string, data: Partial<ContentPackage>) => api.put<ContentPackage>(`/packages/${id}`, data).then(res => res.data);
 export const deletePackage = (id: string) => api.delete(`/packages/${id}`).then(res => res.data);
 

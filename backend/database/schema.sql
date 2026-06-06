@@ -97,8 +97,8 @@ CREATE TABLE IF NOT EXISTS content_packages (
     id TEXT PRIMARY KEY,
     channel_id TEXT NOT NULL,
     package_number TEXT NOT NULL,
-    video_asset_id TEXT NOT NULL,
-    timestamp_asset_id TEXT,
+    video_path TEXT NOT NULL,
+    timestamp_path TEXT,
     status TEXT DEFAULT 'draft',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP

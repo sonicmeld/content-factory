@@ -1,43 +1,83 @@
+import os
+import uuid
 from sqlalchemy.orm import Session
-from fastapi import HTTPException
-from api.schemas import ContentPackageCreate, ContentPackageUpdate
+from fastapi import UploadFile, HTTPException
+from api.schemas import ContentPackageUpdate, ContentPackageCreate
+from database.models import ContentPackage
 from repositories import packages as package_repo
-from repositories import asset_repository as asset_repo
+from services import channel_service
+from app.config import settings
 
-def validate_package_assets(db: Session, channel_id: str, video_asset_id: str, timestamp_asset_id: str = None):
-    # Verify video asset
-    video_asset = asset_repo.get_asset(db, video_asset_id)
-    if not video_asset:
-        raise HTTPException(status_code=404, detail="Video asset not found")
-    
-    if video_asset.channel_id and video_asset.channel_id != channel_id:
-        raise HTTPException(status_code=400, detail="Video asset does not belong to this channel or shared pool")
+def validate_package_video_extension(filename: str):
+    ext = filename.split(".")[-1].lower()
+    if ext not in {"mp4"}:
+        raise HTTPException(status_code=400, detail=f"Video file extension '{ext}' not allowed. Only .mp4 is supported.")
+    return ext
 
-    # Verify timestamp asset if provided
-    if timestamp_asset_id:
-        timestamp_asset = asset_repo.get_asset(db, timestamp_asset_id)
-        if not timestamp_asset:
-            raise HTTPException(status_code=404, detail="Timestamp asset not found")
+def validate_package_timestamp_extension(filename: str):
+    ext = filename.split(".")[-1].lower()
+    if ext not in {"txt"}:
+        raise HTTPException(status_code=400, detail=f"Timestamp file extension '{ext}' not allowed. Only .txt is supported.")
+    return ext
+
+async def create_content_package_with_files(
+    db: Session, 
+    channel_id: str, 
+    package_number: str, 
+    status: str,
+    video: UploadFile,
+    timestamp: UploadFile = None
+) -> ContentPackage:
+    channel = channel_service.get_channel(db, channel_id)
+    if not channel:
+        raise HTTPException(status_code=404, detail="Channel not found")
         
-        if timestamp_asset.channel_id and timestamp_asset.channel_id != channel_id:
-            raise HTTPException(status_code=400, detail="Timestamp asset does not belong to this channel or shared pool")
+    # Validate extensions
+    video_ext = validate_package_video_extension(video.filename)
+    if timestamp:
+        timestamp_ext = validate_package_timestamp_extension(timestamp.filename)
 
-def create_content_package(db: Session, package: ContentPackageCreate):
-    validate_package_assets(db, package.channel_id, package.video_asset_id, package.timestamp_asset_id)
-    return package_repo.create_package(db, package)
+    # Base directory for the package
+    base_dir = os.path.join(settings.DATA_PATH, "channels", channel.slug, "packages", package_number)
+    os.makedirs(base_dir, exist_ok=True)
+
+    # Save video
+    video_filename = f"video.{video_ext}"
+    video_path = os.path.join(base_dir, video_filename)
+    try:
+        with open(video_path, "wb") as f:
+            while chunk := await video.read(1024 * 1024):
+                f.write(chunk)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save video file: {str(e)}")
+
+    # Save timestamp if provided
+    timestamp_path_db = None
+    if timestamp:
+        timestamp_filename = f"timestamp.{timestamp_ext}"
+        timestamp_path = os.path.join(base_dir, timestamp_filename)
+        try:
+            with open(timestamp_path, "wb") as f:
+                while chunk := await timestamp.read(1024 * 1024):
+                    f.write(chunk)
+            timestamp_path_db = timestamp_path
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to save timestamp file: {str(e)}")
+
+    package_data = ContentPackageCreate(
+        channel_id=channel_id,
+        package_number=package_number,
+        video_path=video_path,
+        timestamp_path=timestamp_path_db,
+        status=status
+    )
+    
+    return package_repo.create_package(db, package_data)
 
 def update_content_package(db: Session, package_id: str, package_update: ContentPackageUpdate):
-    # If updating assets, we need to validate them again.
-    # However, to validate we need the channel_id, which we get from the existing package.
     existing_package = package_repo.get_package(db, package_id)
     if not existing_package:
         raise HTTPException(status_code=404, detail="Content package not found")
-        
-    video_id = package_update.video_asset_id if package_update.video_asset_id is not None else existing_package.video_asset_id
-    timestamp_id = package_update.timestamp_asset_id if package_update.timestamp_asset_id is not None else existing_package.timestamp_asset_id
-    
-    if package_update.video_asset_id is not None or package_update.timestamp_asset_id is not None:
-        validate_package_assets(db, existing_package.channel_id, video_id, timestamp_id)
         
     updated_package = package_repo.update_package(db, package_id, package_update)
     return updated_package

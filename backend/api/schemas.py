@@ -124,8 +124,8 @@ class MetadataTemplateResponse(BaseModel):
 class ContentPackageBase(BaseModel):
     channel_id: str
     package_number: str
-    video_asset_id: str
-    timestamp_asset_id: Optional[str] = None
+    video_path: str
+    timestamp_path: Optional[str] = None
     status: Optional[str] = "draft"
 
 class ContentPackageCreate(ContentPackageBase):
@@ -133,8 +133,8 @@ class ContentPackageCreate(ContentPackageBase):
 
 class ContentPackageUpdate(BaseModel):
     package_number: Optional[str] = None
-    video_asset_id: Optional[str] = None
-    timestamp_asset_id: Optional[str] = None
+    video_path: Optional[str] = None
+    timestamp_path: Optional[str] = None
     status: Optional[str] = None
 
 class ContentPackageResponse(ContentPackageBase):

@@ -1,7 +1,7 @@
 import { PackagePlus, FileVideo, Clock, Calendar, CheckCircle2, ChevronRight, Package as PackageIcon } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { getChannels, getPackages, getAssets } from '../../services/api';
+import { getChannels, getPackages } from '../../services/api';
 import { format } from 'date-fns';
 
 export default function ContentPackages() {
@@ -15,20 +15,6 @@ export default function ContentPackages() {
         queryFn: () => getPackages(currentChannel?.id),
         enabled: !!currentChannel?.id
     });
-
-    const { data: assets = [] } = useQuery({
-        queryKey: ['assets', currentChannel?.id],
-        queryFn: () => getAssets(currentChannel?.id),
-        enabled: !!currentChannel?.id
-    });
-
-    // We also need shared assets because a package might use a shared timestamp or video.
-    const { data: sharedAssets = [] } = useQuery({
-        queryKey: ['assets', 'shared'],
-        queryFn: () => getAssets('shared')
-    });
-
-    const allAssets = [...assets, ...sharedAssets];
 
     return (
         <div className="space-y-6">
@@ -63,7 +49,7 @@ export default function ContentPackages() {
                             <thead className="text-xs text-muted-foreground uppercase bg-secondary/30">
                                 <tr>
                                     <th className="px-6 py-4 font-medium">Package</th>
-                                    <th className="px-6 py-4 font-medium">Video Asset</th>
+                                    <th className="px-6 py-4 font-medium">Video</th>
                                     <th className="px-6 py-4 font-medium">Timestamp</th>
                                     <th className="px-6 py-4 font-medium">Status</th>
                                     <th className="px-6 py-4 font-medium">Created Date</th>
@@ -72,8 +58,8 @@ export default function ContentPackages() {
                             </thead>
                             <tbody className="divide-y divide-border">
                                 {packages.map(pkg => {
-                                    const videoAsset = allAssets.find(a => a.id === pkg.video_asset_id);
-                                    const timestampAsset = allAssets.find(a => a.id === pkg.timestamp_asset_id);
+                                    const videoFilename = pkg.video_path ? pkg.video_path.split(/[/\\]/).pop() : 'Unknown';
+                                    const timestampFilename = pkg.timestamp_path ? pkg.timestamp_path.split(/[/\\]/).pop() : null;
                                     
                                     return (
                                         <tr key={pkg.id} className="hover:bg-secondary/20 group transition-colors">
@@ -90,21 +76,21 @@ export default function ContentPackages() {
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-2 text-muted-foreground">
                                                     <FileVideo className="w-4 h-4 text-blue-500" />
-                                                    <span className="truncate max-w-[200px]" title={videoAsset?.filename || pkg.video_asset_id}>
-                                                        {videoAsset?.filename || 'Unknown'}
+                                                    <span className="truncate max-w-[200px]" title={videoFilename}>
+                                                        {videoFilename}
                                                     </span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                {pkg.timestamp_asset_id ? (
+                                                {timestampFilename ? (
                                                     <div className="flex items-center gap-2 text-muted-foreground">
                                                         <Clock className="w-4 h-4 text-emerald-500" />
-                                                        <span className="truncate max-w-[150px]" title={timestampAsset?.filename || pkg.timestamp_asset_id}>
-                                                            {timestampAsset?.filename || 'Yes'}
+                                                        <span className="truncate max-w-[150px]" title={timestampFilename}>
+                                                            {timestampFilename}
                                                         </span>
                                                     </div>
                                                 ) : (
-                                                    <span className="text-muted-foreground/50 text-xs italic">None</span>
+                                                    <span className="text-muted-foreground/50 text-xs italic">No Timestamp</span>
                                                 )}
                                             </td>
                                             <td className="px-6 py-4">

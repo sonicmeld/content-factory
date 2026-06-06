@@ -70,9 +70,9 @@ export interface ContentPackage {
     id: string;
     channel_id: string;
     package_number: string;
-    video_asset_id: string;
-    timestamp_asset_id?: string;
-    status: string;
+    video_path: string;
+    timestamp_path?: string;
+    status: 'draft' | 'ready' | 'queued' | 'published';
     created_at: string;
     updated_at: string;
 }

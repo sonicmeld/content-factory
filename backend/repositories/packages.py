@@ -20,8 +20,8 @@ def create_package(db: Session, package: ContentPackageCreate):
         id=str(uuid.uuid4()),
         channel_id=package.channel_id,
         package_number=package.package_number,
-        video_asset_id=package.video_asset_id,
-        timestamp_asset_id=package.timestamp_asset_id,
+        video_path=package.video_path,
+        timestamp_path=package.timestamp_path,
         status=package.status
     )
     db.add(db_package)

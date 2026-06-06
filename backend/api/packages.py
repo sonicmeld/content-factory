@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
@@ -27,8 +27,22 @@ def get_package(package_id: str, db: Session = Depends(get_db)):
     return db_package
 
 @router.post("", response_model=ContentPackageResponse)
-def create_package(package: ContentPackageCreate, db: Session = Depends(get_db)):
-    return package_service.create_content_package(db, package)
+async def create_package(
+    channel_id: str = Form(...),
+    package_number: str = Form(...),
+    status: str = Form("draft"),
+    video: UploadFile = File(...),
+    timestamp: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_db)
+):
+    return await package_service.create_content_package_with_files(
+        db=db, 
+        channel_id=channel_id, 
+        package_number=package_number, 
+        status=status,
+        video=video,
+        timestamp=timestamp
+    )
 
 @router.put("/{package_id}", response_model=ContentPackageResponse)
 def update_package(package_id: str, package_update: ContentPackageUpdate, db: Session = Depends(get_db)):

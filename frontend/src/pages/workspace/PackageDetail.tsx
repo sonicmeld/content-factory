@@ -1,7 +1,7 @@
 import { ArrowLeft, Trash2, Loader2, FileVideo, Clock, Calendar, CheckCircle2 } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getPackage, getAssets, deletePackage, getChannels } from '../../services/api';
+import { getPackage, deletePackage, getChannels } from '../../services/api';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
@@ -18,22 +18,6 @@ export default function PackageDetail() {
         queryFn: () => getPackage(packageId!),
         enabled: !!packageId
     });
-
-    const { data: assets = [] } = useQuery({
-        queryKey: ['assets', currentChannel?.id],
-        queryFn: () => getAssets(currentChannel?.id),
-        enabled: !!currentChannel?.id
-    });
-
-    const { data: sharedAssets = [] } = useQuery({
-        queryKey: ['assets', 'shared'],
-        queryFn: () => getAssets('shared')
-    });
-
-    const allAssets = [...assets, ...sharedAssets];
-    
-    const videoAsset = pkg ? allAssets.find(a => a.id === pkg.video_asset_id) : null;
-    const timestampAsset = pkg ? allAssets.find(a => a.id === pkg.timestamp_asset_id) : null;
 
     const deleteMutation = useMutation({
         mutationFn: () => deletePackage(packageId!),
@@ -63,6 +47,9 @@ export default function PackageDetail() {
             </div>
         );
     }
+
+    const videoFilename = pkg.video_path ? pkg.video_path.split(/[/\\]/).pop() : 'Unknown';
+    const timestampFilename = pkg.timestamp_path ? pkg.timestamp_path.split(/[/\\]/).pop() : null;
 
     return (
         <div className="space-y-6 max-w-3xl mx-auto">
@@ -109,16 +96,11 @@ export default function PackageDetail() {
                         <FileVideo className="w-6 h-6" />
                     </div>
                     <div className="flex-1">
-                        <h3 className="font-semibold text-sm">Video Asset</h3>
-                        {videoAsset ? (
-                            <div className="mt-2 space-y-1">
-                                <p className="text-sm font-medium">{videoAsset.filename}</p>
-                                <p className="text-xs text-muted-foreground">Type: {videoAsset.mime_type} • Size: {(videoAsset.file_size / 1024 / 1024).toFixed(2)} MB</p>
-                                <p className="text-xs text-muted-foreground">Source: {videoAsset.channel_id === 'shared' ? 'Shared Library' : 'Channel Assets'}</p>
-                            </div>
-                        ) : (
-                            <p className="text-sm text-destructive mt-2">Asset missing or deleted (ID: {pkg.video_asset_id})</p>
-                        )}
+                        <h3 className="font-semibold text-sm">Production Video</h3>
+                        <div className="mt-2 space-y-1">
+                            <p className="text-sm font-medium">{videoFilename}</p>
+                            <p className="text-xs text-muted-foreground break-all">Path: {pkg.video_path}</p>
+                        </div>
                     </div>
                 </div>
 
@@ -127,18 +109,14 @@ export default function PackageDetail() {
                         <Clock className="w-6 h-6" />
                     </div>
                     <div className="flex-1">
-                        <h3 className="font-semibold text-sm">Timestamp Asset</h3>
-                        {pkg.timestamp_asset_id ? (
-                            timestampAsset ? (
-                                <div className="mt-2 space-y-1">
-                                    <p className="text-sm font-medium">{timestampAsset.filename}</p>
-                                    <p className="text-xs text-muted-foreground">Type: {timestampAsset.mime_type} • Size: {(timestampAsset.file_size / 1024).toFixed(2)} KB</p>
-                                </div>
-                            ) : (
-                                <p className="text-sm text-destructive mt-2">Asset missing or deleted (ID: {pkg.timestamp_asset_id})</p>
-                            )
+                        <h3 className="font-semibold text-sm">Timestamp File</h3>
+                        {pkg.timestamp_path ? (
+                            <div className="mt-2 space-y-1">
+                                <p className="text-sm font-medium">{timestampFilename}</p>
+                                <p className="text-xs text-muted-foreground break-all">Path: {pkg.timestamp_path}</p>
+                            </div>
                         ) : (
-                            <p className="text-sm text-muted-foreground mt-2 italic">No timestamp asset provided for this package.</p>
+                            <p className="text-sm text-muted-foreground mt-2 italic">No timestamp file provided for this package.</p>
                         )}
                     </div>
                 </div>
