@@ -19,6 +19,13 @@ def connect_youtube(request: ConnectRequest, db: Session = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@router.post("/disconnect")
+def disconnect_youtube(request: ConnectRequest, db: Session = Depends(get_db)):
+    success = oauth_service.disconnect_oauth(db, request.channel_id)
+    if success:
+        return {"message": "OAuth disconnected successfully"}
+    return {"message": "No OAuth token found to disconnect"}
+
 @router.get("/callback")
 def oauth_callback(state: str, code: str, db: Session = Depends(get_db)):
     try:

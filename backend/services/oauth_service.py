@@ -109,3 +109,11 @@ def handle_callback(db: Session, state: str, code: str):
     }
     
     return oauth_repository.create_or_update_token(db, token_data)
+
+def disconnect_oauth(db: Session, channel_id: str):
+    token = oauth_repository.get_token_by_channel(db, channel_id)
+    if token:
+        db.delete(token)
+        db.commit()
+        return True
+    return False

@@ -2,13 +2,18 @@ import { NavLink, useParams } from 'react-router-dom';
 import { LayoutDashboard, Package, UploadCloud, PlaySquare, ImageIcon, Sparkles, Settings, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useQuery } from '@tanstack/react-query';
-import { getChannels } from '../services/api';
+import { getChannels, getPackages } from '../services/api';
 
 export default function WorkspaceSidebar() {
     const { slug } = useParams();
     const { data: channels = [] } = useQuery({ queryKey: ['channels'], queryFn: getChannels });
     
     const currentChannel = channels.find(c => c.slug === slug);
+    const { data: packages = [] } = useQuery({ 
+        queryKey: ['packages', currentChannel?.id], 
+        queryFn: () => getPackages(currentChannel?.id),
+        enabled: !!currentChannel?.id 
+    });
 
     const pipelineItems = [
         { label: 'Overview', icon: LayoutDashboard, path: `/workspace/${slug}` },
@@ -73,8 +78,18 @@ export default function WorkspaceSidebar() {
                                             : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
                                     )}
                                 >
-                                    <Icon className={cn("w-4 h-4", item.isPrimary && !window.location.pathname.startsWith(item.path) && "text-primary")} />
-                                    <span className="text-sm">{item.label}</span>
+                                    <div className="flex items-center gap-3 flex-1">
+                                        <Icon className={cn("w-4 h-4", item.isPrimary && !window.location.pathname.startsWith(item.path) && "text-primary")} />
+                                        <span className="text-sm">{item.label}</span>
+                                    </div>
+                                    {item.label === 'Content Packages' && packages.length > 0 && (
+                                        <span className={cn(
+                                            "text-[10px] font-bold px-2 py-0.5 rounded-full",
+                                            isActive ? "bg-primary-foreground/20 text-primary-foreground" : "bg-primary/10 text-primary"
+                                        )}>
+                                            {packages.length}
+                                        </span>
+                                    )}
                                 </NavLink>
                             );
                         })}

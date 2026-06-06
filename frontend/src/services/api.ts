@@ -18,6 +18,7 @@ export const createGCPProfile = (data: Partial<GCPProfile>) => api.post<GCPProfi
 
 // OAuth
 export const connectOAuth = (data: { channel_id: string }) => api.post<{ url: string }>('/oauth/connect', data).then(res => res.data);
+export const disconnectOAuth = (data: { channel_id: string }) => api.post<{ message: string }>('/oauth/disconnect', data).then(res => res.data);
 
 // System Config
 export const getConfig = () => api.get<any>('/config').then(res => res.data);
