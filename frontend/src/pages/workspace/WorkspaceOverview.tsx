@@ -50,8 +50,6 @@ export default function WorkspaceOverview() {
     const failedPackages = packages.filter(p => p.status === 'failed');
 
     const isOAuthConnected = currentChannel.oauth_status === 'OAuth Connected';
-    const hasPackages = packages.length > 0;
-    const hasReadyPackages = readyPackages.length > 0;
 
     // Compile Recent Activity
     const recentActivity = [
