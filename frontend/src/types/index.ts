@@ -72,7 +72,7 @@ export interface ContentPackage {
     package_number: string;
     video_path: string;
     timestamp_path?: string;
-    status: 'draft' | 'ready' | 'queued' | 'published';
+    status: 'draft' | 'ready' | 'queued' | 'published' | 'failed';
     created_at: string;
     updated_at: string;
 }

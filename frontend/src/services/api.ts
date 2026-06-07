@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Channel, GCPProfile, UploadJob, Asset, Prompt, MetadataTemplate, ContentPackage, ChannelStorageStats } from '../types';
+import type { Channel, GCPProfile, UploadJob, Asset, Prompt, ContentPackage, ChannelStorageStats } from '../types';
 
 const api = axios.create({
     baseURL: '/api',

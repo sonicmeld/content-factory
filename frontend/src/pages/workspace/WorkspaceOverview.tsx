@@ -4,7 +4,6 @@ import {
     CheckCircle2,
     XCircle,
     PlaySquare,
-    Youtube,
     ExternalLink,
     HardDrive,
     FileVideo,
@@ -15,7 +14,6 @@ import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getChannels, getPackages, getChannelStorage } from '../../services/api';
 import { format } from 'date-fns';
-import { cn } from '../../lib/utils';
 
 function formatBytes(bytes: number, decimals = 2) {
     if (!+bytes) return '0 Bytes';
@@ -47,7 +45,6 @@ export default function WorkspaceOverview() {
 
     const draftPackages = packages.filter(p => p.status === 'draft');
     const readyPackages = packages.filter(p => p.status === 'ready');
-    const publishedPackages = packages.filter(p => p.status === 'published');
     const failedPackages = packages.filter(p => p.status === 'failed'); // if any
 
     const isOAuthConnected = currentChannel.oauth_status === 'OAuth Connected';
@@ -118,7 +115,6 @@ export default function WorkspaceOverview() {
                                 </div>
                                 <div className="flex flex-col gap-2">
                                     <button disabled className="flex items-center justify-center gap-2 bg-secondary/50 text-muted-foreground px-4 py-2 rounded-md font-medium text-sm transition-colors cursor-not-allowed">
-                                        <Youtube className="w-4 h-4" />
                                         YouTube Studio
                                     </button>
                                     <button disabled className="flex items-center justify-center gap-2 bg-secondary/50 text-muted-foreground px-4 py-2 rounded-md font-medium text-sm transition-colors cursor-not-allowed">
