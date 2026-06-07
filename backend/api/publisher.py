@@ -25,3 +25,17 @@ def get_publisher_status(channel_id: str, db: Session = Depends(get_db)):
     Returns the Publisher module status.
     """
     return publisher_service.get_publisher_status(db, channel_id)
+
+@router.post("/upload")
+def execute_youtube_upload(channel_id: str, db: Session = Depends(get_db)):
+    """
+    Sprint 7: Execute YouTube upload for the current active (or next pending) job.
+
+    Lifecycle:
+      - Finds uploading job (or advances pending -> uploading automatically).
+      - Calls uploader.upload_video() via execute_upload().
+      - On success: persists youtube_video_id + youtube_video_url, job -> completed,
+        package -> published, queue item removed.
+      - On failure: job -> failed, package -> failed, queue item removed.
+    """
+    return publisher_service.execute_upload(db, channel_id)
