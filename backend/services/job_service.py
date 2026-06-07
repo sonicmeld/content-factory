@@ -21,9 +21,10 @@ def create_job_from_queue(db: Session, channel_id: str):
         raise HTTPException(status_code=404, detail="Package not found")
         
     # Check if a pending/uploading job already exists for this package
-    # A simple way: check if status is already uploading
-    # But per rules, package remains queued. Let's not prevent multiple jobs, but usually it shouldn't happen.
-    
+    # One Package -> Maximum one active Upload Job
+    active_job = job_repository.get_active_job_for_package(db, package.id)
+    if active_job:
+        return active_job
     # 3. Create upload_jobs record with status pending
     job_data = {
         "id": str(uuid.uuid4()),

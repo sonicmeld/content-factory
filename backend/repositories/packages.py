@@ -50,9 +50,19 @@ def update_package_status(db: Session, package_id: str, status: str):
         db.refresh(db_package)
     return db_package
 
+from repositories.queue_repository import remove_from_queue
+from repositories.job_repository import delete_jobs_by_package
+
 def delete_package(db: Session, package_id: str):
     db_package = get_package(db, package_id)
     if db_package:
+        # Cleanup queue entries
+        remove_from_queue(db, package_id)
+        
+        # Cleanup associated upload jobs
+        delete_jobs_by_package(db, package_id)
+        
+        # Finally delete package
         db.delete(db_package)
         db.commit()
         return True

@@ -43,3 +43,15 @@ def get_job_stats(db: Session, channel_id: str) -> Dict[str, int]:
             stats[status] = count
             
     return stats
+
+def get_active_job_for_package(db: Session, package_id: str) -> Optional[UploadJob]:
+    return db.query(UploadJob).filter(
+        UploadJob.package_id == package_id,
+        UploadJob.status.in_(["pending", "uploading"])
+    ).first()
+
+def delete_jobs_by_package(db: Session, package_id: str):
+    jobs = db.query(UploadJob).filter(UploadJob.package_id == package_id).all()
+    for job in jobs:
+        db.delete(job)
+    db.commit()
