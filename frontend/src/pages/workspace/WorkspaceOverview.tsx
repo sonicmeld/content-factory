@@ -193,9 +193,6 @@ export default function WorkspaceOverview() {
                             )}
                         </div>
                     </section>
-                            </div>
-                        </div>
-                    </section>
 
                     {/* SECTION 4: Storage Status */}
                     <section>
