@@ -103,3 +103,10 @@ CREATE TABLE IF NOT EXISTS content_packages (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS upload_queue (
+    package_id TEXT PRIMARY KEY,
+    channel_id TEXT NOT NULL,
+    queue_position INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);

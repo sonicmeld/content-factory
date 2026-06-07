@@ -12,6 +12,7 @@ from api.assets import router as assets_router
 from api.prompts import router as prompts_router
 from api.uploads import router as uploads_router
 from api.packages import router as packages_router
+from api.queue import router as queue_router
 from api import health
 from app.config import settings
 
@@ -69,6 +70,7 @@ app.include_router(assets_router)
 app.include_router(prompts_router)
 app.include_router(uploads_router)
 app.include_router(packages_router)
+app.include_router(queue_router)
 app.include_router(health.router)
 
 @app.get("/api/config")

@@ -10,7 +10,7 @@ import {
     Calendar,
     AlertTriangle
 } from 'lucide-react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getChannels, getPackages, getChannelStorage } from '../../services/api';
 import { format } from 'date-fns';
@@ -45,7 +45,9 @@ export default function WorkspaceOverview() {
 
     const draftPackages = packages.filter(p => p.status === 'draft');
     const readyPackages = packages.filter(p => p.status === 'ready');
-    const failedPackages = packages.filter(p => p.status === 'failed'); // if any
+    const queuedPackages = packages.filter(p => p.status === 'queued');
+    const publishedPackages = packages.filter(p => p.status === 'published');
+    const failedPackages = packages.filter(p => p.status === 'failed');
 
     const isOAuthConnected = currentChannel.oauth_status === 'OAuth Connected';
     const hasPackages = packages.length > 0;
@@ -129,22 +131,26 @@ export default function WorkspaceOverview() {
                     {/* SECTION 2: Publishing Snapshot */}
                     <section>
                         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Publishing Snapshot</h2>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                            <div className="bg-card border border-border p-5 rounded-xl shadow-sm text-center">
-                                <p className="text-sm text-muted-foreground font-medium mb-1">Total</p>
-                                {isLoadingPackages ? <div className="h-8 w-12 mx-auto bg-secondary rounded animate-pulse" /> : <p className="text-3xl font-bold">{packages.length}</p>}
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+                            <div className="bg-card border border-border p-4 rounded-xl shadow-sm text-center">
+                                <p className="text-xs text-muted-foreground font-medium mb-1 uppercase tracking-wider">Draft</p>
+                                {isLoadingPackages ? <div className="h-8 w-12 mx-auto bg-secondary rounded animate-pulse" /> : <p className="text-2xl font-bold">{draftPackages.length}</p>}
                             </div>
-                            <div className="bg-card border border-border p-5 rounded-xl shadow-sm text-center">
-                                <p className="text-sm text-muted-foreground font-medium mb-1">Draft</p>
-                                {isLoadingPackages ? <div className="h-8 w-12 mx-auto bg-secondary rounded animate-pulse" /> : <p className="text-3xl font-bold">{draftPackages.length}</p>}
+                            <div className="bg-card border border-emerald-500/30 bg-emerald-500/5 p-4 rounded-xl shadow-sm text-center">
+                                <p className="text-xs text-emerald-600/80 dark:text-emerald-400 font-medium mb-1 uppercase tracking-wider">Ready</p>
+                                {isLoadingPackages ? <div className="h-8 w-12 mx-auto bg-secondary rounded animate-pulse" /> : <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{readyPackages.length}</p>}
                             </div>
-                            <div className="bg-card border border-emerald-500/30 bg-emerald-500/5 p-5 rounded-xl shadow-sm text-center">
-                                <p className="text-sm text-emerald-600/80 dark:text-emerald-400 font-medium mb-1">Ready</p>
-                                {isLoadingPackages ? <div className="h-8 w-12 mx-auto bg-secondary rounded animate-pulse" /> : <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{readyPackages.length}</p>}
+                            <div className="bg-card border border-blue-500/30 bg-blue-500/5 p-4 rounded-xl shadow-sm text-center">
+                                <p className="text-xs text-blue-600/80 dark:text-blue-400 font-medium mb-1 uppercase tracking-wider">Queued</p>
+                                {isLoadingPackages ? <div className="h-8 w-12 mx-auto bg-secondary rounded animate-pulse" /> : <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{queuedPackages.length}</p>}
                             </div>
-                            <div className="bg-card border border-destructive/30 bg-destructive/5 p-5 rounded-xl shadow-sm text-center">
-                                <p className="text-sm text-destructive/80 font-medium mb-1">Failed</p>
-                                {isLoadingPackages ? <div className="h-8 w-12 mx-auto bg-secondary rounded animate-pulse" /> : <p className="text-3xl font-bold text-destructive">{failedPackages.length}</p>}
+                            <div className="bg-card border border-border p-4 rounded-xl shadow-sm text-center opacity-70">
+                                <p className="text-xs text-muted-foreground font-medium mb-1 uppercase tracking-wider">Published</p>
+                                {isLoadingPackages ? <div className="h-8 w-12 mx-auto bg-secondary rounded animate-pulse" /> : <p className="text-2xl font-bold">{publishedPackages.length}</p>}
+                            </div>
+                            <div className="bg-card border border-destructive/30 bg-destructive/5 p-4 rounded-xl shadow-sm text-center">
+                                <p className="text-xs text-destructive/80 font-medium mb-1 uppercase tracking-wider">Failed</p>
+                                {isLoadingPackages ? <div className="h-8 w-12 mx-auto bg-secondary rounded animate-pulse" /> : <p className="text-2xl font-bold text-destructive">{failedPackages.length}</p>}
                             </div>
                         </div>
                     </section>
@@ -163,21 +169,30 @@ export default function WorkspaceOverview() {
                 {/* RIGHT COLUMN: Health, Storage, Activity */}
                 <div className="space-y-8">
 
-                    {/* SECTION 5: Channel Health */}
+                    {/* SECTION 5: Queue Health */}
                     <section>
-                        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Channel Health</h2>
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Queue Health</h2>
+                            <Link to={`/workspace/${slug}/queue`} className="text-xs text-primary hover:underline font-medium">Manage Queue</Link>
+                        </div>
                         <div className="bg-card border border-border rounded-xl p-5 shadow-sm space-y-4">
                             <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium">OAuth Connected</span>
-                                {isOAuthConnected ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : <AlertTriangle className="w-5 h-5 text-amber-500" />}
+                                <span className="text-sm font-medium">Packages Ready</span>
+                                <span className="font-bold text-emerald-600 dark:text-emerald-400">{readyPackages.length}</span>
                             </div>
                             <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium">Packages Available</span>
-                                {hasPackages ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : <AlertTriangle className="w-5 h-5 text-amber-500" />}
+                                <span className="text-sm font-medium">Packages Queued</span>
+                                <span className="font-bold text-blue-600 dark:text-blue-400">{queuedPackages.length}</span>
                             </div>
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium">Ready For Publishing</span>
-                                {hasReadyPackages ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : <AlertTriangle className="w-5 h-5 text-amber-500" />}
+                            
+                            {queuedPackages.length === 0 && (
+                                <div className="mt-4 flex items-start gap-3 bg-amber-500/10 p-3 rounded-lg border border-amber-500/20 text-amber-600 dark:text-amber-500 text-sm">
+                                    <AlertTriangle className="w-5 h-5 shrink-0" />
+                                    <p><strong>Queue Empty Warning</strong><br/>The upload queue is empty. Content will not be published.</p>
+                                </div>
+                            )}
+                        </div>
+                    </section>
                             </div>
                         </div>
                     </section>

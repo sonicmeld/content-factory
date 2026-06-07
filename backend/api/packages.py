@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
@@ -57,3 +58,13 @@ def delete_package(package_id: str, db: Session = Depends(get_db)):
     if not success:
         raise HTTPException(status_code=404, detail="Content package not found")
     return {"message": "Content package deleted successfully"}
+
+class PackageStatusUpdate(BaseModel):
+    status: str
+
+@router.patch("/{package_id}/status", response_model=ContentPackageResponse)
+def update_package_status(package_id: str, request: PackageStatusUpdate, db: Session = Depends(get_db)):
+    updated_package = package_service.update_package_status(db, package_id, request.status)
+    if not updated_package:
+        raise HTTPException(status_code=404, detail="Content package not found")
+    return updated_package

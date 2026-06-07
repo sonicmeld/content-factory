@@ -119,3 +119,11 @@ class ContentPackage(Base):
     status = Column(String, default="draft")
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+class UploadQueue(Base):
+    __tablename__ = "upload_queue"
+
+    package_id = Column(String, primary_key=True)
+    channel_id = Column(String, nullable=False)
+    queue_position = Column(Integer, nullable=False)
+    created_at = Column(DateTime, default=func.now())

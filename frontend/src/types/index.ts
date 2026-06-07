@@ -82,3 +82,13 @@ export interface ChannelStorageStats {
     video_count: number;
     storage_bytes: number;
 }
+
+export interface QueueItem {
+    package_id: string;
+    channel_id: string;
+    queue_position: number;
+    created_at: string;
+    package_number: string;
+    status: string;
+    video_path: string;
+}

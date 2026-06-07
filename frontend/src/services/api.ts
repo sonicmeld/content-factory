@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Channel, GCPProfile, UploadJob, Asset, Prompt, ContentPackage, ChannelStorageStats } from '../types';
+import type { Channel, GCPProfile, UploadJob, Asset, Prompt, ContentPackage, ChannelStorageStats, QueueItem } from '../types';
 
 const api = axios.create({
     baseURL: '/api',
@@ -72,5 +72,12 @@ export const getPackage = (id: string) => api.get<ContentPackage>(`/packages/${i
 export const createPackage = (data: FormData) => api.post<ContentPackage>('/packages', data).then(res => res.data);
 export const updatePackage = (id: string, data: Partial<ContentPackage>) => api.put<ContentPackage>(`/packages/${id}`, data).then(res => res.data);
 export const deletePackage = (id: string) => api.delete(`/packages/${id}`).then(res => res.data);
+export const updatePackageStatus = (id: string, status: string) => api.patch<ContentPackage>(`/packages/${id}/status`, { status }).then(res => res.data);
+
+// Queue
+export const getQueue = (channelId: string) => api.get<QueueItem[]>(`/queue/${channelId}`).then(res => res.data);
+export const addToQueue = (packageId: string) => api.post(`/queue/${packageId}`).then(res => res.data);
+export const removeFromQueue = (packageId: string) => api.delete(`/queue/${packageId}`).then(res => res.data);
+export const reorderQueue = (channelId: string, newOrder: string[]) => api.patch(`/queue/${channelId}/reorder`, { new_order: newOrder }).then(res => res.data);
 
 export default api;

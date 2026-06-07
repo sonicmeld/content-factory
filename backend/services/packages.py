@@ -81,3 +81,15 @@ def update_content_package(db: Session, package_id: str, package_update: Content
         
     updated_package = package_repo.update_package(db, package_id, package_update)
     return updated_package
+
+def update_package_status(db: Session, package_id: str, status: str):
+    existing_package = package_repo.get_package(db, package_id)
+    if not existing_package:
+        raise HTTPException(status_code=404, detail="Content package not found")
+    
+    valid_statuses = ['draft', 'ready', 'queued', 'uploading', 'published', 'failed']
+    if status not in valid_statuses:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Allowed statuses are: {', '.join(valid_statuses)}")
+        
+    update_data = ContentPackageUpdate(status=status)
+    return package_repo.update_package(db, package_id, update_data)
