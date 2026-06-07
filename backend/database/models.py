@@ -80,6 +80,7 @@ class UploadJob(Base):
 
     id = Column(String, primary_key=True)
     channel_id = Column(String, nullable=False)
+    package_id = Column(String)
     video_path = Column(String, nullable=False)
     title = Column(String)
     description = Column(String)
@@ -89,6 +90,8 @@ class UploadJob(Base):
     error_message = Column(String)
     scheduled_at = Column(DateTime)
     published_at = Column(DateTime)
+    youtube_video_id = Column(String)
+    youtube_video_url = Column(String)
     created_at = Column(DateTime, default=func.now())
 
 class SchedulerJob(Base):

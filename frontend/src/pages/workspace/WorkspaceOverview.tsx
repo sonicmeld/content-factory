@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { getChannels, getPackages, getChannelStorage } from '../../services/api';
+import { getChannels, getPackages, getChannelStorage, getJobStats } from '../../services/api';
 import { format } from 'date-fns';
 
 function formatBytes(bytes: number, decimals = 2) {
@@ -38,6 +38,12 @@ export default function WorkspaceOverview() {
     const { data: storageStats, isLoading: isLoadingStorage } = useQuery({
         queryKey: ['storage', currentChannel?.id],
         queryFn: () => getChannelStorage(currentChannel?.id!),
+        enabled: !!currentChannel?.id
+    });
+
+    const { data: jobStats } = useQuery({
+        queryKey: ['jobStats', currentChannel?.id],
+        queryFn: () => getJobStats(currentChannel?.id!),
         enabled: !!currentChannel?.id
     });
 
@@ -193,12 +199,26 @@ export default function WorkspaceOverview() {
                         </div>
                     </section>
 
-                    {/* Published Placeholder */}
+                    {/* SECTION 3: Upload Jobs */}
                     <section>
-                        <div className="bg-card border border-dashed border-border rounded-xl p-8 shadow-sm flex flex-col items-center justify-center text-center opacity-60">
-                            <PlaySquare className="w-10 h-10 text-muted-foreground mb-3" />
-                            <h3 className="text-lg font-semibold">Published Videos</h3>
-                            <p className="text-sm text-muted-foreground mt-1">Publisher Module Not Implemented Yet</p>
+                        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Upload Jobs (Execution)</h2>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                            <div className="bg-card border border-border p-4 rounded-xl shadow-sm text-center">
+                                <p className="text-xs text-muted-foreground font-medium mb-1 uppercase tracking-wider">Pending</p>
+                                <p className="text-2xl font-bold">{jobStats?.pending || 0}</p>
+                            </div>
+                            <div className="bg-card border border-blue-500/30 bg-blue-500/5 p-4 rounded-xl shadow-sm text-center">
+                                <p className="text-xs text-blue-600/80 dark:text-blue-400 font-medium mb-1 uppercase tracking-wider">Uploading</p>
+                                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{jobStats?.uploading || 0}</p>
+                            </div>
+                            <div className="bg-card border border-emerald-500/30 bg-emerald-500/5 p-4 rounded-xl shadow-sm text-center">
+                                <p className="text-xs text-emerald-600/80 dark:text-emerald-400 font-medium mb-1 uppercase tracking-wider">Completed</p>
+                                <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{jobStats?.completed || 0}</p>
+                            </div>
+                            <div className="bg-card border border-destructive/30 bg-destructive/5 p-4 rounded-xl shadow-sm text-center">
+                                <p className="text-xs text-destructive/80 font-medium mb-1 uppercase tracking-wider">Failed</p>
+                                <p className="text-2xl font-bold text-destructive">{jobStats?.failed || 0}</p>
+                            </div>
                         </div>
                     </section>
 

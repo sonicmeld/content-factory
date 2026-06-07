@@ -42,6 +42,14 @@ def update_package(db: Session, package_id: str, package_update: ContentPackageU
     db.refresh(db_package)
     return db_package
 
+def update_package_status(db: Session, package_id: str, status: str):
+    db_package = get_package(db, package_id)
+    if db_package:
+        db_package.status = status
+        db.commit()
+        db.refresh(db_package)
+    return db_package
+
 def delete_package(db: Session, package_id: str):
     db_package = get_package(db, package_id)
     if db_package:

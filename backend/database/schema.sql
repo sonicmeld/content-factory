@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS metadata_templates (
 CREATE TABLE IF NOT EXISTS upload_jobs (
     id TEXT PRIMARY KEY,
     channel_id TEXT NOT NULL,
+    package_id TEXT,
     video_path TEXT NOT NULL,
     title TEXT,
     description TEXT,
@@ -75,6 +76,8 @@ CREATE TABLE IF NOT EXISTS upload_jobs (
     error_message TEXT,
     scheduled_at DATETIME,
     published_at DATETIME,
+    youtube_video_id TEXT,
+    youtube_video_url TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

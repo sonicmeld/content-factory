@@ -80,4 +80,10 @@ export const addToQueue = (packageId: string) => api.post(`/queue/${packageId}`)
 export const removeFromQueue = (packageId: string) => api.delete(`/queue/${packageId}`).then(res => res.data);
 export const reorderQueue = (channelId: string, newOrder: string[]) => api.patch(`/queue/${channelId}/reorder`, { new_order: newOrder }).then(res => res.data);
 
+// Jobs
+export const getJobStats = (channelId: string) => api.get<{pending: number, uploading: number, completed: number, failed: number}>(`/channels/${channelId}/jobs/stats`).then(res => res.data);
+export const createJobFromQueue = (channelId: string) => api.post(`/channels/${channelId}/jobs/from-queue`).then(res => res.data);
+export const updateJobStatus = (channelId: string, jobId: string, status: string) => api.put(`/channels/${channelId}/jobs/${jobId}/status`, { status }).then(res => res.data);
+
+
 export default api;
