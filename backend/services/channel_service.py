@@ -112,3 +112,32 @@ def delete_channel(db: Session, channel_id: str):
     channel = get_channel(db, channel_id)
     oauth_repository.delete_token_by_channel(db, channel_id)
     channel_repository.delete_channel(db, channel)
+
+def get_channel_storage_stats(slug: str) -> dict:
+    data_path = settings.DATA_PATH
+    if not os.path.isabs(data_path):
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        data_path = os.path.join(base_dir, data_path)
+    
+    packages_dir = os.path.join(data_path, "channels", slug, "packages")
+    
+    total_packages = 0
+    total_video_files = 0
+    total_bytes = 0
+    
+    if os.path.exists(packages_dir) and os.path.isdir(packages_dir):
+        for root, dirs, files in os.walk(packages_dir):
+            if root == packages_dir:
+                total_packages = len(dirs)
+            for f in files:
+                file_path = os.path.join(root, f)
+                if os.path.isfile(file_path):
+                    total_bytes += os.path.getsize(file_path)
+                    if f.lower().endswith(".mp4"):
+                        total_video_files += 1
+
+    return {
+        "package_count": total_packages,
+        "video_count": total_video_files,
+        "storage_bytes": total_bytes
+    }

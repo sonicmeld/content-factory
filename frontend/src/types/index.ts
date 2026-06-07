@@ -76,3 +76,9 @@ export interface ContentPackage {
     created_at: string;
     updated_at: string;
 }
+
+export interface ChannelStorageStats {
+    package_count: number;
+    video_count: number;
+    storage_bytes: number;
+}

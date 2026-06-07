@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Channel, GCPProfile, UploadJob, Asset, Prompt, ContentPackage } from '../types';
+import { Channel, GCPProfile, UploadJob, Asset, Prompt, MetadataTemplate, ContentPackage, ChannelStorageStats } from '../types';
 
 const api = axios.create({
     baseURL: '/api',
@@ -11,6 +11,7 @@ export const getChannel = (id: string) => api.get<Channel>(`/channels/${id}`).th
 export const createChannel = (data: Partial<Channel>) => api.post<Channel>('/channels', data).then(res => res.data);
 export const updateChannel = (id: string, data: Partial<Channel>) => api.put<Channel>(`/channels/${id}`, data).then(res => res.data);
 export const deleteChannel = (id: string) => api.delete(`/channels/${id}`).then(res => res.data);
+export const getChannelStorage = (id: string) => api.get<ChannelStorageStats>(`/channels/${id}/storage`).then(res => res.data);
 
 // GCP Profiles
 export const getGCPProfiles = () => api.get<GCPProfile[]>('/gcp-profiles').then(res => res.data);

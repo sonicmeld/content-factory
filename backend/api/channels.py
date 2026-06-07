@@ -28,3 +28,8 @@ def update_channel(channel_id: str, channel_in: ChannelUpdate, db: Session = Dep
 def delete_channel(channel_id: str, db: Session = Depends(get_db)):
     channel_service.delete_channel(db, channel_id)
     return {"message": "Channel deleted successfully"}
+
+@router.get("/{channel_id}/storage")
+def get_channel_storage(channel_id: str, db: Session = Depends(get_db)):
+    channel = channel_service.get_channel(db, channel_id)
+    return channel_service.get_channel_storage_stats(channel.slug)
