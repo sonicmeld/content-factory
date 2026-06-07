@@ -22,6 +22,10 @@ class ChannelUpdate(ChannelBase):
 class ChannelResponse(ChannelBase):
     id: str
     slug: str
+    youtube_channel_id: Optional[str] = None
+    youtube_channel_title: Optional[str] = None
+    youtube_handle: Optional[str] = None
+    youtube_channel_url: Optional[str] = None
     is_active: int
     created_at: datetime
     oauth_status: str = "OAuth Missing"

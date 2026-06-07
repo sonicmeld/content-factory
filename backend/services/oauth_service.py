@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from cryptography.fernet import Fernet
 import google_auth_oauthlib.flow
-
+from googleapiclient.discovery import build
 from app.config import settings
 from repositories import oauth_repository, gcp_profile_repository
 from services import channel_service
@@ -108,7 +108,30 @@ def handle_callback(db: Session, state: str, code: str):
         "expires_at": credentials.expiry.replace(tzinfo=timezone.utc) if credentials.expiry else None
     }
     
-    return oauth_repository.create_or_update_token(db, token_data)
+    oauth_repository.create_or_update_token(db, token_data)
+
+    # Sync YouTube Channel Identity
+    try:
+        youtube = build("youtube", "v3", credentials=credentials)
+        response = youtube.channels().list(part="snippet", mine=True).execute()
+        
+        if "items" in response and len(response["items"]) > 0:
+            yt_channel = response["items"][0]
+            channel.youtube_channel_id = yt_channel["id"]
+            
+            snippet = yt_channel.get("snippet", {})
+            channel.youtube_channel_title = snippet.get("title")
+            channel.youtube_handle = snippet.get("customUrl")
+            
+            # Form standard channel URL if not provided explicitly by the API
+            channel.youtube_channel_url = f"https://youtube.com/channel/{channel.youtube_channel_id}"
+            
+            db.commit()
+            db.refresh(channel)
+    except Exception as e:
+        print(f"Failed to sync YouTube channel identity: {e}")
+    
+    return token_data
 
 def disconnect_oauth(db: Session, channel_id: str):
     token = oauth_repository.get_token_by_channel(db, channel_id)

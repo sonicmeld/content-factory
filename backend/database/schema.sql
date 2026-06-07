@@ -17,6 +17,10 @@ CREATE TABLE IF NOT EXISTS channels (
     upload_frequency TEXT,
     thumbnail_style TEXT,
     metadata_style TEXT,
+    youtube_channel_id TEXT,
+    youtube_channel_title TEXT,
+    youtube_handle TEXT,
+    youtube_channel_url TEXT,
     is_active INTEGER DEFAULT 1,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );

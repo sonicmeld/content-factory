@@ -8,6 +8,10 @@ export interface Channel {
     thumbnail_style?: string;
     metadata_style?: string;
     oauth_status?: string;
+    youtube_channel_id?: string;
+    youtube_channel_title?: string;
+    youtube_handle?: string;
+    youtube_channel_url?: string;
     is_active: number;
     created_at: string;
 }

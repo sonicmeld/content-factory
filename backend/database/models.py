@@ -26,6 +26,10 @@ class Channel(Base):
     upload_frequency = Column(String)
     thumbnail_style = Column(String)
     metadata_style = Column(String)
+    youtube_channel_id = Column(String)
+    youtube_channel_title = Column(String)
+    youtube_handle = Column(String)
+    youtube_channel_url = Column(String)
     is_active = Column(Integer, default=1)
     created_at = Column(DateTime, default=func.now())
 

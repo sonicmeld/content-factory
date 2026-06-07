@@ -104,8 +104,24 @@ export default function WorkspaceOverview() {
                                             )}
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <span className="text-sm text-muted-foreground">Account:</span>
-                                            <span className="text-sm font-medium">Unknown</span>
+                                            {currentChannel.youtube_channel_title ? (
+                                                <>
+                                                    <span className="text-sm text-muted-foreground">Connected Channel:</span>
+                                                    <span className="text-sm font-bold text-primary">
+                                                        {currentChannel.youtube_channel_title}
+                                                    </span>
+                                                    {currentChannel.youtube_handle && (
+                                                        <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded font-mono">
+                                                            {currentChannel.youtube_handle}
+                                                        </span>
+                                                    )}
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <span className="text-sm text-muted-foreground">Account:</span>
+                                                    <span className="text-sm font-medium">Unknown</span>
+                                                </>
+                                            )}
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
@@ -114,13 +130,37 @@ export default function WorkspaceOverview() {
                                     </div>
                                 </div>
                                 <div className="flex flex-col gap-2">
-                                    <button disabled className="flex items-center justify-center gap-2 bg-secondary/50 text-muted-foreground px-4 py-2 rounded-md font-medium text-sm transition-colors cursor-not-allowed">
-                                        YouTube Studio
-                                    </button>
-                                    <button disabled className="flex items-center justify-center gap-2 bg-secondary/50 text-muted-foreground px-4 py-2 rounded-md font-medium text-sm transition-colors cursor-not-allowed">
-                                        <ExternalLink className="w-4 h-4" />
-                                        Open Channel
-                                    </button>
+                                    {currentChannel.youtube_channel_id ? (
+                                        <>
+                                            <a 
+                                                href={`https://studio.youtube.com/channel/${currentChannel.youtube_channel_id}`} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md font-medium text-sm transition-colors"
+                                            >
+                                                YouTube Studio
+                                            </a>
+                                            <a 
+                                                href={currentChannel.youtube_channel_url || `https://youtube.com/channel/${currentChannel.youtube_channel_id}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex items-center justify-center gap-2 bg-secondary text-secondary-foreground hover:bg-secondary/80 px-4 py-2 rounded-md font-medium text-sm transition-colors"
+                                            >
+                                                <ExternalLink className="w-4 h-4" />
+                                                Open Channel
+                                            </a>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <button disabled className="flex items-center justify-center gap-2 bg-secondary/50 text-muted-foreground px-4 py-2 rounded-md font-medium text-sm transition-colors cursor-not-allowed">
+                                                YouTube Studio
+                                            </button>
+                                            <button disabled className="flex items-center justify-center gap-2 bg-secondary/50 text-muted-foreground px-4 py-2 rounded-md font-medium text-sm transition-colors cursor-not-allowed">
+                                                <ExternalLink className="w-4 h-4" />
+                                                Open Channel
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         </div>
