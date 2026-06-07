@@ -1,3 +1,4 @@
+import React, { useState } from 'react';
 import { 
     Package, 
     Activity, 
@@ -9,11 +10,13 @@ import {
     Calendar,
     AlertTriangle,
     Play,
-    Check
+    Check,
+    UploadCloud,
+    Settings2
 } from 'lucide-react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getChannels, getPackages, getChannelStorage, getJobStats, getPublisherStatus, runPublisherOnce, completePublisherJob } from '../../services/api';
+import { getChannels, getPackages, getChannelStorage, getJobStats, getPublisherStatus, runPublisherOnce, completePublisherJob, executePublisherUpload } from '../../services/api';
 import { format } from 'date-fns';
 
 function formatBytes(bytes: number, decimals = 2) {
@@ -54,10 +57,37 @@ export default function WorkspaceOverview() {
         enabled: !!currentChannel?.id
     });
 
+    const [isDevMode, setIsDevMode] = useState(false);
     const queryClient = useQueryClient();
 
     const runPublisherMutation = useMutation({
         mutationFn: () => runPublisherOnce(currentChannel?.id!),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['packages'] });
+            queryClient.invalidateQueries({ queryKey: ['jobStats'] });
+            refetchPublisher();
+        }
+    });
+
+    const executeUploadMutation = useMutation({
+        mutationFn: () => executePublisherUpload(currentChannel?.id!),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['packages'] });
+            queryClient.invalidateQueries({ queryKey: ['jobStats'] });
+            refetchPublisher();
+        }
+    });
+
+    const uploadNextPackageMutation = useMutation({
+        mutationFn: async () => {
+            if (!currentChannel?.id) throw new Error("No channel");
+            // Only call runOnce if there's no active job uploading
+            const status = await getPublisherStatus(currentChannel.id);
+            if (!status.active_job) {
+                await runPublisherOnce(currentChannel.id);
+            }
+            await executePublisherUpload(currentChannel.id);
+        },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['packages'] });
             queryClient.invalidateQueries({ queryKey: ['jobStats'] });
@@ -263,13 +293,43 @@ export default function WorkspaceOverview() {
                                         </span>
                                     </div>
                                 </div>
-                                <div className="flex gap-2">
+                                <div className="flex items-center gap-4">
+                                    <button 
+                                        onClick={() => setIsDevMode(!isDevMode)}
+                                        className={`p-2 rounded-md transition-colors ${isDevMode ? 'bg-secondary text-primary' : 'text-muted-foreground hover:bg-secondary/50'}`}
+                                        title="Toggle Developer Controls"
+                                    >
+                                        <Settings2 className="w-4 h-4" />
+                                    </button>
+                                    <button 
+                                        onClick={() => uploadNextPackageMutation.mutate()}
+                                        disabled={uploadNextPackageMutation.isPending || publisherStatus?.status === 'Running'}
+                                        className="bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium px-5 py-2.5 rounded-lg flex items-center gap-2 disabled:opacity-50 transition-colors shadow-sm"
+                                    >
+                                        <UploadCloud className="w-5 h-5" /> 
+                                        {uploadNextPackageMutation.isPending ? 'Uploading...' : 'Upload Next Package'}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {isDevMode && (
+                                <div className="mt-4 p-4 border border-border/50 rounded-lg bg-secondary/20 flex gap-2 flex-wrap">
+                                    <div className="w-full mb-2">
+                                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Developer Controls</p>
+                                    </div>
                                     <button 
                                         onClick={() => runPublisherMutation.mutate()}
                                         disabled={runPublisherMutation.isPending || publisherStatus?.status === 'Running'}
-                                        className="bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50 transition-colors"
+                                        className="bg-secondary hover:bg-secondary/80 text-secondary-foreground text-sm font-medium px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50 transition-colors"
                                     >
                                         <Play className="w-4 h-4" /> Run Once
+                                    </button>
+                                    <button 
+                                        onClick={() => executeUploadMutation.mutate()}
+                                        disabled={executeUploadMutation.isPending || publisherStatus?.status !== 'Running'}
+                                        className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50 transition-colors"
+                                    >
+                                        <UploadCloud className="w-4 h-4" /> Upload
                                     </button>
                                     <button 
                                         onClick={() => completePublisherMutation.mutate()}
@@ -279,7 +339,7 @@ export default function WorkspaceOverview() {
                                         <Check className="w-4 h-4" /> Complete Job
                                     </button>
                                 </div>
-                            </div>
+                            )}
                             
                             {(publisherStatus?.active_job || publisherStatus?.last_job) && (
                                 <div className="bg-muted/30 rounded-lg p-3 text-sm mt-4 border border-border/50">

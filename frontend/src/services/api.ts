@@ -89,5 +89,6 @@ export const updateJobStatus = (channelId: string, jobId: string, status: string
 export const runPublisherOnce = (channelId: string) => api.post(`/channels/${channelId}/publisher/run-once`).then(res => res.data);
 export const completePublisherJob = (channelId: string) => api.post(`/channels/${channelId}/publisher/complete`).then(res => res.data);
 export const getPublisherStatus = (channelId: string) => api.get(`/channels/${channelId}/publisher/status`).then(res => res.data);
+export const executePublisherUpload = (channelId: string) => api.post(`/channels/${channelId}/publisher/upload`).then(res => res.data);
 
 export default api;
