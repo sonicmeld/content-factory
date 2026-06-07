@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from cryptography.fernet import Fernet
 import google_auth_oauthlib.flow
+import google.oauth2.credentials
+import google.auth.transport.requests
 from googleapiclient.discovery import build
 from app.config import settings
 from repositories import oauth_repository, gcp_profile_repository
@@ -140,3 +142,90 @@ def disconnect_oauth(db: Session, channel_id: str):
         db.commit()
         return True
     return False
+
+def get_valid_credentials(db: Session, channel_id: str) -> google.oauth2.credentials.Credentials:
+    """
+    Single source of truth for building valid, auto-refreshing Google Credentials.
+
+    Lifecycle:
+    1. Load OAuth token record for this channel.
+    2. Load the associated GCP profile (client_id, client_secret).
+    3. Decrypt refresh_token.
+    4. Construct google.oauth2.credentials.Credentials.
+    5. If expired, perform automatic refresh using Google's token endpoint.
+    6. Persist refreshed access_token and expires_at back to the database.
+    7. Return usable credentials.
+
+    Failure handling:
+    - Missing token record          -> 401: Channel not authorized
+    - Missing refresh_token         -> 401: Refresh token unavailable, re-auth required
+    - Missing GCP profile           -> 400: GCP profile not configured
+    - Refresh failure (revoked/bad) -> 401: Token refresh failed
+    """
+    # Step 1: Load token record
+    token_record = oauth_repository.get_token_by_channel(db, channel_id)
+    if not token_record:
+        raise HTTPException(
+            status_code=401,
+            detail="Channel is not authorized. Please complete OAuth."
+        )
+
+    # Step 2: Load GCP profile for client credentials
+    channel = channel_service.get_channel(db, channel_id)
+    if not channel.gcp_profile_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Channel does not have a GCP profile assigned. Cannot build credentials."
+        )
+
+    gcp_profile = gcp_profile_repository.get_profile(db, channel.gcp_profile_id)
+    if not gcp_profile:
+        raise HTTPException(
+            status_code=400,
+            detail="Assigned GCP profile not found. Cannot build credentials."
+        )
+
+    # Step 3: Decrypt refresh_token
+    raw_refresh_token = decrypt_token(token_record.refresh_token) if token_record.refresh_token else None
+    if not raw_refresh_token:
+        raise HTTPException(
+            status_code=401,
+            detail="Refresh token is unavailable. Please re-authorize the channel via OAuth."
+        )
+
+    # Step 4: Construct Credentials object
+    credentials = google.oauth2.credentials.Credentials(
+        token=token_record.access_token,
+        refresh_token=raw_refresh_token,
+        token_uri="https://oauth2.googleapis.com/token",
+        client_id=gcp_profile.client_id,
+        client_secret=gcp_profile.client_secret,
+        scopes=SCOPES
+    )
+
+    # Override expiry from database if available
+    if token_record.expires_at:
+        credentials.expiry = token_record.expires_at.replace(tzinfo=None)
+
+    # Step 5 & 6: Auto-refresh if expired
+    if credentials.expired or not credentials.valid:
+        try:
+            request = google.auth.transport.requests.Request()
+            credentials.refresh(request)
+        except Exception as e:
+            raise HTTPException(
+                status_code=401,
+                detail=f"Token refresh failed. The channel may need to re-authorize. Error: {str(e)}"
+            )
+
+        # Step 6: Persist refreshed token values back to database
+        new_expires_at = credentials.expiry.replace(tzinfo=timezone.utc) if credentials.expiry else None
+        oauth_repository.create_or_update_token(db, {
+            "channel_id": channel_id,
+            "access_token": credentials.token,
+            "refresh_token": None,  # Intentionally None: repository will preserve existing
+            "expires_at": new_expires_at
+        })
+
+    # Step 7: Return usable credentials
+    return credentials
