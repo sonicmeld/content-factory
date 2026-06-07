@@ -55,3 +55,21 @@ def delete_jobs_by_package(db: Session, package_id: str):
     for job in jobs:
         db.delete(job)
     db.commit()
+
+def get_next_pending_job(db: Session, channel_id: str) -> Optional[UploadJob]:
+    return db.query(UploadJob).filter(
+        UploadJob.channel_id == channel_id,
+        UploadJob.status == "pending"
+    ).order_by(UploadJob.created_at.asc()).first()
+
+def get_active_job(db: Session, channel_id: str) -> Optional[UploadJob]:
+    return db.query(UploadJob).filter(
+        UploadJob.channel_id == channel_id,
+        UploadJob.status == "uploading"
+    ).first()
+
+def get_last_executed_job(db: Session, channel_id: str) -> Optional[UploadJob]:
+    return db.query(UploadJob).filter(
+        UploadJob.channel_id == channel_id,
+        UploadJob.status.in_(["completed", "failed"])
+    ).order_by(UploadJob.created_at.desc()).first()

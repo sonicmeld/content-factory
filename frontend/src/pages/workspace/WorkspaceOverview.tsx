@@ -7,11 +7,13 @@ import {
     HardDrive,
     FileVideo,
     Calendar,
-    AlertTriangle
+    AlertTriangle,
+    Play,
+    Check
 } from 'lucide-react';
 import { useParams, Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { getChannels, getPackages, getChannelStorage, getJobStats } from '../../services/api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getChannels, getPackages, getChannelStorage, getJobStats, getPublisherStatus, runPublisherOnce, completePublisherJob } from '../../services/api';
 import { format } from 'date-fns';
 
 function formatBytes(bytes: number, decimals = 2) {
@@ -44,6 +46,32 @@ export default function WorkspaceOverview() {
         queryKey: ['jobStats', currentChannel?.id],
         queryFn: () => getJobStats(currentChannel?.id!),
         enabled: !!currentChannel?.id
+    });
+
+    const { data: publisherStatus, refetch: refetchPublisher } = useQuery({
+        queryKey: ['publisherStatus', currentChannel?.id],
+        queryFn: () => getPublisherStatus(currentChannel?.id!),
+        enabled: !!currentChannel?.id
+    });
+
+    const queryClient = useQueryClient();
+
+    const runPublisherMutation = useMutation({
+        mutationFn: () => runPublisherOnce(currentChannel?.id!),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['packages'] });
+            queryClient.invalidateQueries({ queryKey: ['jobStats'] });
+            refetchPublisher();
+        }
+    });
+
+    const completePublisherMutation = useMutation({
+        mutationFn: () => completePublisherJob(currentChannel?.id!),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['packages'] });
+            queryClient.invalidateQueries({ queryKey: ['jobStats'] });
+            refetchPublisher();
+        }
     });
 
     if (!currentChannel) return null;
@@ -218,6 +246,61 @@ export default function WorkspaceOverview() {
                                 <p className="text-xs text-destructive/80 font-medium mb-1 uppercase tracking-wider">Failed</p>
                                 <p className="text-2xl font-bold text-destructive">{jobStats?.failed || 0}</p>
                             </div>
+                        </div>
+                    </section>
+
+                    {/* SECTION: Publisher Foundation */}
+                    <section>
+                        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Publisher Control</h2>
+                        <div className="bg-card border border-border rounded-xl p-5 shadow-sm space-y-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Status</p>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <div className={`w-2.5 h-2.5 rounded-full ${publisherStatus?.status === 'Running' ? 'bg-blue-500 animate-pulse' : 'bg-muted-foreground'}`} />
+                                        <span className={`font-semibold ${publisherStatus?.status === 'Running' ? 'text-blue-600 dark:text-blue-400' : 'text-muted-foreground'}`}>
+                                            {publisherStatus?.status || 'Idle'}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button 
+                                        onClick={() => runPublisherMutation.mutate()}
+                                        disabled={runPublisherMutation.isPending || publisherStatus?.status === 'Running'}
+                                        className="bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50 transition-colors"
+                                    >
+                                        <Play className="w-4 h-4" /> Run Once
+                                    </button>
+                                    <button 
+                                        onClick={() => completePublisherMutation.mutate()}
+                                        disabled={completePublisherMutation.isPending || publisherStatus?.status !== 'Running'}
+                                        className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50 transition-colors"
+                                    >
+                                        <Check className="w-4 h-4" /> Complete Job
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            {(publisherStatus?.active_job || publisherStatus?.last_job) && (
+                                <div className="bg-muted/30 rounded-lg p-3 text-sm mt-4 border border-border/50">
+                                    {publisherStatus?.active_job ? (
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-muted-foreground">Active Job:</span>
+                                            <span className="font-mono text-xs">{publisherStatus.active_job.id}</span>
+                                        </div>
+                                    ) : publisherStatus?.last_job && (
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-muted-foreground">Last Executed:</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className={`font-mono text-xs ${publisherStatus.last_job.status === 'failed' ? 'text-destructive' : 'text-emerald-500'}`}>
+                                                    [{publisherStatus.last_job.status.toUpperCase()}]
+                                                </span>
+                                                <span className="font-mono text-xs text-muted-foreground">{publisherStatus.last_job.id}</span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </section>
 
