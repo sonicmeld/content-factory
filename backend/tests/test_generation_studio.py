@@ -100,9 +100,24 @@ class TestGenerationStudioService(unittest.TestCase):
         self.assertEqual(gen.metadata_status, "failed")
         self.assertIn("Connection refused", gen.error_message)
 
+    @patch("requests.post")
+    def test_generate_metadata_direct_json_success(self, mock_post):
+        # Mock 9Router direct JSON response (Combo metadata output format)
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "title": "Direct JSON Title",
+            "description": "Direct JSON Description text content."
+        }
+        mock_post.return_value = mock_response
 
-if __name__ == "__main__":
-    unittest.main()
+        # Call service directly
+        gen = generation_service.generate_metadata(self.db, "test-package-id")
+        self.assertIsNotNone(gen)
+        self.assertEqual(gen.metadata_status, "completed")
+        self.assertEqual(gen.title, "Direct JSON Title")
+        self.assertEqual(gen.description, "Direct JSON Description text content.")
+        self.assertIsNone(gen.error_message)
 
 
 if __name__ == "__main__":

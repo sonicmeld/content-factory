@@ -236,6 +236,7 @@ def generate_metadata(db: Session, package_id: str) -> PackageGeneration:
 
         payload = {
             "model": combo,
+            "stream": False,
             "messages": [
                 {
                     "role": "system",
@@ -263,14 +264,40 @@ def generate_metadata(db: Session, package_id: str) -> PackageGeneration:
             timeout=60,
         )
         response.raise_for_status()
-        data = response.json()
-        raw_text = (
-            data.get("choices", [{}])[0]
-            .get("message", {})
-            .get("content", "")
-        )
 
-        title, description = _parse_title_description(raw_text)
+        # Defensive logging before parsing
+        status_code = response.status_code
+        content_type = response.headers.get("content-type", "unknown")
+        snippet = response.text[:500]
+        print(f"[9Router Response Log] Status: {status_code}, Content-Type: {content_type}")
+        print(f"[9Router Response Body Snippet]: {snippet}")
+
+        try:
+            data = response.json()
+            if isinstance(data, dict) and "title" in data and "description" in data:
+                title = data["title"]
+                description = data["description"]
+            else:
+                raw_text = (
+                    data.get("choices", [{}])[0]
+                    .get("message", {})
+                    .get("content", "")
+                )
+                if not raw_text:
+                    raise ValueError("No content returned in chat completion choices.")
+                title, description = _parse_title_description(raw_text)
+        except Exception as err:
+            error_msg = f"Failed to parse metadata response: {str(err)} (Body: {snippet})"
+            package_generation_repository.update_generation(
+                db,
+                package_id,
+                {
+                    "metadata_status": "failed",
+                    "error_message": error_msg,
+                },
+            )
+            # Return instead of raising to prevent crashing the worker/endpoint
+            return package_generation_repository.get_by_package_id(db, package_id)
 
         # --- Step 7: Persist completed result ---
         return package_generation_repository.update_generation(
