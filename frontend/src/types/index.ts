@@ -115,3 +115,15 @@ export interface PackageGeneration {
     created_at: string;
     updated_at: string;
 }
+
+export interface PromptContext {
+    id: string;
+    channel_id: string;
+    title: string;
+    topic?: string;
+    keywords?: string;
+    notes?: string;
+    created_at: string;
+    updated_at: string;
+}
+

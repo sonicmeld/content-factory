@@ -168,3 +168,36 @@ class PackageGenerationResponse(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# Sprint 7A-3.1: Metadata Context schemas
+class PromptContextBase(BaseModel):
+    title: str
+    topic: Optional[str] = None
+    keywords: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class PromptContextCreate(PromptContextBase):
+    pass
+
+
+class PromptContextUpdate(BaseModel):
+    title: Optional[str] = None
+    topic: Optional[str] = None
+    keywords: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class PromptContextResponse(PromptContextBase):
+    id: str
+    channel_id: str
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class GenerateMetadataRequest(BaseModel):
+    context_id: Optional[str] = None
+

@@ -7,7 +7,7 @@ import { getUploadJobs } from '../services/api';
 const navItems = [
     { label: 'Dashboard', icon: LayoutDashboard, path: '/' },
     { label: 'Channels', icon: MonitorPlay, path: '/channels' },
-    { label: 'Prompt Factory', icon: Sparkles, path: '/prompts' },
+    { label: 'Prompt Contexts', icon: Sparkles, path: '/prompts' },
     { label: 'Assets', icon: ImageIcon, path: '/assets' },
     { label: 'Uploads', icon: UploadCloud, path: '/uploads' },
     { label: 'Settings', icon: Settings, path: '/settings' },

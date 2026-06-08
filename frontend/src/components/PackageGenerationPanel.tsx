@@ -6,8 +6,9 @@
  * Sprint 7A-3: Active metadata generation with 9Router integration and polling.
  */
 
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getPackageGeneration, generateMetadata } from '../services/api';
+import { getPackageGeneration, generateMetadata, getPromptContexts } from '../services/api';
 import type { ContentPackage } from '../types';
 import { toast } from 'sonner';
 import {
@@ -63,6 +64,12 @@ function StatusBadge({ status }: { status: GenStatus }) {
 
 export default function PackageGenerationPanel({ package_, channelSlug }: Props) {
     const queryClient = useQueryClient();
+    const [selectedContextId, setSelectedContextId] = useState<string>('');
+
+    const { data: promptContexts = [] } = useQuery({
+        queryKey: ['prompt-contexts', package_.channel_id],
+        queryFn: () => getPromptContexts(package_.channel_id),
+    });
 
     const {
         data: gen,
@@ -86,7 +93,7 @@ export default function PackageGenerationPanel({ package_, channelSlug }: Props)
     const noRecord = isError && (error as any)?.response?.status === 404;
 
     const generateMetadataMutation = useMutation({
-        mutationFn: () => generateMetadata(package_.id),
+        mutationFn: () => generateMetadata(package_.id, selectedContextId || undefined),
         onSuccess: () => {
             toast.success('Metadata generation triggered');
             queryClient.invalidateQueries({ queryKey: ['package-generation', package_.id] });
@@ -201,6 +208,24 @@ export default function PackageGenerationPanel({ package_, channelSlug }: Props)
                         )}
                     </div>
                 )}
+
+                {/* Metadata Context Dropdown */}
+                <div className="space-y-1.5 pt-3 border-t border-border/60">
+                    <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Metadata Context</label>
+                    <select
+                        className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-xs focus:ring-1 focus:ring-primary focus:outline-none"
+                        value={selectedContextId}
+                        onChange={(e) => setSelectedContextId(e.target.value)}
+                        disabled={isMetadataProcessing || generateMetadataMutation.isPending}
+                    >
+                        <option value="">Default (No Context)</option>
+                        {promptContexts.map((ctx) => (
+                            <option key={ctx.id} value={ctx.id}>
+                                {ctx.title}
+                            </option>
+                        ))}
+                    </select>
+                </div>
 
                 {/* Placeholder action buttons */}
                 <div className="pt-3 border-t border-border/60 flex gap-2 flex-wrap">

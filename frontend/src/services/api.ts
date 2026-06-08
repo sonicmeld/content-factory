@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Channel, GCPProfile, UploadJob, Asset, Prompt, ContentPackage, ChannelStorageStats, QueueItem, PackageGeneration } from '../types';
+import type { Channel, GCPProfile, UploadJob, Asset, Prompt, ContentPackage, ChannelStorageStats, QueueItem, PackageGeneration, PromptContext } from '../types';
 
 const api = axios.create({
     baseURL: '/api',
@@ -95,7 +95,20 @@ export const executePublisherUpload = (channelId: string) => api.post(`/channels
 export const getPackageGeneration = (packageId: string) =>
     api.get<PackageGeneration>(`/packages/${packageId}/generation`).then(res => res.data);
 
-export const generateMetadata = (packageId: string) =>
-    api.post<PackageGeneration>(`/packages/${packageId}/generate-metadata`).then(res => res.data);
+export const generateMetadata = (packageId: string, contextId?: string) =>
+    api.post<PackageGeneration>(`/packages/${packageId}/generate-metadata`, { context_id: contextId }).then(res => res.data);
+
+// Prompt Contexts CRUD (Sprint 7A-3.1)
+export const getPromptContexts = (channelId: string) =>
+    api.get<PromptContext[]>(`/channels/${channelId}/prompt-contexts`).then(res => res.data);
+
+export const createPromptContext = (channelId: string, data: Partial<PromptContext>) =>
+    api.post<PromptContext>(`/channels/${channelId}/prompt-contexts`, data).then(res => res.data);
+
+export const updatePromptContext = (id: string, data: Partial<PromptContext>) =>
+    api.put<PromptContext>(`/prompt-contexts/${id}`, data).then(res => res.data);
+
+export const deletePromptContext = (id: string) =>
+    api.delete<{ message: string }>(`/prompt-contexts/${id}`).then(res => res.data);
 
 export default api;

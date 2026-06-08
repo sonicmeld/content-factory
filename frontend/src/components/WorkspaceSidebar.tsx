@@ -24,7 +24,7 @@ export default function WorkspaceSidebar() {
 
     const supportItems = [
         { label: 'Assets', icon: ImageIcon, path: `/workspace/${slug}/assets` },
-        { label: 'Prompt Factory', icon: Sparkles, path: `/workspace/${slug}/prompts` },
+        { label: 'Prompt Contexts', icon: Sparkles, path: `/workspace/${slug}/prompts` },
     ];
 
     const adminItems = [

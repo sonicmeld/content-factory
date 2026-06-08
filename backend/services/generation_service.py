@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from typing import Optional
 
 from database.models import PackageGeneration
-from repositories import package_generation_repository
+from repositories import package_generation_repository, prompt_context_repository
 from repositories.packages import get_package
 from repositories.channel_repository import get_channel
 from app.config import settings
@@ -175,7 +175,7 @@ def _parse_title_description(text: str) -> tuple[str, str]:
     return title, description
 
 
-def generate_metadata(db: Session, package_id: str) -> PackageGeneration:
+def generate_metadata(db: Session, package_id: str, context_id: Optional[str] = None) -> PackageGeneration:
     """
     Sprint 7A-3 — Metadata Combo Engine.
 
@@ -226,13 +226,39 @@ def generate_metadata(db: Session, package_id: str) -> PackageGeneration:
         video_filename = package.video_path.split("/")[-1].split("\\")[-1] if package.video_path else "unknown"
         timestamp_content = _read_timestamp_content(package.timestamp_path or "")
 
-        user_message = (
-            f"Channel: {channel.name}\n"
-            f"Package Number: {package.package_number}\n"
-            f"Video File: {video_filename}\n"
-        )
-        if timestamp_content:
-            user_message += f"\nTimestamp File Content:\n{timestamp_content}"
+        if context_id:
+            ctx = prompt_context_repository.get_by_id(db, context_id)
+            if not ctx:
+                raise ValueError("Prompt Context not found.")
+            if ctx.channel_id != package.channel_id:
+                raise ValueError("Prompt Context does not belong to Package Channel")
+            
+            user_message = (
+                "=== CHANNEL CONTEXT ===\n\n"
+                "Topic:\n"
+                f"{ctx.topic or ''}\n\n"
+                "Keywords:\n"
+                f"{ctx.keywords or ''}\n\n"
+                "Notes:\n"
+                f"{ctx.notes or ''}\n\n"
+                "=== PACKAGE INFORMATION ===\n\n"
+                "Channel:\n"
+                f"{channel.name}\n\n"
+                "Package:\n"
+                f"{package.package_number}\n\n"
+                "Video:\n"
+                f"{video_filename}\n\n"
+                "Timestamp:\n"
+                f"{timestamp_content}"
+            )
+        else:
+            user_message = (
+                f"Channel: {channel.name}\n"
+                f"Package Number: {package.package_number}\n"
+                f"Video File: {video_filename}\n"
+            )
+            if timestamp_content:
+                user_message += f"\nTimestamp File Content:\n{timestamp_content}"
 
         payload = {
             "model": combo,

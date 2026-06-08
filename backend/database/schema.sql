@@ -138,3 +138,16 @@ CREATE TABLE IF NOT EXISTS package_generations (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Sprint 7A-3.1: Metadata Context Layer
+CREATE TABLE IF NOT EXISTS prompt_contexts (
+    id TEXT PRIMARY KEY,
+    channel_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    topic TEXT,
+    keywords TEXT,
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+

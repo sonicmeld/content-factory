@@ -158,3 +158,18 @@ class PackageGeneration(Base):
     error_message = Column(Text, nullable=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+# Sprint 7A-3.1: Metadata Context Layer
+class PromptContext(Base):
+    __tablename__ = "prompt_contexts"
+
+    id = Column(String, primary_key=True)
+    channel_id = Column(String, nullable=False)
+    title = Column(String, nullable=False)
+    topic = Column(String, nullable=True)
+    keywords = Column(String, nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
