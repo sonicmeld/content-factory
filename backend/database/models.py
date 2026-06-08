@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, DateTime
+from sqlalchemy import Column, String, Integer, DateTime, Text
 from sqlalchemy.sql import func
 from sqlalchemy.orm import declarative_base
 
@@ -32,6 +32,10 @@ class Channel(Base):
     youtube_channel_url = Column(String)
     is_active = Column(Integer, default=1)
     created_at = Column(DateTime, default=func.now())
+    # Sprint 7A: 9Router Combo Configuration
+    metadata_combo = Column(String, nullable=True, default="")
+    thumbnail_combo = Column(String, nullable=True, default="")
+    footage_combo = Column(String, nullable=True, default="")
 
 class OAuthToken(Base):
     __tablename__ = "oauth_tokens"
@@ -55,6 +59,7 @@ class Asset(Base):
     mime_type = Column(String, nullable=False)
     created_at = Column(DateTime, default=func.now())
 
+# LEGACY: Prompt Factory model — superseded by Generation Studio (Sprint 7A). Do NOT use in new code.
 class Prompt(Base):
     __tablename__ = "prompts"
 
@@ -65,6 +70,7 @@ class Prompt(Base):
     category = Column(String)
     created_at = Column(DateTime, default=func.now())
 
+# LEGACY: MetadataTemplate model — superseded by PackageGeneration (Sprint 7A). Do NOT use in new code.
 class MetadataTemplate(Base):
     __tablename__ = "metadata_templates"
 
@@ -103,6 +109,7 @@ class SchedulerJob(Base):
     is_enabled = Column(Integer, default=1)
     created_at = Column(DateTime, default=func.now())
 
+# LEGACY: ChannelProfile model — orphaned, superseded by Channel.metadata_combo/thumbnail_combo/footage_combo (Sprint 7A). Do NOT use in new code.
 class ChannelProfile(Base):
     __tablename__ = "channel_profiles"
 
@@ -134,3 +141,20 @@ class UploadQueue(Base):
     channel_id = Column(String, nullable=False)
     queue_position = Column(Integer, nullable=False)
     created_at = Column(DateTime, default=func.now())
+
+
+# Sprint 7A: Generation Studio — tracks 9Router generation results per Content Package
+class PackageGeneration(Base):
+    __tablename__ = "package_generations"
+
+    id = Column(String, primary_key=True)
+    package_id = Column(String, nullable=False)
+    title = Column(String, nullable=True)
+    description = Column(Text, nullable=True)
+    thumbnail_path = Column(String, nullable=True)
+    # Status values: pending | processing | completed | failed
+    metadata_status = Column(String, nullable=False, default="pending")
+    thumbnail_status = Column(String, nullable=False, default="pending")
+    error_message = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())

@@ -9,6 +9,10 @@ class ChannelBase(BaseModel):
     upload_frequency: Optional[str] = None
     thumbnail_style: Optional[str] = None
     metadata_style: Optional[str] = None
+    # Sprint 7A: 9Router Combo Configuration
+    metadata_combo: Optional[str] = None
+    thumbnail_combo: Optional[str] = None
+    footage_combo: Optional[str] = None
 
 class ChannelCreate(ChannelBase):
     pass
@@ -143,6 +147,23 @@ class ContentPackageUpdate(BaseModel):
 
 class ContentPackageResponse(ContentPackageBase):
     id: str
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# Sprint 7A: Generation Studio schemas
+class PackageGenerationResponse(BaseModel):
+    id: str
+    package_id: str
+    title: Optional[str] = None
+    description: Optional[str] = None
+    thumbnail_path: Optional[str] = None
+    metadata_status: str
+    thumbnail_status: str
+    error_message: Optional[str] = None
+    is_ready: bool = False
     created_at: datetime
     updated_at: datetime
 

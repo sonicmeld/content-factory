@@ -22,7 +22,11 @@ CREATE TABLE IF NOT EXISTS channels (
     youtube_handle TEXT,
     youtube_channel_url TEXT,
     is_active INTEGER DEFAULT 1,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    -- Sprint 7A: 9Router Combo Configuration
+    metadata_combo TEXT DEFAULT '',
+    thumbnail_combo TEXT DEFAULT '',
+    footage_combo TEXT DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS oauth_tokens (
@@ -45,6 +49,7 @@ CREATE TABLE IF NOT EXISTS assets (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- LEGACY: Prompt Factory table — superseded by Generation Studio (Sprint 7A). Do NOT use in new queries.
 CREATE TABLE IF NOT EXISTS prompts (
     id TEXT PRIMARY KEY,
     channel_id TEXT NOT NULL,
@@ -54,6 +59,7 @@ CREATE TABLE IF NOT EXISTS prompts (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- LEGACY: metadata_templates — superseded by package_generations (Sprint 7A). Do NOT use in new queries.
 CREATE TABLE IF NOT EXISTS metadata_templates (
     id TEXT PRIMARY KEY,
     channel_id TEXT NOT NULL,
@@ -89,6 +95,7 @@ CREATE TABLE IF NOT EXISTS scheduler_jobs (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- LEGACY: channel_profiles — orphaned, superseded by channels.metadata_combo/thumbnail_combo/footage_combo (Sprint 7A). Do NOT use in new queries.
 CREATE TABLE IF NOT EXISTS channel_profiles (
     id TEXT PRIMARY KEY,
     channel_id TEXT NOT NULL,
@@ -116,4 +123,18 @@ CREATE TABLE IF NOT EXISTS upload_queue (
     channel_id TEXT NOT NULL,
     queue_position INTEGER NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Sprint 7A: Generation Studio — tracks 9Router generation results per Content Package
+CREATE TABLE IF NOT EXISTS package_generations (
+    id TEXT PRIMARY KEY,
+    package_id TEXT NOT NULL,
+    title TEXT,
+    description TEXT,
+    thumbnail_path TEXT,
+    metadata_status TEXT NOT NULL DEFAULT 'pending',
+    thumbnail_status TEXT NOT NULL DEFAULT 'pending',
+    error_message TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
