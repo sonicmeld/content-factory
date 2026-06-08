@@ -1,3 +1,4 @@
+import os
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -15,12 +16,18 @@ def generate_prompt(request: PromptGenerateRequest, db: Session = Depends(get_db
 @router.post("/thumbnails/generate", response_model=AssetResponse)
 def generate_thumbnail_api(request: GenerateThumbnailRequest, db: Session = Depends(get_db)):
     try:
-        output_path = image_service.generate_thumbnail(db, request.prompt, request.channel_id)
+        from repositories.channel_repository import get_channel
+        channel = get_channel(db, request.channel_id)
+        model = (channel.thumbnail_combo if channel else None) or "gemini/gemini-2.5-flash-image"
+        output_path = image_service.generate_thumbnail(db, request.prompt, request.channel_id, model)
         
         asset = Asset(
             channel_id=request.channel_id,
-            type="thumbnail",
-            path=output_path
+            asset_type="thumbnail",
+            filename=os.path.basename(output_path),
+            file_path=output_path,
+            file_size=os.path.getsize(output_path) if os.path.exists(output_path) else 0,
+            mime_type="image/jpeg"
         )
         db.add(asset)
         db.commit()

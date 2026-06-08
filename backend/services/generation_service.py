@@ -348,3 +348,110 @@ def generate_metadata(db: Session, package_id: str, context_id: Optional[str] = 
             },
         )
         raise
+
+
+def generate_thumbnail(db: Session, package_id: str, context_id: Optional[str] = None) -> PackageGeneration:
+    """
+    Sprint 7A-4 — Thumbnail Combo Engine.
+    """
+    # 1. Load package
+    package = get_package(db, package_id)
+    if not package:
+        raise ValueError(f"Package '{package_id}' not found.")
+
+    # 2. Load channel
+    channel = get_channel(db, package.channel_id)
+    if not channel:
+        raise ValueError(f"Channel '{package.channel_id}' not found.")
+
+    # 3. Read combo
+    combo = (channel.thumbnail_combo or "").strip()
+    if not combo:
+        raise ValueError("Thumbnail combo is not configured for this channel")
+
+    if not settings.NINE_ROUTER_URL or not settings.NINE_ROUTER_API_KEY:
+        raise ValueError("9Router API is not configured. Set NINE_ROUTER_URL and NINE_ROUTER_API_KEY in .env")
+
+    # Ensure generation record exists
+    gen = get_generation(db, package_id)
+    if not gen:
+        gen = create_generation_record(db, package_id)
+
+    # Set processing status
+    package_generation_repository.update_generation(
+        db, package_id, {"thumbnail_status": "processing", "error_message": None}
+    )
+
+    try:
+        video_filename = package.video_path.split("/")[-1].split("\\")[-1] if package.video_path else "unknown"
+        timestamp_content = _read_timestamp_content(package.timestamp_path or "")
+
+        # 4. Build prompt using prompt context if supplied
+        if context_id:
+            ctx = prompt_context_repository.get_by_id(db, context_id)
+            if not ctx:
+                raise ValueError("Prompt Context not found.")
+            if ctx.channel_id != package.channel_id:
+                raise ValueError("Prompt Context does not belong to Package Channel")
+
+            prompt = (
+                "=== CHANNEL CONTEXT ===\n\n"
+                "Topic:\n"
+                f"{ctx.topic or ''}\n\n"
+                "Keywords:\n"
+                f"{ctx.keywords or ''}\n\n"
+                "Notes:\n"
+                f"{ctx.notes or ''}\n\n"
+                "=== PACKAGE INFORMATION ===\n\n"
+                "Channel:\n"
+                f"{channel.name}\n\n"
+                "Package:\n"
+                f"{package.package_number}\n\n"
+                "Video:\n"
+                f"{video_filename}\n\n"
+                "Timestamp:\n"
+                f"{timestamp_content}\n\n"
+                "Generate a professional YouTube thumbnail concept."
+            )
+        else:
+            prompt = (
+                "=== PACKAGE INFORMATION ===\n\n"
+                "Channel:\n"
+                f"{channel.name}\n\n"
+                "Package:\n"
+                f"{package.package_number}\n\n"
+                "Video:\n"
+                f"{video_filename}\n\n"
+                "Timestamp:\n"
+                f"{timestamp_content}\n\n"
+                "Generate a professional YouTube thumbnail concept."
+            )
+
+        # 5. Call image service with model explicitly passed
+        from services.image_service import generate_thumbnail as run_image_service
+        
+        output_path = run_image_service(db, prompt, package.channel_id, combo)
+        filename = os.path.basename(output_path)
+
+        # Save success
+        return package_generation_repository.update_generation(
+            db,
+            package_id,
+            {
+                "thumbnail_path": filename,
+                "thumbnail_status": "completed",
+                "error_message": None,
+            },
+        )
+
+    except Exception as exc:
+        package_generation_repository.update_generation(
+            db,
+            package_id,
+            {
+                "thumbnail_status": "failed",
+                "error_message": str(exc),
+            },
+        )
+        raise
+

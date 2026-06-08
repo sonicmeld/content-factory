@@ -8,7 +8,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getPackageGeneration, generateMetadata, getPromptContexts } from '../services/api';
+import { getPackageGeneration, generateMetadata, getPromptContexts, generateThumbnail } from '../services/api';
 import type { ContentPackage } from '../types';
 import { toast } from 'sonner';
 import {
@@ -105,7 +105,21 @@ export default function PackageGenerationPanel({ package_, channelSlug }: Props)
         }
     });
 
+    const generateThumbnailMutation = useMutation({
+        mutationFn: () => generateThumbnail(package_.id, selectedContextId || undefined),
+        onSuccess: () => {
+            toast.success('Thumbnail generation triggered');
+            queryClient.invalidateQueries({ queryKey: ['package-generation', package_.id] });
+            queryClient.invalidateQueries({ queryKey: ['package', package_.id] });
+        },
+        onError: (err: any) => {
+            const detail = err.response?.data?.error || err.response?.data?.detail || 'Failed to generate thumbnail';
+            toast.error(detail);
+        }
+    });
+
     const isMetadataProcessing = gen?.metadata_status === 'processing';
+    const isThumbnailProcessing = gen?.thumbnail_status === 'processing';
 
     return (
         <div className="border border-border/60 rounded-lg overflow-hidden">
@@ -242,11 +256,15 @@ export default function PackageGenerationPanel({ package_, channelSlug }: Props)
                         Generate Metadata
                     </button>
                     <button
-                        disabled
-                        title="9Router integration coming in Sprint 7A-3"
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-violet-500/10 text-violet-400 opacity-50 cursor-not-allowed transition-colors"
+                        onClick={() => generateThumbnailMutation.mutate()}
+                        disabled={generateThumbnailMutation.isPending || isThumbnailProcessing}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 active:bg-violet-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        <ImageIcon className="w-3.5 h-3.5" />
+                        {generateThumbnailMutation.isPending || isThumbnailProcessing ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                            <ImageIcon className="w-3.5 h-3.5" />
+                        )}
                         Generate Thumbnail
                     </button>
                 </div>

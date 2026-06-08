@@ -58,7 +58,7 @@ export const deleteUploadJob = (id: string) => api.delete(`/uploads/${id}`).then
 export const generatePrompt = (data: { channel_id: string, theme: string, mood: string }) => 
     api.post<Prompt>('/prompts/generate', data).then(res => res.data);
 
-export const generateThumbnail = (data: { channel_id: string, prompt: string }) => 
+export const generateLegacyThumbnail = (data: { channel_id: string, prompt: string }) => 
     api.post<Asset>('/prompts/thumbnails/generate', data).then(res => res.data);
 
 // Content Packages
@@ -97,6 +97,9 @@ export const getPackageGeneration = (packageId: string) =>
 
 export const generateMetadata = (packageId: string, contextId?: string) =>
     api.post<PackageGeneration>(`/packages/${packageId}/generate-metadata`, { context_id: contextId }).then(res => res.data);
+
+export const generateThumbnail = (packageId: string, contextId?: string) =>
+    api.post<PackageGeneration>(`/packages/${packageId}/generate-thumbnail`, { context_id: contextId }).then(res => res.data);
 
 // Prompt Contexts CRUD (Sprint 7A-3.1)
 export const getPromptContexts = (channelId: string) =>
