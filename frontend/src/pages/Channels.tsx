@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getChannels, createChannel, updateChannel, deleteChannel, getGCPProfiles, connectOAuth } from '../services/api';
-import { PlusCircle, MonitorPlay, KeyRound, X, Trash2, Edit2, AlertTriangle } from 'lucide-react';
+import { PlusCircle, MonitorPlay, KeyRound, X, Trash2, Edit2, AlertTriangle, Cpu } from 'lucide-react';
 import type { Channel } from '../types';
 import { useNavigate } from 'react-router-dom';
 
@@ -21,6 +21,11 @@ export default function Channels() {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
+    // Sprint 7A: Generation Studio combo fields
+    const [metadataCombo, setMetadataCombo] = useState('');
+    const [thumbnailCombo, setThumbnailCombo] = useState('');
+    const [footageCombo, setFootageCombo] = useState('');
+
     const updateMutation = useMutation({
         mutationFn: (data: Partial<Channel> & { id: string }) => updateChannel(data.id, data),
         onSuccess: () => {
@@ -31,6 +36,9 @@ export default function Channels() {
             setSlug('');
             setDescription('');
             setGcpProfileId('');
+            setMetadataCombo('');
+            setThumbnailCombo('');
+            setFootageCombo('');
         }
     });
 
@@ -48,12 +56,24 @@ export default function Channels() {
         setSlug(channel.slug);
         setDescription(channel.description || '');
         setGcpProfileId(channel.gcp_profile_id || '');
+        setMetadataCombo(channel.metadata_combo || '');
+        setThumbnailCombo(channel.thumbnail_combo || '');
+        setFootageCombo(channel.footage_combo || '');
         setIsEditChannelOpen(true);
     };
 
     const handleUpdate = () => {
         if (!editingId || !name || !slug) return;
-        updateMutation.mutate({ id: editingId, name, slug, description, gcp_profile_id: gcpProfileId || undefined });
+        updateMutation.mutate({
+            id: editingId,
+            name,
+            slug,
+            description,
+            gcp_profile_id: gcpProfileId || undefined,
+            metadata_combo: metadataCombo,
+            thumbnail_combo: thumbnailCombo,
+            footage_combo: footageCombo,
+        });
     };
 
     const createMutation = useMutation({
@@ -297,6 +317,47 @@ export default function Channels() {
                                         <option key={p.id} value={p.id}>{p.name}</option>
                                     ))}
                                 </select>
+                            </div>
+
+                            {/* Generation Studio Section */}
+                            <div className="pt-3 border-t border-border">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <Cpu className="w-4 h-4 text-violet-400" />
+                                    <span className="text-sm font-semibold text-violet-400">Generation Studio — 9Router Combos</span>
+                                </div>
+                                <p className="text-xs text-muted-foreground mb-3">Enter the 9Router Combo name for each generation track. Leave blank to disable that track.</p>
+                                <div className="space-y-3">
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Metadata Combo</label>
+                                        <input 
+                                            type="text"
+                                            value={metadataCombo}
+                                            onChange={e => setMetadataCombo(e.target.value)}
+                                            placeholder="e.g. YT_Research"
+                                            className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm font-mono"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Thumbnail Combo</label>
+                                        <input 
+                                            type="text"
+                                            value={thumbnailCombo}
+                                            onChange={e => setThumbnailCombo(e.target.value)}
+                                            placeholder="e.g. Retro_Thumbnail"
+                                            className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm font-mono"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Footage Combo</label>
+                                        <input 
+                                            type="text"
+                                            value={footageCombo}
+                                            onChange={e => setFootageCombo(e.target.value)}
+                                            placeholder="e.g. Retro_Footage"
+                                            className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm font-mono"
+                                        />
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div className="p-4 border-t border-border flex justify-end gap-2">

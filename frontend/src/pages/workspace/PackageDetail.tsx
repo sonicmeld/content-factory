@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getPackage, deletePackage, updatePackageStatus, addToQueue, removeFromQueue } from '../../services/api';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import PackageGenerationPanel from '../../components/PackageGenerationPanel';
 
 export default function PackageDetail() {
     const { slug, packageId } = useParams();
@@ -204,6 +205,9 @@ export default function PackageDetail() {
                     </div>
                 </div>
             </div>
+
+            {/* Generation Studio Panel */}
+            <PackageGenerationPanel package_={pkg} channelSlug={slug!} />
         </div>
     );
 }

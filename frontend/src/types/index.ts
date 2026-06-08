@@ -14,6 +14,10 @@ export interface Channel {
     youtube_channel_url?: string;
     is_active: number;
     created_at: string;
+    // Sprint 7A: 9Router Combo Configuration
+    metadata_combo?: string;
+    thumbnail_combo?: string;
+    footage_combo?: string;
 }
 
 export interface GCPProfile {
@@ -95,4 +99,19 @@ export interface QueueItem {
     package_number: string;
     status: string;
     video_path: string;
+}
+
+// Sprint 7A: Generation Studio
+export interface PackageGeneration {
+    id: string;
+    package_id: string;
+    title?: string;
+    description?: string;
+    thumbnail_path?: string;
+    metadata_status: 'pending' | 'processing' | 'completed' | 'failed';
+    thumbnail_status: 'pending' | 'processing' | 'completed' | 'failed';
+    error_message?: string;
+    is_ready: boolean;
+    created_at: string;
+    updated_at: string;
 }

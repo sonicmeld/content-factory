@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Channel, GCPProfile, UploadJob, Asset, Prompt, ContentPackage, ChannelStorageStats, QueueItem } from '../types';
+import type { Channel, GCPProfile, UploadJob, Asset, Prompt, ContentPackage, ChannelStorageStats, QueueItem, PackageGeneration } from '../types';
 
 const api = axios.create({
     baseURL: '/api',
@@ -90,5 +90,9 @@ export const runPublisherOnce = (channelId: string) => api.post(`/channels/${cha
 export const completePublisherJob = (channelId: string) => api.post(`/channels/${channelId}/publisher/complete`).then(res => res.data);
 export const getPublisherStatus = (channelId: string) => api.get(`/channels/${channelId}/publisher/status`).then(res => res.data);
 export const executePublisherUpload = (channelId: string) => api.post(`/channels/${channelId}/publisher/upload`).then(res => res.data);
+
+// Generation Studio (Sprint 7A)
+export const getPackageGeneration = (packageId: string) =>
+    api.get<PackageGeneration>(`/packages/${packageId}/generation`).then(res => res.data);
 
 export default api;
