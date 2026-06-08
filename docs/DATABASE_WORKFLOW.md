@@ -191,3 +191,17 @@ alembic migrations
 
 ```
 ```
+ai_service.py
+Prompt Factory V1
+
+image_service.py
+Thumbnail Service V1
+
+channel_profiles
+Legacy Table
+
+metadata_templates
+Legacy Table
+
+prompts
+Legacy Table

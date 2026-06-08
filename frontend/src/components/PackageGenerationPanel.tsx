@@ -1,14 +1,15 @@
 /**
- * PackageGenerationPanel.tsx — Sprint 7A-2
+ * PackageGenerationPanel.tsx — Sprint 7A-3
  *
  * Displays the Generation Studio state for a single Content Package.
  * Reads from GET /api/packages/{id}/generation.
- * Sprint 7A-2: Read-only + placeholder action buttons (no 9Router calls).
+ * Sprint 7A-3: Active metadata generation with 9Router integration and polling.
  */
 
-import { useQuery } from '@tanstack/react-query';
-import { getPackageGeneration } from '../services/api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getPackageGeneration, generateMetadata } from '../services/api';
 import type { ContentPackage } from '../types';
+import { toast } from 'sonner';
 import {
     Cpu,
     FileText,
@@ -61,6 +62,8 @@ function StatusBadge({ status }: { status: GenStatus }) {
 }
 
 export default function PackageGenerationPanel({ package_, channelSlug }: Props) {
+    const queryClient = useQueryClient();
+
     const {
         data: gen,
         isLoading,
@@ -71,9 +74,31 @@ export default function PackageGenerationPanel({ package_, channelSlug }: Props)
         queryFn: () => getPackageGeneration(package_.id),
         // 404 means no generation record yet — not a fatal error
         retry: false,
+        refetchInterval: (query) => {
+            const data = query.state.data;
+            if (data && (data.metadata_status === 'processing' || data.thumbnail_status === 'processing')) {
+                return 2000;
+            }
+            return false;
+        }
     });
 
     const noRecord = isError && (error as any)?.response?.status === 404;
+
+    const generateMetadataMutation = useMutation({
+        mutationFn: () => generateMetadata(package_.id),
+        onSuccess: () => {
+            toast.success('Metadata generation triggered');
+            queryClient.invalidateQueries({ queryKey: ['package-generation', package_.id] });
+            queryClient.invalidateQueries({ queryKey: ['package', package_.id] });
+        },
+        onError: (err: any) => {
+            const detail = err.response?.data?.error || err.response?.data?.detail || 'Failed to generate metadata';
+            toast.error(detail);
+        }
+    });
+
+    const isMetadataProcessing = gen?.metadata_status === 'processing';
 
     return (
         <div className="border border-border/60 rounded-lg overflow-hidden">
@@ -177,14 +202,18 @@ export default function PackageGenerationPanel({ package_, channelSlug }: Props)
                     </div>
                 )}
 
-                {/* Placeholder action buttons (Sprint 7A-2) */}
+                {/* Placeholder action buttons */}
                 <div className="pt-3 border-t border-border/60 flex gap-2 flex-wrap">
                     <button
-                        disabled
-                        title="9Router integration coming in Sprint 7A-3"
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-violet-500/10 text-violet-400 opacity-50 cursor-not-allowed transition-colors"
+                        onClick={() => generateMetadataMutation.mutate()}
+                        disabled={generateMetadataMutation.isPending || isMetadataProcessing}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 active:bg-violet-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        <Sparkles className="w-3.5 h-3.5" />
+                        {generateMetadataMutation.isPending || isMetadataProcessing ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                            <Sparkles className="w-3.5 h-3.5" />
+                        )}
                         Generate Metadata
                     </button>
                     <button

@@ -95,4 +95,7 @@ export const executePublisherUpload = (channelId: string) => api.post(`/channels
 export const getPackageGeneration = (packageId: string) =>
     api.get<PackageGeneration>(`/packages/${packageId}/generation`).then(res => res.data);
 
+export const generateMetadata = (packageId: string) =>
+    api.post<PackageGeneration>(`/packages/${packageId}/generate-metadata`).then(res => res.data);
+
 export default api;
