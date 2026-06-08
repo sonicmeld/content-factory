@@ -19,4 +19,12 @@ build/
 
 __pycache__/
 *.pyc
+*.pyo
 cloudflared-linux-amd64.deb
+
+# Alembic cache
+.alembic_cache/
+
+# OS artifacts
+.DS_Store
+Thumbs.db
