@@ -7,8 +7,8 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { getPackageGeneration } from '../../services/api';
-import type { ContentPackage } from '../../types';
+import { getPackageGeneration } from '../services/api';
+import type { ContentPackage } from '../types';
 import {
     Cpu,
     FileText,
