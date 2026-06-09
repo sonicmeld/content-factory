@@ -1,7 +1,7 @@
-import React from 'react';
+
 import type { MetadataVariant } from '../types';
 import { formatDistanceToNow } from 'date-fns';
-import { CheckCircle2, Trash2, HelpCircle } from 'lucide-react';
+import { CheckCircle2, Trash2 } from 'lucide-react';
 
 interface Props {
     variant: MetadataVariant;
