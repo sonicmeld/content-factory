@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getGenerationCombos, createGenerationCombo, updateGenerationCombo, deleteGenerationCombo } from '../services/api';
-import { Layers, Plus, Pencil, Trash2, Power, PowerOff, X, Loader2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Power, PowerOff, X, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { GenerationCombo } from '../types';
 

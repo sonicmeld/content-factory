@@ -119,7 +119,7 @@ export default function Channels() {
         createMutation.mutate({ name, slug, description, gcp_profile_id: gcpProfileId || undefined });
     };
 
-    const renderComboSelect = (value: string, onChange: (v: string) => void, category: string, placeholder: string) => {
+    const renderComboSelect = (value: string, onChange: (v: string) => void, category: string) => {
         const options = combos.filter(c => c.category === category && c.is_active);
         const hasValue = value && value.trim() !== '';
         const isLegacy = hasValue && !options.find(o => o.name === value);
@@ -353,15 +353,15 @@ export default function Channels() {
                                 <div className="space-y-3">
                                     <div className="space-y-1">
                                         <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Metadata Combo</label>
-                                        {renderComboSelect(metadataCombo, setMetadataCombo, 'metadata', 'e.g. YT_Research')}
+                                        {renderComboSelect(metadataCombo, setMetadataCombo, 'metadata')}
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Thumbnail Combo</label>
-                                        {renderComboSelect(thumbnailCombo, setThumbnailCombo, 'thumbnail', 'e.g. Retro_Thumbnail')}
+                                        {renderComboSelect(thumbnailCombo, setThumbnailCombo, 'thumbnail')}
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Footage Combo</label>
-                                        {renderComboSelect(footageCombo, setFootageCombo, 'footage', 'e.g. Retro_Footage')}
+                                        {renderComboSelect(footageCombo, setFootageCombo, 'footage')}
                                     </div>
                                 </div>
                             </div>
