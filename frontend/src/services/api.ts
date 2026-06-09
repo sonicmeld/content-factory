@@ -159,4 +159,8 @@ export const selectGenerationAsset = (packageId: string, assetId: string) =>
 export const deleteGenerationAsset = (assetId: string) =>
     api.delete<{ detail: string }>(`/assets/${assetId}`).then(res => res.data);
 
+// Sprint 7A-8: Package Assembly Layer
+export const assemblePackage = (packageId: string) =>
+    api.post<ContentPackage>(`/packages/${packageId}/assemble`).then(res => res.data);
+
 export default api;

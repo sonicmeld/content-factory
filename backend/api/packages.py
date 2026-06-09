@@ -68,3 +68,9 @@ def update_package_status(package_id: str, request: PackageStatusUpdate, db: Ses
     if not updated_package:
         raise HTTPException(status_code=404, detail="Content package not found")
     return updated_package
+
+# Sprint 7A-8: Package Assembly Layer
+@router.post("/{package_id}/assemble", response_model=ContentPackageResponse)
+def assemble_package(package_id: str, db: Session = Depends(get_db)):
+    """Validates that a package has all required components and transitions it to the 'ready' state."""
+    return package_service.assemble_package(db, package_id)

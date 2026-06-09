@@ -93,3 +93,50 @@ def update_package_status(db: Session, package_id: str, status: str):
         
     update_data = ContentPackageUpdate(status=status)
     return package_repo.update_package(db, package_id, update_data)
+
+# Sprint 7A-8: Package Assembly Layer
+def assemble_package(db: Session, package_id: str):
+    """Validates that a package has all required components and transitions it to the 'ready' state."""
+    import logging
+    from repositories import package_generation_repository
+    logger = logging.getLogger(__name__)
+
+    # 1. Fetch ContentPackage
+    existing_package = package_repo.get_package(db, package_id)
+    if not existing_package:
+        raise HTTPException(status_code=404, detail="Content package not found")
+        
+    # 2. Fetch PackageGeneration
+    generation = package_generation_repository.get_by_package_id(db, package_id)
+    if not generation:
+        raise HTTPException(status_code=400, detail="Missing Generation data. Please generate metadata first.")
+        
+    # 3. Validate required fields
+    missing_components = []
+    
+    if not existing_package.video_path:
+        missing_components.append("Video")
+        
+    if not generation.title:
+        missing_components.append("Metadata (Title)")
+        
+    if not generation.description:
+        missing_components.append("Metadata (Description)")
+        
+    if not generation.thumbnail_path:
+        missing_components.append("Thumbnail")
+        
+    if missing_components:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Cannot assemble package. Missing required components: {', '.join(missing_components)}"
+        )
+        
+    # 4. Set ContentPackage.status = "ready"
+    updated_package = update_package_status(db, package_id, "ready")
+    
+    # 5. Emit audit event
+    logger.info(f"[AUDIT] package_assembled: Package {package_id}, Channel {existing_package.channel_id}")
+    print(f"[AUDIT] package_assembled: Package {package_id}, Channel {existing_package.channel_id}")
+    
+    return updated_package

@@ -8,7 +8,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getPackageGeneration, generateMetadata, getPromptContexts, generateThumbnail, getGenerationReadiness } from '../services/api';
+import { getPackageGeneration, generateMetadata, getPromptContexts, generateThumbnail, getGenerationReadiness, assemblePackage } from '../services/api';
 import type { ContentPackage } from '../types';
 import { toast } from 'sonner';
 import {
@@ -21,6 +21,7 @@ import {
     XCircle,
     Sparkles,
     AlertTriangle,
+    PackageCheck,
 } from 'lucide-react';
 import GenerationReadinessPanel from './GenerationReadinessPanel';
 import MetadataVariantList from './MetadataVariantList';
@@ -129,6 +130,26 @@ export default function PackageGenerationPanel({ package_, channelSlug }: Props)
 
     const isMetadataProcessing = gen?.metadata_status === 'processing';
     const isThumbnailProcessing = gen?.thumbnail_status === 'processing';
+
+    // Sprint 7A-8: Assembly Readiness
+    const hasVideo = !!package_.video_path;
+    const hasMetadata = !!(gen?.title && gen?.description);
+    const hasThumbnail = !!gen?.thumbnail_path;
+    const isAssembleReady = hasVideo && hasMetadata && hasThumbnail;
+
+    const assembleMutation = useMutation({
+        mutationFn: () => assemblePackage(package_.id),
+        onSuccess: () => {
+            toast.success('Package assembled successfully');
+            queryClient.invalidateQueries({ queryKey: ['package', package_.id] });
+            queryClient.invalidateQueries({ queryKey: ['packages'] });
+            queryClient.invalidateQueries({ queryKey: ['package-generation', package_.id] });
+        },
+        onError: (err: any) => {
+            const detail = err.response?.data?.error || err.response?.data?.detail || 'Failed to assemble package';
+            toast.error(detail);
+        }
+    });
 
     return (
         <div className="border border-border/60 rounded-lg overflow-hidden">
@@ -314,6 +335,53 @@ export default function PackageGenerationPanel({ package_, channelSlug }: Props)
                         )}
                         Generate Thumbnail
                     </button>
+                </div>
+
+                {/* Sprint 7A-8: Package Assembly Section */}
+                <div className="pt-4 mt-2 border-t border-border/60">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-secondary/20 p-4 rounded-lg border border-border/40">
+                        <div className="space-y-2">
+                            <h4 className="text-sm font-semibold flex items-center gap-2">
+                                <PackageCheck className="w-4 h-4 text-emerald-400" />
+                                Package Assembly
+                            </h4>
+                            <div className="flex gap-4 text-xs">
+                                <span className={hasVideo ? "text-emerald-400 flex items-center gap-1" : "text-red-400 flex items-center gap-1"}>
+                                    {hasVideo ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                                    Video
+                                </span>
+                                <span className={hasMetadata ? "text-emerald-400 flex items-center gap-1" : "text-red-400 flex items-center gap-1"}>
+                                    {hasMetadata ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                                    Metadata
+                                </span>
+                                <span className={hasThumbnail ? "text-emerald-400 flex items-center gap-1" : "text-red-400 flex items-center gap-1"}>
+                                    {hasThumbnail ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                                    Thumbnail
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <button
+                            onClick={() => assembleMutation.mutate()}
+                            disabled={!isAssembleReady || assembleMutation.isPending || package_.status === 'ready'}
+                            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors shadow-sm flex items-center gap-2 ${
+                                package_.status === 'ready' 
+                                ? 'bg-emerald-500/20 text-emerald-400 cursor-default'
+                                : isAssembleReady
+                                ? 'bg-emerald-500 hover:bg-emerald-600 text-white active:bg-emerald-700'
+                                : 'bg-secondary/50 text-muted-foreground cursor-not-allowed'
+                            }`}
+                        >
+                            {assembleMutation.isPending ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : package_.status === 'ready' ? (
+                                <CheckCircle2 className="w-4 h-4" />
+                            ) : (
+                                <PackageCheck className="w-4 h-4" />
+                            )}
+                            {package_.status === 'ready' ? 'Assembled' : 'Assemble Package'}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
