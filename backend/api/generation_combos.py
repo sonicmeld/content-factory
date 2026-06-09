@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
-from database.session import get_db
+from database.database import get_db
 from api import schemas
 from services import generation_combo_service
 
