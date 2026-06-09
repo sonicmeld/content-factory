@@ -33,6 +33,7 @@ async def lifespan(app: FastAPI):
     os.makedirs(data_dir, exist_ok=True)
     os.makedirs(os.path.join(data_dir, "channels"), exist_ok=True)
     os.makedirs(os.path.join(data_dir, "temp"), exist_ok=True)
+    os.makedirs(os.path.join(data_dir, "assets"), exist_ok=True)
     
     # Initialize database
     init_db()
@@ -70,6 +71,8 @@ async def global_exception_handler(request: Request, exc: Exception):
     return JSONResponse(status_code=500, content={"error": "Internal Server Error", "details": str(exc)})
 
 from api.metadata_variants import router as metadata_variants_router
+from api.generation_assets import router as generation_assets_package_router
+from api.generation_assets import asset_router as generation_assets_router
 
 app.include_router(channels_router)
 app.include_router(gcp_profiles_router)
@@ -86,6 +89,8 @@ app.include_router(prompt_contexts_router)
 app.include_router(generation_combos_router)
 app.include_router(diagnostics_router)
 app.include_router(metadata_variants_router)
+app.include_router(generation_assets_package_router)
+app.include_router(generation_assets_router)
 app.include_router(health.router)
 
 @app.get("/api/config")

@@ -135,15 +135,25 @@ export const getGenerationReadiness = (channelId: string) =>
     api.get<GenerationReadiness>(`/diagnostics/generation-readiness/${channelId}`).then(res => res.data);
 
 // Sprint 7A-5: Metadata Variant Library
-import type { MetadataVariant } from '../types';
+import type { MetadataVariant, GenerationAsset } from '../types';
 
 export const getMetadataVariants = (packageId: string) =>
     api.get<MetadataVariant[]>(`/packages/${packageId}/metadata-variants`).then(res => res.data);
 
 export const selectMetadataVariant = (packageId: string, variantId: string) =>
-    api.post<PackageGeneration>(`/packages/${packageId}/metadata-variants/${variantId}/select`).then(res => res.data);
+    api.post<MetadataVariant>(`/packages/${packageId}/metadata-variants/${variantId}/select`).then(res => res.data);
 
 export const deleteMetadataVariant = (variantId: string) =>
-    api.delete<{ message: string }>(`/metadata-variants/${variantId}`).then(res => res.data);
+    api.delete<{ detail: string }>(`/metadata-variants/${variantId}`).then(res => res.data);
+
+// Sprint 7A-6: Asset Engine Foundation
+export const getGenerationAssets = (packageId: string) =>
+    api.get<GenerationAsset[]>(`/packages/${packageId}/assets`).then(res => res.data);
+
+export const getGenerationAssetsByType = (packageId: string, assetType: string) =>
+    api.get<GenerationAsset[]>(`/packages/${packageId}/assets/${assetType}`).then(res => res.data);
+
+export const deleteGenerationAsset = (assetId: string) =>
+    api.delete<{ detail: string }>(`/assets/${assetId}`).then(res => res.data);
 
 export default api;

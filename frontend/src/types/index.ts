@@ -163,3 +163,18 @@ export interface MetadataVariant {
     is_selected: number;
     created_at: string;
 }
+
+// Sprint 7A-6: Asset Engine Foundation
+export interface GenerationAsset {
+    id: string;
+    package_generation_id: string;
+    asset_type: string;
+    file_path: string;
+    filename: string;
+    mime_type: string;
+    file_size: number;
+    status: string;
+    source_combo?: string;
+    source_context?: string;
+    created_at: string;
+}

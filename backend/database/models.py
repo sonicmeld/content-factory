@@ -211,3 +211,25 @@ class MetadataVariant(Base):
     __table_args__ = (
         Index("idx_metadata_variants_package_generation", "package_generation_id"),
     )
+
+# Sprint 7A-6: Asset Engine Foundation
+class GenerationAsset(Base):
+    __tablename__ = "generation_assets"
+
+    id = Column(String, primary_key=True)
+    package_generation_id = Column(String, nullable=False)
+    asset_type = Column(String, nullable=False) # e.g., thumbnail, footage, image, video
+    file_path = Column(String, nullable=False)
+    filename = Column(String, nullable=False)
+    mime_type = Column(String, nullable=False)
+    file_size = Column(Integer, nullable=False)
+    status = Column(String, nullable=False, default="pending")
+    source_combo = Column(String, nullable=True)
+    source_context = Column(String, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        Index("idx_generation_assets_package_generation", "package_generation_id"),
+        Index("idx_generation_assets_asset_type", "asset_type"),
+    )

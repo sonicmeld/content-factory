@@ -247,3 +247,19 @@ class MetadataVariantResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+# Sprint 7A-6: Asset Engine Foundation
+class GenerationAssetResponse(BaseModel):
+    id: str
+    package_generation_id: str
+    asset_type: str
+    file_path: str
+    filename: str
+    mime_type: str
+    file_size: int
+    status: str
+    source_combo: Optional[str] = None
+    source_context: Optional[str] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
