@@ -153,6 +153,9 @@ export const getGenerationAssets = (packageId: string) =>
 export const getGenerationAssetsByType = (packageId: string, assetType: string) =>
     api.get<GenerationAsset[]>(`/packages/${packageId}/assets/${assetType}`).then(res => res.data);
 
+export const selectGenerationAsset = (packageId: string, assetId: string) =>
+    api.post<GenerationAsset>(`/packages/${packageId}/assets/${assetId}/select`).then(res => res.data);
+
 export const deleteGenerationAsset = (assetId: string) =>
     api.delete<{ detail: string }>(`/assets/${assetId}`).then(res => res.data);
 

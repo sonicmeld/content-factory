@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getGenerationAssets, deleteGenerationAsset } from '../services/api';
+import { getGenerationAssets, deleteGenerationAsset, selectGenerationAsset } from '../services/api';
 import AssetCard from './AssetCard';
 import { toast } from 'sonner';
 import { Loader2, FolderOpen } from 'lucide-react';
@@ -25,6 +25,20 @@ export default function AssetGrid({ packageId }: Props) {
         },
         onError: (err: any) => {
             const detail = err.response?.data?.error || err.response?.data?.detail || 'Failed to delete asset';
+            toast.error(detail);
+        }
+    });
+
+    const selectMutation = useMutation({
+        mutationFn: (assetId: string) => selectGenerationAsset(packageId, assetId),
+        onSuccess: () => {
+            toast.success('Asset selected and promoted');
+            queryClient.invalidateQueries({ queryKey: ['generation-assets', packageId] });
+            queryClient.invalidateQueries({ queryKey: ['packages'] });
+            queryClient.invalidateQueries({ queryKey: ['package-generation'] });
+        },
+        onError: (err: any) => {
+            const detail = err.response?.data?.error || err.response?.data?.detail || 'Failed to select asset';
             toast.error(detail);
         }
     });
@@ -66,7 +80,9 @@ export default function AssetGrid({ packageId }: Props) {
                         key={asset.id}
                         asset={asset}
                         onDelete={(id) => deleteMutation.mutate(id)}
-                        isDeleting={deleteMutation.isPending}
+                        onSelect={(id) => selectMutation.mutate(id)}
+                        isDeleting={deleteMutation.isPending && deleteMutation.variables === asset.id}
+                        isSelecting={selectMutation.isPending && selectMutation.variables === asset.id}
                     />
                 ))}
             </div>

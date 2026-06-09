@@ -176,5 +176,6 @@ export interface GenerationAsset {
     status: string;
     source_combo?: string;
     source_context?: string;
+    is_selected: number;
     created_at: string;
 }

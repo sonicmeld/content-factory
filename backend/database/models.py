@@ -226,6 +226,7 @@ class GenerationAsset(Base):
     status = Column(String, nullable=False, default="pending")
     source_combo = Column(String, nullable=True)
     source_context = Column(String, nullable=True)
+    is_selected = Column(Integer, default=0) # Sprint 7A-7
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 

@@ -260,6 +260,7 @@ class GenerationAssetResponse(BaseModel):
     status: str
     source_combo: Optional[str] = None
     source_context: Optional[str] = None
+    is_selected: int
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

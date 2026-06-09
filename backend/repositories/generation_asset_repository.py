@@ -49,3 +49,21 @@ def delete_asset(db: Session, asset_id: str) -> bool:
         db.commit()
         return True
     return False
+
+# Sprint 7A-7: Asset Variant Library
+def set_selected(db: Session, package_generation_id: str, asset_type: str, asset_id: str):
+    """Sets is_selected=1 for the specified asset, and is_selected=0 for all other assets of the same type in the generation."""
+    # First set all to 0
+    db.query(GenerationAsset).filter(
+        GenerationAsset.package_generation_id == package_generation_id,
+        GenerationAsset.asset_type == asset_type
+    ).update({"is_selected": 0})
+    
+    # Set the chosen one to 1
+    db.query(GenerationAsset).filter(
+        GenerationAsset.id == asset_id,
+        GenerationAsset.package_generation_id == package_generation_id,
+        GenerationAsset.asset_type == asset_type
+    ).update({"is_selected": 1})
+    
+    db.commit()

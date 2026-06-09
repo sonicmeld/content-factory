@@ -18,6 +18,11 @@ def get_package_assets_by_type(package_id: str, asset_type: str, db: Session = D
     """Fetch assets of a specific type for a package generation."""
     return asset_engine_service.get_generation_assets_by_type(db, package_id, asset_type)
 
+@router.post("/{package_id}/assets/{asset_id}/select", response_model=GenerationAssetResponse)
+def select_generation_asset(package_id: str, asset_id: str, db: Session = Depends(get_db)):
+    """Select an asset variant and promote it to the active package generation if applicable."""
+    return asset_engine_service.select_asset_variant(db, package_id, asset_id)
+
 asset_router = APIRouter(prefix="/api/assets", tags=["generation_assets"])
 
 @asset_router.delete("/{asset_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -40,9 +40,14 @@ def update_asset_status(db: Session, asset_id: str, status: str):
 
 def delete_asset(db: Session, asset_id: str) -> bool:
     """Deletes an asset record and removes the physical file from disk to prevent storage leaks."""
+    from fastapi import HTTPException
     asset = generation_asset_repository.get_asset_by_id(db, asset_id)
     if not asset:
         return False
+        
+    # Sprint 7A-7: Protect selected assets from deletion
+    if asset.is_selected:
+        raise HTTPException(status_code=400, detail="Cannot delete an active selected asset")
         
     # Attempt to remove the physical file
     absolute_file_path = os.path.abspath(asset.file_path)
@@ -63,3 +68,37 @@ def delete_asset(db: Session, asset_id: str) -> bool:
         logger.info(f"generation_asset_deleted: id={asset_id} type={asset.asset_type}")
     
     return success
+
+# Sprint 7A-7: Asset Variant Library
+def select_asset_variant(db: Session, package_id: str, asset_id: str):
+    """Select an asset candidate and promote it if applicable."""
+    from fastapi import HTTPException
+    from repositories import package_generation_repository
+    
+    asset = generation_asset_repository.get_asset_by_id(db, asset_id)
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+        
+    gen = package_generation_repository.get_by_package_id(db, package_id)
+    if not gen or gen.id != asset.package_generation_id:
+        raise HTTPException(status_code=400, detail="Asset does not belong to this package generation")
+        
+    # Set selected in DB
+    generation_asset_repository.set_selected(db, gen.id, asset.asset_type, asset.id)
+    
+    # Audit Log
+    logger.info(f"[AUDIT] asset_variant_selected: Package {package_id}, Variant {asset_id}, Type {asset.asset_type}, Combo {asset.source_combo}")
+    
+    # Promotion Logic - Only for thumbnails currently
+    if asset.asset_type == "thumbnail":
+        package_generation_repository.update_generation(
+            db,
+            package_id,
+            {
+                "thumbnail_path": asset.file_path,
+                "thumbnail_combo_used": asset.source_combo,
+            }
+        )
+    
+    # Reload the asset to return updated state
+    return generation_asset_repository.get_asset_by_id(db, asset_id)
