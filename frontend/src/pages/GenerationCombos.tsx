@@ -1,16 +1,23 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getGenerationCombos, createGenerationCombo, updateGenerationCombo, deleteGenerationCombo } from '../services/api';
+import { getGenerationCombos, createGenerationCombo, updateGenerationCombo, deleteGenerationCombo, getChannels } from '../services/api';
 import { Plus, Pencil, Trash2, Power, PowerOff, X, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { GenerationCombo } from '../types';
 
 export default function GenerationCombos() {
     const queryClient = useQueryClient();
-    const { data: combos = [], isLoading } = useQuery({ 
+    const { data: combos = [], isLoading: isLoadingCombos } = useQuery({ 
         queryKey: ['generation-combos'], 
         queryFn: () => getGenerationCombos() 
     });
+    
+    const { data: channels = [], isLoading: isLoadingChannels } = useQuery({
+        queryKey: ['channels'],
+        queryFn: () => getChannels()
+    });
+
+    const isLoading = isLoadingCombos || isLoadingChannels;
     
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCombo, setEditingCombo] = useState<GenerationCombo | null>(null);
@@ -146,6 +153,7 @@ export default function GenerationCombos() {
                                 <th className="px-6 py-4 font-medium">Category</th>
                                 <th className="px-6 py-4 font-medium">Endpoint</th>
                                 <th className="px-6 py-4 font-medium">Status</th>
+                                <th className="px-6 py-4 font-medium">Used By</th>
                                 <th className="px-6 py-4 font-medium">Description</th>
                                 <th className="px-6 py-4 font-medium text-right">Actions</th>
                             </tr>
@@ -182,6 +190,14 @@ export default function GenerationCombos() {
                                                     Disabled
                                                 </span>
                                             )}
+                                        </td>
+                                        <td className="px-6 py-4 text-muted-foreground">
+                                            {combo.category === 'metadata' 
+                                                ? channels.filter(c => c.metadata_combo === combo.name).length
+                                                : combo.category === 'thumbnail'
+                                                ? channels.filter(c => c.thumbnail_combo === combo.name).length
+                                                : channels.filter(c => c.footage_combo === combo.name).length
+                                            } Channels
                                         </td>
                                         <td className="px-6 py-4 text-muted-foreground truncate max-w-[200px]" title={combo.description}>
                                             {combo.description || '-'}

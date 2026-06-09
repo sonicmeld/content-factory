@@ -164,6 +164,9 @@ class PackageGenerationResponse(BaseModel):
     thumbnail_status: str
     error_message: Optional[str] = None
     is_ready: bool = False
+    metadata_combo_used: Optional[str] = None
+    thumbnail_combo_used: Optional[str] = None
+    prompt_context_used: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

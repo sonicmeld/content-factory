@@ -201,15 +201,19 @@ def generate_metadata(db: Session, package_id: str, context_id: Optional[str] = 
     if not channel:
         raise ValueError(f"Channel '{package.channel_id}' not found.")
 
-    combo = (channel.metadata_combo or "").strip()
-    if not combo:
-        raise ValueError(
-            "metadata_combo is not configured for this channel. "
-            "Go to Channel Settings → Generation Studio to set it."
-        )
-
     if not settings.NINE_ROUTER_URL or not settings.NINE_ROUTER_API_KEY:
         raise ValueError("9Router API is not configured. Set NINE_ROUTER_URL and NINE_ROUTER_API_KEY in .env")
+
+    combo = (channel.metadata_combo or "").strip()
+
+    # --- Step 2.5: Validate Combo Readiness ---
+    from services.generation_combo_service import validate_metadata_ready
+    from fastapi import HTTPException
+    if not validate_metadata_ready(db, channel):
+        raise HTTPException(
+            status_code=400,
+            detail="Selected Combo is missing or inactive."
+        )
 
     # --- Step 3: Ensure generation record exists ---
     gen = package_generation_repository.get_by_package_id(db, package_id)
@@ -334,6 +338,8 @@ def generate_metadata(db: Session, package_id: str, context_id: Optional[str] = 
                 "description": description,
                 "metadata_status": "completed",
                 "error_message": None,
+                "metadata_combo_used": combo,
+                "prompt_context_used": ctx.title if context_id and ctx else None,
             },
         )
 
@@ -364,13 +370,19 @@ def generate_thumbnail(db: Session, package_id: str, context_id: Optional[str] =
     if not channel:
         raise ValueError(f"Channel '{package.channel_id}' not found.")
 
-    # 3. Read combo
-    combo = (channel.thumbnail_combo or "").strip()
-    if not combo:
-        raise ValueError("Thumbnail combo is not configured for this channel")
-
     if not settings.NINE_ROUTER_URL or not settings.NINE_ROUTER_API_KEY:
         raise ValueError("9Router API is not configured. Set NINE_ROUTER_URL and NINE_ROUTER_API_KEY in .env")
+
+    combo = (channel.thumbnail_combo or "").strip()
+
+    # 3.5 Validate Combo Readiness
+    from services.generation_combo_service import validate_thumbnail_ready
+    from fastapi import HTTPException
+    if not validate_thumbnail_ready(db, channel):
+        raise HTTPException(
+            status_code=400,
+            detail="Selected Combo is missing or inactive."
+        )
 
     # Ensure generation record exists
     gen = get_generation(db, package_id)
@@ -441,6 +453,8 @@ def generate_thumbnail(db: Session, package_id: str, context_id: Optional[str] =
                 "thumbnail_path": filename,
                 "thumbnail_status": "completed",
                 "error_message": None,
+                "thumbnail_combo_used": combo,
+                "prompt_context_used": ctx.title if context_id and ctx else None,
             },
         )
 

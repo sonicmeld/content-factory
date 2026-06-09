@@ -156,6 +156,12 @@ class PackageGeneration(Base):
     metadata_status = Column(String, nullable=False, default="pending")
     thumbnail_status = Column(String, nullable=False, default="pending")
     error_message = Column(Text, nullable=True)
+    
+    # Sprint 7A-4.7: Audit Tracking
+    metadata_combo_used = Column(String, nullable=True)
+    thumbnail_combo_used = Column(String, nullable=True)
+    prompt_context_used = Column(String, nullable=True)
+    
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 

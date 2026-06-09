@@ -25,6 +25,29 @@ def _validate_combo_rules(category: str, endpoint_type: str, config_json: Option
         except (ValueError, TypeError):
             raise HTTPException(status_code=400, detail="Config JSON is not valid JSON.")
 
+def _check_combo_ready(db: Session, combo_name: Optional[str]) -> bool:
+    if not combo_name or not combo_name.strip():
+        return False
+    # We must check if the combo exists in the registry and is active
+    from repositories.generation_combo_repository import get_all
+    combos = get_all(db)
+    for c in combos:
+        if c.name == combo_name.strip():
+            return bool(c.is_active)
+    return False
+
+def validate_metadata_ready(db: Session, channel) -> bool:
+    combo_name = getattr(channel, "metadata_combo", None)
+    return _check_combo_ready(db, combo_name)
+
+def validate_thumbnail_ready(db: Session, channel) -> bool:
+    combo_name = getattr(channel, "thumbnail_combo", None)
+    return _check_combo_ready(db, combo_name)
+
+def validate_footage_ready(db: Session, channel) -> bool:
+    combo_name = getattr(channel, "footage_combo", None)
+    return _check_combo_ready(db, combo_name)
+
 def get_all(db: Session, category: Optional[str] = None):
     return generation_combo_repository.get_all(db, category=category)
 

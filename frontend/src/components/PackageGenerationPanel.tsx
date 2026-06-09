@@ -8,7 +8,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getPackageGeneration, generateMetadata, getPromptContexts, generateThumbnail } from '../services/api';
+import { getPackageGeneration, generateMetadata, getPromptContexts, generateThumbnail, getGenerationReadiness } from '../services/api';
 import type { ContentPackage } from '../types';
 import { toast } from 'sonner';
 import {
@@ -22,6 +22,7 @@ import {
     Sparkles,
     AlertTriangle,
 } from 'lucide-react';
+import GenerationReadinessPanel from './GenerationReadinessPanel';
 
 interface Props {
     package_: ContentPackage;
@@ -88,6 +89,12 @@ export default function PackageGenerationPanel({ package_, channelSlug }: Props)
             }
             return false;
         }
+    });
+
+    const { data: readiness } = useQuery({
+        queryKey: ['generation-readiness', package_.channel_id],
+        queryFn: () => getGenerationReadiness(package_.channel_id),
+        enabled: !!package_.channel_id
     });
 
     const noRecord = isError && (error as any)?.response?.status === 404;
@@ -265,11 +272,16 @@ export default function PackageGenerationPanel({ package_, channelSlug }: Props)
                     </div>
                 )}
 
+                <div className="pt-3 border-t border-border/60">
+                    <GenerationReadinessPanel channelId={package_.channel_id} />
+                </div>
+
                 {/* Placeholder action buttons */}
                 <div className="pt-3 border-t border-border/60 flex gap-2 flex-wrap">
                     <button
                         onClick={() => generateMetadataMutation.mutate()}
-                        disabled={generateMetadataMutation.isPending || isMetadataProcessing}
+                        disabled={generateMetadataMutation.isPending || isMetadataProcessing || readiness?.metadata_ready === false}
+                        title={readiness?.metadata_ready === false ? "Metadata combo is missing or inactive" : undefined}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 active:bg-violet-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {generateMetadataMutation.isPending || isMetadataProcessing ? (
@@ -281,7 +293,8 @@ export default function PackageGenerationPanel({ package_, channelSlug }: Props)
                     </button>
                     <button
                         onClick={() => generateThumbnailMutation.mutate()}
-                        disabled={generateThumbnailMutation.isPending || isThumbnailProcessing}
+                        disabled={generateThumbnailMutation.isPending || isThumbnailProcessing || readiness?.thumbnail_ready === false}
+                        title={readiness?.thumbnail_ready === false ? "Thumbnail combo is missing or inactive" : undefined}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 active:bg-violet-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {generateThumbnailMutation.isPending || isThumbnailProcessing ? (

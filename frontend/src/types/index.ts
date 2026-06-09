@@ -112,8 +112,19 @@ export interface PackageGeneration {
     thumbnail_status: 'pending' | 'processing' | 'completed' | 'failed';
     error_message?: string;
     is_ready: boolean;
+    metadata_combo_used?: string;
+    thumbnail_combo_used?: string;
+    prompt_context_used?: string;
     created_at: string;
     updated_at: string;
+}
+
+export interface GenerationReadiness {
+    metadata_ready: boolean;
+    thumbnail_ready: boolean;
+    footage_ready: boolean;
+    active_prompt_contexts: number;
+    active_combos: number;
 }
 
 export interface PromptContext {

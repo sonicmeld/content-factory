@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Channel, GCPProfile, UploadJob, Asset, Prompt, ContentPackage, ChannelStorageStats, QueueItem, PackageGeneration, PromptContext, GenerationCombo } from '../types';
+import type { Channel, GCPProfile, UploadJob, Asset, Prompt, ContentPackage, ChannelStorageStats, QueueItem, PackageGeneration, PromptContext, GenerationCombo, GenerationReadiness } from '../types';
 
 const api = axios.create({
     baseURL: '/api',
@@ -129,5 +129,9 @@ export const updateGenerationCombo = (id: string, data: Partial<GenerationCombo>
 
 export const deleteGenerationCombo = (id: string) =>
     api.delete<{ detail: string }>(`/generation-combos/${id}`).then(res => res.data);
+
+// Sprint 7A-4.7: Diagnostics
+export const getGenerationReadiness = (channelId: string) =>
+    api.get<GenerationReadiness>(`/diagnostics/generation-readiness/${channelId}`).then(res => res.data);
 
 export default api;
