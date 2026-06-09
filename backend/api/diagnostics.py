@@ -5,7 +5,10 @@ from database.models import Channel, PromptContext, GenerationCombo
 from services.generation_combo_service import validate_metadata_ready, validate_thumbnail_ready, validate_footage_ready
 from pydantic import BaseModel
 
-router = APIRouter(prefix="/diagnostics", tags=["diagnostics"])
+router = APIRouter(
+    prefix="/api/diagnostics",
+    tags=["diagnostics"]
+)
 
 class GenerationReadinessResponse(BaseModel):
     metadata_ready: bool
