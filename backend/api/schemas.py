@@ -234,3 +234,16 @@ class GenerationComboResponse(GenerationComboBase):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+# Sprint 7A-5: Metadata Variant Library schemas
+class MetadataVariantResponse(BaseModel):
+    id: str
+    package_generation_id: str
+    title: Optional[str] = None
+    description: Optional[str] = None
+    source_combo: Optional[str] = None
+    source_context: Optional[str] = None
+    is_selected: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

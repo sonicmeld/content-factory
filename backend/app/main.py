@@ -69,6 +69,8 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 async def global_exception_handler(request: Request, exc: Exception):
     return JSONResponse(status_code=500, content={"error": "Internal Server Error", "details": str(exc)})
 
+from api.metadata_variants import router as metadata_variants_router
+
 app.include_router(channels_router)
 app.include_router(gcp_profiles_router)
 app.include_router(oauth_router)
@@ -83,6 +85,7 @@ app.include_router(generation_router)
 app.include_router(prompt_contexts_router)
 app.include_router(generation_combos_router)
 app.include_router(diagnostics_router)
+app.include_router(metadata_variants_router)
 app.include_router(health.router)
 
 @app.get("/api/config")

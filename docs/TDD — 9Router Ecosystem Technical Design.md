@@ -602,5 +602,509 @@ Hapus field string legacy.
 * Error dashboard
 * Runtime dashboard
 
+# 13. Monitoring Architecture
+
+## 13.1 Objectives
+
+Monitoring Architecture menyediakan observability untuk seluruh ekosistem 9Router dan Generation Studio.
+
+Tujuan utama:
+
+* Mengetahui penggunaan setiap Combo.
+* Mengetahui penggunaan Prompt Context.
+* Mengetahui performa Generation Studio.
+* Mengetahui kegagalan generation.
+* Mengetahui kesehatan runtime sistem.
+* Menyediakan fondasi untuk optimasi provider AI di masa depan.
+* Menjadi pusat monitoring operasional Content Factory.
+
+---
+
+## 13.2 Usage Dashboard
+
+### 13.2.1 Purpose
+
+Memberikan visibilitas terhadap penggunaan Generation Studio dan seluruh komponen ekosistem 9Router.
+
+---
+
+### 13.2.2 Metadata Generation Count
+
+Menampilkan jumlah metadata yang dihasilkan.
+
+Metrics:
+
+```text
+Per Day
+Per Week
+Per Month
+Total Lifetime
 ```
+
+---
+
+### 13.2.3 Thumbnail Generation Count
+
+Menampilkan jumlah thumbnail yang dihasilkan.
+
+Metrics:
+
+```text
+Per Day
+Per Week
+Per Month
+Total Lifetime
 ```
+
+---
+
+### 13.2.4 Prompt Context Usage
+
+Menampilkan Prompt Context yang paling sering digunakan.
+
+Contoh:
+
+```text
+Woodworking Beginners     42
+Advanced Workshop         18
+Horror Stories            11
+```
+
+---
+
+### 13.2.5 Combo Usage
+
+Menampilkan Combo yang paling sering digunakan.
+
+Contoh:
+
+```text
+YT_Research               65
+Gemini Thumbnail          28
+Flux Asset Generator      12
+```
+
+Metrics:
+
+```text
+Metadata Combo Usage
+Thumbnail Combo Usage
+Footage Combo Usage
+```
+
+---
+
+### 13.2.6 Channel Activity
+
+Menampilkan channel yang paling aktif menggunakan Generation Studio.
+
+Contoh:
+
+```text
+Woodworking Channel       52
+Horror Stories            23
+DIY Workshop              18
+```
+
+---
+
+### 13.2.7 Variant Usage Analytics
+
+Reserved for future Variant Library implementation.
+
+Metrics:
+
+```text
+Generated Variants
+Selected Variants
+Rejected Variants
+Selection Rate
+```
+
+---
+
+## 13.3 Error Dashboard
+
+### 13.3.1 Purpose
+
+Membantu operator melakukan troubleshooting dan identifikasi masalah operasional.
+
+---
+
+### 13.3.2 Generation Failures
+
+Menampilkan jumlah generation yang gagal.
+
+Kategori:
+
+```text
+Metadata
+Thumbnail
+Footage
+```
+
+---
+
+### 13.3.3 Failure Reasons
+
+Menampilkan distribusi penyebab kegagalan.
+
+Kategori:
+
+```text
+Validation Error
+Missing Combo
+Inactive Combo
+Prompt Context Error
+9Router Error
+Provider Error
+Network Error
+Storage Error
+Unknown Error
+```
+
+---
+
+### 13.3.4 Recent Failures
+
+Menampilkan histori error terbaru.
+
+Field:
+
+```text
+Timestamp
+Channel
+Package
+Operation
+Error Message
+```
+
+---
+
+### 13.3.5 Failure Rate
+
+Formula:
+
+```text
+Failed Generations
+/
+Total Generations
+```
+
+Ditampilkan per:
+
+```text
+Day
+Week
+Month
+```
+
+---
+
+## 13.4 Runtime Dashboard
+
+### 13.4.1 Purpose
+
+Menampilkan kesehatan sistem secara realtime.
+
+Runtime Dashboard merupakan sumber kebenaran utama (authoritative source) untuk status operasional platform.
+
+---
+
+### 13.4.2 Service Health
+
+#### Content Factory API
+
+Status:
+
+```text
+Online
+Offline
+```
+
+---
+
+#### SQLite Database
+
+Status:
+
+```text
+Connected
+Disconnected
+```
+
+Additional Metrics:
+
+```text
+Database Version
+Current Alembic Revision
+```
+
+---
+
+#### 9Router Connectivity
+
+Status:
+
+```text
+Reachable
+Unreachable
+```
+
+Metrics:
+
+```text
+Response Time (ms)
+Last Successful Request
+```
+
+---
+
+#### Cloudflare Tunnel
+
+Status:
+
+```text
+Connected
+Disconnected
+```
+
+Metrics:
+
+```text
+Tunnel Health
+Last Seen
+```
+
+---
+
+### 13.4.3 Runtime Metrics
+
+#### Generation Queue
+
+Jumlah generation yang sedang berjalan.
+
+Metrics:
+
+```text
+Metadata Processing
+Thumbnail Processing
+Footage Processing
+```
+
+---
+
+#### Active Prompt Contexts
+
+Metrics:
+
+```text
+Total Active Contexts
+```
+
+---
+
+#### Active Combos
+
+Metrics:
+
+```text
+Metadata Combos
+Thumbnail Combos
+Footage Combos
+Total Active Combos
+```
+
+---
+
+#### Package Statistics
+
+Metrics:
+
+```text
+Total Packages
+Completed Packages
+Pending Packages
+Failed Packages
+```
+
+---
+
+### 13.4.4 Resource Metrics
+
+#### SQLite Database Size
+
+Contoh:
+
+```text
+192 MB
+```
+
+---
+
+#### Storage Usage
+
+Direktori:
+
+```text
+/assets
+/uploads
+/thumbnails
+```
+
+Metrics:
+
+```text
+Used Space
+Free Space
+```
+
+---
+
+#### Local Asset Count
+
+Kategori:
+
+```text
+Images
+Metadata Variants
+Thumbnail Assets
+Footage Assets
+```
+
+---
+
+#### PM2 Runtime Status
+
+Menampilkan status service yang dikelola PM2.
+
+Contoh:
+
+```text
+sqlite-web
+online
+
+scheduler
+online
+```
+
+---
+
+## 13.5 Future Monitoring Extensions
+
+### 13.5.1 Cost Dashboard
+
+Planned for future release.
+
+Metrics:
+
+```text
+Cost Per Combo
+Cost Per Channel
+Cost Per Generation
+Daily Cost
+Monthly Cost
+```
+
+---
+
+### 13.5.2 Provider Dashboard
+
+Planned for future release.
+
+Metrics:
+
+```text
+Provider Success Rate
+Provider Latency
+Provider Availability
+```
+
+Contoh:
+
+```text
+9Router
+OpenRouter
+Custom Provider
+```
+
+---
+
+### 13.5.3 Variant Analytics
+
+Planned after Metadata Variant Library.
+
+Metrics:
+
+```text
+Generated Variants
+Selected Variants
+Rejected Variants
+Selection Rate
+Top Performing Variants
+```
+
+---
+
+## 13.6 Technical Decision Records
+
+### TDR-006 — Read-Only Monitoring
+
+Monitoring Dashboard bersifat read-only.
+
+Monitoring tidak diperbolehkan menjalankan:
+
+```text
+Generate Metadata
+Generate Thumbnail
+Generate Footage
+Delete Assets
+Modify Packages
+```
+
+---
+
+### TDR-007 — Monitoring Separation
+
+Monitoring harus tetap independen dari workflow Generation Studio.
+
+Monitoring tidak boleh menjadi dependency untuk:
+
+```text
+Metadata Engine
+Thumbnail Engine
+Asset Engine
+Package Assembly
+```
+
+---
+
+### TDR-008 — Runtime Dashboard Authority
+
+Runtime Dashboard merupakan sumber informasi operasional utama untuk:
+
+```text
+Content Factory
+SQLite Database
+9Router
+Cloudflare Tunnel
+PM2 Services
+```
+
+Semua status operasional harus mengacu pada Runtime Dashboard sebagai referensi utama.
+
+---
+
+### TDR-009 — Future Observability Strategy
+
+Seluruh metrik observability harus dibangun menggunakan data yang sudah tersedia pada:
+
+```text
+package_generations
+metadata_variants
+generation_combos
+prompt_contexts
+channels
+```
+
+untuk meminimalkan kebutuhan refactor pada sprint berikutnya.

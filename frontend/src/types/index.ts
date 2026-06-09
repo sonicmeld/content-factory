@@ -140,7 +140,6 @@ export interface PromptContext {
     updated_at: string;
 }
 
-// Sprint 7A-4.5: Global Combo Registry
 export interface GenerationCombo {
     id: string;
     name: string;
@@ -151,4 +150,16 @@ export interface GenerationCombo {
     is_active: number;
     created_at: string;
     updated_at: string;
+}
+
+// Sprint 7A-5: Metadata Variant Library
+export interface MetadataVariant {
+    id: string;
+    package_generation_id: string;
+    title?: string;
+    description?: string;
+    source_combo?: string;
+    source_context?: string;
+    is_selected: number;
+    created_at: string;
 }

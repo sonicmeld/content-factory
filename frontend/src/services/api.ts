@@ -134,4 +134,16 @@ export const deleteGenerationCombo = (id: string) =>
 export const getGenerationReadiness = (channelId: string) =>
     api.get<GenerationReadiness>(`/diagnostics/generation-readiness/${channelId}`).then(res => res.data);
 
+// Sprint 7A-5: Metadata Variant Library
+import type { MetadataVariant } from '../types';
+
+export const getMetadataVariants = (packageId: string) =>
+    api.get<MetadataVariant[]>(`/packages/${packageId}/metadata-variants`).then(res => res.data);
+
+export const selectMetadataVariant = (packageId: string, variantId: string) =>
+    api.post<PackageGeneration>(`/packages/${packageId}/metadata-variants/${variantId}/select`).then(res => res.data);
+
+export const deleteMetadataVariant = (variantId: string) =>
+    api.delete<{ message: string }>(`/metadata-variants/${variantId}`).then(res => res.data);
+
 export default api;

@@ -23,6 +23,7 @@ import {
     AlertTriangle,
 } from 'lucide-react';
 import GenerationReadinessPanel from './GenerationReadinessPanel';
+import MetadataVariantList from './MetadataVariantList';
 
 interface Props {
     package_: ContentPackage;
@@ -274,6 +275,10 @@ export default function PackageGenerationPanel({ package_, channelSlug }: Props)
 
                 <div className="pt-3 border-t border-border/60">
                     <GenerationReadinessPanel channelId={package_.channel_id} />
+                </div>
+                
+                <div className="pt-3 border-t border-border/60">
+                    <MetadataVariantList packageId={package_.id} />
                 </div>
 
                 {/* Placeholder action buttons */}

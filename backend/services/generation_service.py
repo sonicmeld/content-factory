@@ -330,16 +330,37 @@ def generate_metadata(db: Session, package_id: str, context_id: Optional[str] = 
             return package_generation_repository.get_by_package_id(db, package_id)
 
         # --- Step 7: Persist completed result ---
+        # Sprint 7A-5: Create MetadataVariant instead of overwriting title/description
+        import uuid
+        from repositories.metadata_variant_repository import create as create_metadata_variant
+        import logging
+
+        logger = logging.getLogger(__name__)
+        source_context = ctx.title if context_id and ctx else None
+        
+        variant_data = {
+            "id": str(uuid.uuid4()),
+            "package_generation_id": gen.id,
+            "title": title,
+            "description": description,
+            "source_combo": combo,
+            "source_context": source_context,
+            "is_selected": 0,
+        }
+        create_metadata_variant(db, variant_data)
+        
+        # Sprint 7A-5 Audit Log
+        logger.info(f"[AUDIT] metadata_variant_created: Package {package_id}, Combo {combo}, Context {source_context}")
+        print(f"[AUDIT] metadata_variant_created: Package {package_id}, Combo {combo}, Context {source_context}")
+
         return package_generation_repository.update_generation(
             db,
             package_id,
             {
-                "title": title,
-                "description": description,
                 "metadata_status": "completed",
                 "error_message": None,
                 "metadata_combo_used": combo,
-                "prompt_context_used": ctx.title if context_id and ctx else None,
+                "prompt_context_used": source_context,
             },
         )
 
@@ -354,6 +375,74 @@ def generate_metadata(db: Session, package_id: str, context_id: Optional[str] = 
             },
         )
         raise
+
+def select_metadata_variant(db: Session, package_id: str, variant_id: str) -> PackageGeneration:
+    """
+    Sprint 7A-5: Select a metadata variant and apply it to the PackageGeneration record.
+    """
+    from repositories.metadata_variant_repository import get_by_id, set_selected
+    from fastapi import HTTPException
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    variant = get_by_id(db, variant_id)
+    if not variant:
+        raise HTTPException(status_code=404, detail="Metadata Variant not found")
+        
+    gen = package_generation_repository.get_by_package_id(db, package_id)
+    if not gen or gen.id != variant.package_generation_id:
+        raise HTTPException(status_code=400, detail="Variant does not belong to this package generation")
+        
+    # Set selected
+    set_selected(db, gen.id, variant_id)
+    
+    # Audit Log
+    logger.info(f"[AUDIT] metadata_variant_selected: Package {package_id}, Variant {variant_id}, Combo {variant.source_combo}, Context {variant.source_context}")
+    print(f"[AUDIT] metadata_variant_selected: Package {package_id}, Variant {variant_id}, Combo {variant.source_combo}, Context {variant.source_context}")
+
+    # Synchronize into PackageGeneration
+    return package_generation_repository.update_generation(
+        db,
+        package_id,
+        {
+            "title": variant.title,
+            "description": variant.description,
+            "metadata_combo_used": variant.source_combo,
+            "prompt_context_used": variant.source_context,
+        }
+    )
+
+def delete_metadata_variant(db: Session, variant_id: str) -> bool:
+    """
+    Sprint 7A-5: Delete a metadata variant. 
+    Selected variants cannot be deleted.
+    """
+    from repositories.metadata_variant_repository import get_by_id, delete
+    from fastapi import HTTPException
+    import logging
+    
+    logger = logging.getLogger(__name__)
+
+    variant = get_by_id(db, variant_id)
+    if not variant:
+        raise HTTPException(status_code=404, detail="Metadata Variant not found")
+        
+    if variant.is_selected == 1:
+        raise HTTPException(status_code=400, detail="Cannot delete selected variant")
+        
+    package_id = "unknown"
+    gen = package_generation_repository.get_by_id(db, variant.package_generation_id)
+    if gen:
+        package_id = gen.package_id
+
+    delete(db, variant_id)
+    
+    # Audit Log
+    logger.info(f"[AUDIT] metadata_variant_deleted: Package {package_id}, Variant {variant_id}, Combo {variant.source_combo}, Context {variant.source_context}")
+    print(f"[AUDIT] metadata_variant_deleted: Package {package_id}, Variant {variant_id}, Combo {variant.source_combo}, Context {variant.source_context}")
+
+    return True
 
 
 def generate_thumbnail(db: Session, package_id: str, context_id: Optional[str] = None) -> PackageGeneration:

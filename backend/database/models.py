@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, DateTime, Text
+from sqlalchemy import Column, String, Integer, DateTime, Text, Index
 from sqlalchemy.sql import func
 from sqlalchemy.orm import declarative_base
 
@@ -194,3 +194,20 @@ class GenerationCombo(Base):
     is_active = Column(Integer, default=1)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+# Sprint 7A-5: Metadata Variant Library
+class MetadataVariant(Base):
+    __tablename__ = "metadata_variants"
+
+    id = Column(String, primary_key=True)
+    package_generation_id = Column(String, nullable=False)
+    title = Column(String, nullable=True)
+    description = Column(Text, nullable=True)
+    source_combo = Column(String, nullable=True)
+    source_context = Column(String, nullable=True)
+    is_selected = Column(Integer, default=0)
+    created_at = Column(DateTime, default=func.now())
+
+    __table_args__ = (
+        Index("idx_metadata_variants_package_generation", "package_generation_id"),
+    )

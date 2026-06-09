@@ -233,3 +233,44 @@ def generate_package_thumbnail(
         updated_at=gen.updated_at,
     )
 
+
+from typing import List
+from api.schemas import MetadataVariantResponse
+from repositories import metadata_variant_repository
+
+@router.get("/{package_id}/metadata-variants", response_model=List[MetadataVariantResponse])
+def get_metadata_variants(package_id: str, db: Session = Depends(get_db)):
+    """
+    Retrieve all metadata variants for a given package.
+    """
+    gen = generation_service.get_generation(db, package_id)
+    if not gen:
+        return []
+    
+    return metadata_variant_repository.get_by_generation_id(db, gen.id)
+
+
+@router.post("/{package_id}/metadata-variants/{variant_id}/select", response_model=PackageGenerationResponse)
+def select_metadata_variant(package_id: str, variant_id: str, db: Session = Depends(get_db)):
+    """
+    Select a specific metadata variant as the active metadata for the package.
+    """
+    try:
+        updated_gen = generation_service.select_metadata_variant(db, package_id, variant_id)
+        ready = generation_service.is_package_ready(db, package_id)
+        
+        return PackageGenerationResponse(
+            id=updated_gen.id,
+            package_id=updated_gen.package_id,
+            title=updated_gen.title,
+            description=updated_gen.description,
+            thumbnail_path=updated_gen.thumbnail_path,
+            metadata_status=updated_gen.metadata_status,
+            thumbnail_status=updated_gen.thumbnail_status,
+            error_message=updated_gen.error_message,
+            is_ready=ready,
+            created_at=updated_gen.created_at,
+            updated_at=updated_gen.updated_at,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
