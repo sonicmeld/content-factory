@@ -170,6 +170,8 @@ class PromptContext(Base):
     topic = Column(String, nullable=True)
     keywords = Column(String, nullable=True)
     notes = Column(Text, nullable=True)
+    description = Column(Text, nullable=True)
+    is_active = Column(Integer, default=1)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 

@@ -102,8 +102,8 @@ export const generateThumbnail = (packageId: string, contextId?: string) =>
     api.post<PackageGeneration>(`/packages/${packageId}/generate-thumbnail`, { context_id: contextId }).then(res => res.data);
 
 // Prompt Contexts CRUD (Sprint 7A-3.1)
-export const getPromptContexts = (channelId: string) =>
-    api.get<PromptContext[]>(`/channels/${channelId}/prompt-contexts`).then(res => res.data);
+export const getPromptContexts = (channelId: string, includeInactive: boolean = false) =>
+    api.get<PromptContext[]>(`/channels/${channelId}/prompt-contexts`, { params: { include_inactive: includeInactive } }).then(res => res.data);
 
 export const createPromptContext = (channelId: string, data: Partial<PromptContext>) =>
     api.post<PromptContext>(`/channels/${channelId}/prompt-contexts`, data).then(res => res.data);

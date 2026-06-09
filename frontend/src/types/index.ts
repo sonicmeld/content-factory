@@ -123,6 +123,8 @@ export interface PromptContext {
     topic?: string;
     keywords?: string;
     notes?: string;
+    description?: string;
+    is_active: boolean;
     created_at: string;
     updated_at: string;
 }

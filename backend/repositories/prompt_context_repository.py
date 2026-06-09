@@ -9,11 +9,14 @@ def get_by_id(db: Session, id: str) -> Optional[PromptContext]:
     return db.query(PromptContext).filter(PromptContext.id == id).first()
 
 
-def get_by_channel(db: Session, channel_id: str) -> List[PromptContext]:
+def get_by_channel(db: Session, channel_id: str, include_inactive: bool = False) -> List[PromptContext]:
     """Retrieve all PromptContext records associated with a channel."""
+    query = db.query(PromptContext).filter(PromptContext.channel_id == channel_id)
+    if not include_inactive:
+        query = query.filter(PromptContext.is_active == 1)
+        
     return (
-        db.query(PromptContext)
-        .filter(PromptContext.channel_id == channel_id)
+        query
         .order_by(PromptContext.created_at.desc())
         .all()
     )
@@ -28,6 +31,8 @@ def create_context(db: Session, channel_id: str, data: dict) -> PromptContext:
         topic=data.get("topic"),
         keywords=data.get("keywords"),
         notes=data.get("notes"),
+        description=data.get("description"),
+        is_active=data.get("is_active", 1),
     )
     db.add(db_ctx)
     db.commit()
@@ -54,3 +59,11 @@ def delete_context(db: Session, id: str) -> bool:
         db.commit()
         return True
     return False
+
+def enable_context(db: Session, id: str) -> Optional[PromptContext]:
+    """Enable a PromptContext."""
+    return update_context(db, id, {"is_active": 1})
+
+def disable_context(db: Session, id: str) -> Optional[PromptContext]:
+    """Disable a PromptContext."""
+    return update_context(db, id, {"is_active": 0})

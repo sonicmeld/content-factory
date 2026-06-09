@@ -23,7 +23,7 @@ export default function PromptFactory() {
     // Fetch prompt contexts for the active channel
     const { data: contexts = [], isLoading: isContextsLoading } = useQuery({
         queryKey: ['prompt-contexts', activeChannelId],
-        queryFn: () => getPromptContexts(activeChannelId),
+        queryFn: () => getPromptContexts(activeChannelId, true), // Fetch all including inactive
         enabled: !!activeChannelId
     });
 
@@ -34,6 +34,7 @@ export default function PromptFactory() {
     const [topic, setTopic] = useState('');
     const [keywords, setKeywords] = useState('');
     const [notes, setNotes] = useState('');
+    const [description, setDescription] = useState('');
 
     const openCreateModal = () => {
         setEditingContext(null);
@@ -41,6 +42,7 @@ export default function PromptFactory() {
         setTopic('');
         setKeywords('');
         setNotes('');
+        setDescription('');
         setIsModalOpen(true);
     };
 
@@ -50,6 +52,7 @@ export default function PromptFactory() {
         setTopic(ctx.topic || '');
         setKeywords(ctx.keywords || '');
         setNotes(ctx.notes || '');
+        setDescription(ctx.description || '');
         setIsModalOpen(true);
     };
 
@@ -99,7 +102,8 @@ export default function PromptFactory() {
             title,
             topic: topic || undefined,
             keywords: keywords || undefined,
-            notes: notes || undefined
+            notes: notes || undefined,
+            description: description || undefined
         };
 
         if (editingContext) {
@@ -113,6 +117,10 @@ export default function PromptFactory() {
         if (window.confirm("Are you sure you want to delete this prompt context?")) {
             deleteMutation.mutate(id);
         }
+    };
+
+    const handleToggleActive = (ctx: PromptContext) => {
+        updateMutation.mutate({ id: ctx.id, data: { is_active: !ctx.is_active } });
     };
 
     return (
@@ -191,6 +199,13 @@ export default function PromptFactory() {
                                     </h3>
                                     <div className="flex items-center gap-1 opacity-80 md:opacity-0 group-hover:opacity-100 transition-opacity">
                                         <button 
+                                            onClick={() => handleToggleActive(ctx)}
+                                            className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary rounded transition-colors"
+                                            title={ctx.is_active ? "Disable Context" : "Enable Context"}
+                                        >
+                                            {ctx.is_active ? <X className="w-4 h-4" /> : <PlusCircle className="w-4 h-4" />}
+                                        </button>
+                                        <button 
                                             onClick={() => openEditModal(ctx)}
                                             className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary rounded transition-colors"
                                             title="Edit Context"
@@ -208,6 +223,18 @@ export default function PromptFactory() {
                                 </div>
 
                                 <div className="space-y-3 text-sm">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${ctx.is_active ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'}`}>
+                                            <div className={`w-1.5 h-1.5 rounded-full ${ctx.is_active ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+                                            {ctx.is_active ? 'Active' : 'Disabled'}
+                                        </span>
+                                    </div>
+                                    {ctx.description && (
+                                        <div>
+                                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-0.5">Description</span>
+                                            <p className="text-muted-foreground text-xs leading-relaxed">{ctx.description}</p>
+                                        </div>
+                                    )}
                                     {ctx.topic && (
                                         <div>
                                             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-0.5">Topic</span>
@@ -231,6 +258,7 @@ export default function PromptFactory() {
                             
                             <div className="text-[10px] text-muted-foreground mt-4 pt-3 border-t border-border/30 flex items-center justify-between">
                                 <span>Updated {new Date(ctx.updated_at).toLocaleDateString()}</span>
+                                <span>Usage Count: 0</span>
                             </div>
                         </div>
                     ))}
@@ -265,6 +293,17 @@ export default function PromptFactory() {
                                     placeholder="e.g. Woodworking Beginner Series"
                                     value={title}
                                     onChange={(e) => setTitle(e.target.value)}
+                                />
+                            </div>
+
+                            <div>
+                                <label className="text-sm font-semibold text-foreground mb-1 block">Description</label>
+                                <textarea 
+                                    rows={2}
+                                    className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary focus:outline-none resize-none"
+                                    placeholder="Short summary of this context..."
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value)}
                                 />
                             </div>
 

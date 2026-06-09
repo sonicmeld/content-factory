@@ -241,6 +241,30 @@ export default function PackageGenerationPanel({ package_, channelSlug }: Props)
                     </select>
                 </div>
 
+                {/* Selected Context Preview */}
+                {selectedContextId && (
+                    <div className="mt-2 p-3 bg-secondary/30 rounded-md border border-border/50 space-y-2">
+                        {promptContexts.find(c => c.id === selectedContextId)?.topic && (
+                            <div>
+                                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-0.5">Topic</span>
+                                <p className="text-xs text-foreground font-medium">{promptContexts.find(c => c.id === selectedContextId)?.topic}</p>
+                            </div>
+                        )}
+                        {promptContexts.find(c => c.id === selectedContextId)?.keywords && (
+                            <div>
+                                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-0.5">Keywords</span>
+                                <p className="text-xs text-muted-foreground">{promptContexts.find(c => c.id === selectedContextId)?.keywords}</p>
+                            </div>
+                        )}
+                        {promptContexts.find(c => c.id === selectedContextId)?.notes && (
+                            <div>
+                                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-0.5">Notes</span>
+                                <p className="text-xs text-muted-foreground whitespace-pre-wrap">{promptContexts.find(c => c.id === selectedContextId)?.notes}</p>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {/* Placeholder action buttons */}
                 <div className="pt-3 border-t border-border/60 flex gap-2 flex-wrap">
                     <button

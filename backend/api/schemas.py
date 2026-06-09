@@ -176,7 +176,8 @@ class PromptContextBase(BaseModel):
     topic: Optional[str] = None
     keywords: Optional[str] = None
     notes: Optional[str] = None
-
+    description: Optional[str] = None
+    is_active: bool = True
 
 class PromptContextCreate(PromptContextBase):
     pass
@@ -187,6 +188,8 @@ class PromptContextUpdate(BaseModel):
     topic: Optional[str] = None
     keywords: Optional[str] = None
     notes: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
 
 
 class PromptContextResponse(PromptContextBase):

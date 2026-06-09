@@ -21,6 +21,7 @@ export default function GenerationCombos() {
     const [endpointType, setEndpointType] = useState('chat');
     const [description, setDescription] = useState('');
     const [configJson, setConfigJson] = useState('');
+    const [jsonError, setJsonError] = useState('');
 
     const resetForm = () => {
         setName('');
@@ -28,6 +29,7 @@ export default function GenerationCombos() {
         setEndpointType('chat');
         setDescription('');
         setConfigJson('');
+        setJsonError('');
         setEditingCombo(null);
     };
 
@@ -43,6 +45,7 @@ export default function GenerationCombos() {
         setEndpointType(combo.endpoint_type);
         setDescription(combo.description || '');
         setConfigJson(combo.config_json || '');
+        setJsonError('');
         setIsModalOpen(true);
     };
 
@@ -83,6 +86,16 @@ export default function GenerationCombos() {
 
     const handleSave = () => {
         if (!name || !category || !endpointType) return;
+        
+        setJsonError('');
+        if (configJson.trim()) {
+            try {
+                JSON.parse(configJson);
+            } catch (e) {
+                setJsonError('Config JSON is not valid JSON.');
+                return;
+            }
+        }
         
         const payload = {
             name,
@@ -279,10 +292,14 @@ export default function GenerationCombos() {
                                 </label>
                                 <textarea 
                                     value={configJson}
-                                    onChange={(e) => setConfigJson(e.target.value)}
+                                    onChange={(e) => {
+                                        setConfigJson(e.target.value);
+                                        setJsonError('');
+                                    }}
                                     placeholder='{"variants": 5}' 
-                                    className="w-full font-mono text-xs bg-secondary border border-border rounded-md px-3 py-2 h-24 resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+                                    className={`w-full font-mono text-xs bg-secondary border ${jsonError ? 'border-red-500' : 'border-border'} rounded-md px-3 py-2 h-24 resize-none focus:outline-none focus:ring-1 focus:ring-primary`}
                                 />
+                                {jsonError && <p className="text-xs text-red-500">{jsonError}</p>}
                             </div>
                         </div>
                         <div className="p-4 border-t border-border flex justify-end gap-2 bg-secondary/20">

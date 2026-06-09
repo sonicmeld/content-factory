@@ -10,9 +10,9 @@ router = APIRouter(tags=["prompt_contexts"])
 
 
 @router.get("/api/channels/{channel_id}/prompt-contexts", response_model=List[PromptContextResponse])
-def get_channel_prompt_contexts(channel_id: str, db: Session = Depends(get_db)):
+def get_channel_prompt_contexts(channel_id: str, include_inactive: bool = False, db: Session = Depends(get_db)):
     """Retrieve all Prompt Context records associated with a channel."""
-    return prompt_context_service.get_prompt_contexts_by_channel(db, channel_id)
+    return prompt_context_service.get_prompt_contexts_by_channel(db, channel_id, include_inactive)
 
 
 @router.post("/api/channels/{channel_id}/prompt-contexts", response_model=PromptContextResponse)
