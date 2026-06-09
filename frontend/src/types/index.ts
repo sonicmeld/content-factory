@@ -127,3 +127,15 @@ export interface PromptContext {
     updated_at: string;
 }
 
+// Sprint 7A-4.5: Global Combo Registry
+export interface GenerationCombo {
+    id: string;
+    name: string;
+    category: string;
+    endpoint_type: string;
+    description?: string;
+    config_json?: string;
+    is_active: number;
+    created_at: string;
+    updated_at: string;
+}

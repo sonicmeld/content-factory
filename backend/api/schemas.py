@@ -201,3 +201,30 @@ class PromptContextResponse(PromptContextBase):
 class GenerateMetadataRequest(BaseModel):
     context_id: Optional[str] = None
 
+
+# Sprint 7A-4.5: Global Combo Registry schemas
+class GenerationComboBase(BaseModel):
+    name: str
+    category: str
+    endpoint_type: str
+    description: Optional[str] = None
+    config_json: Optional[str] = None
+
+class GenerationComboCreate(GenerationComboBase):
+    pass
+
+class GenerationComboUpdate(BaseModel):
+    name: Optional[str] = None
+    category: Optional[str] = None
+    endpoint_type: Optional[str] = None
+    description: Optional[str] = None
+    config_json: Optional[str] = None
+    is_active: Optional[int] = None
+
+class GenerationComboResponse(GenerationComboBase):
+    id: str
+    is_active: int
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

@@ -173,3 +173,16 @@ class PromptContext(Base):
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
+# Sprint 7A-4.5: Global Combo Registry
+class GenerationCombo(Base):
+    __tablename__ = "generation_combos"
+
+    id = Column(String, primary_key=True)
+    name = Column(String, nullable=False, unique=True)
+    category = Column(String, nullable=False) # metadata, thumbnail, footage
+    endpoint_type = Column(String, nullable=False) # chat, image
+    description = Column(Text, nullable=True)
+    config_json = Column(Text, nullable=True)
+    is_active = Column(Integer, default=1)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())

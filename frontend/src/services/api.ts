@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Channel, GCPProfile, UploadJob, Asset, Prompt, ContentPackage, ChannelStorageStats, QueueItem, PackageGeneration, PromptContext } from '../types';
+import type { Channel, GCPProfile, UploadJob, Asset, Prompt, ContentPackage, ChannelStorageStats, QueueItem, PackageGeneration, PromptContext, GenerationCombo } from '../types';
 
 const api = axios.create({
     baseURL: '/api',
@@ -113,5 +113,21 @@ export const updatePromptContext = (id: string, data: Partial<PromptContext>) =>
 
 export const deletePromptContext = (id: string) =>
     api.delete<{ message: string }>(`/prompt-contexts/${id}`).then(res => res.data);
+
+// Sprint 7A-4.5: Global Combo Registry
+export const getGenerationCombos = (category?: string) => {
+    const params: any = {};
+    if (category) params.category = category;
+    return api.get<GenerationCombo[]>('/generation-combos', { params }).then(res => res.data);
+};
+
+export const createGenerationCombo = (data: Partial<GenerationCombo>) =>
+    api.post<GenerationCombo>('/generation-combos', data).then(res => res.data);
+
+export const updateGenerationCombo = (id: string, data: Partial<GenerationCombo>) =>
+    api.put<GenerationCombo>(`/generation-combos/${id}`, data).then(res => res.data);
+
+export const deleteGenerationCombo = (id: string) =>
+    api.delete<{ detail: string }>(`/generation-combos/${id}`).then(res => res.data);
 
 export default api;

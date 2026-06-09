@@ -7,6 +7,7 @@ import PromptFactory from './pages/PromptFactory';
 import Assets from './pages/Assets';
 import Uploads from './pages/Uploads';
 import Settings from './pages/Settings';
+import GenerationCombos from './pages/GenerationCombos';
 
 // Workspace Pages
 import WorkspaceOverview from './pages/workspace/WorkspaceOverview';
@@ -30,6 +31,7 @@ function App() {
           <Route path="/prompts" element={<PromptFactory />} />
           <Route path="/assets" element={<Assets />} />
           <Route path="/uploads" element={<Uploads />} />
+          <Route path="/generation-combos" element={<GenerationCombos />} />
           <Route path="/settings" element={<Settings />} />
         </Route>
 

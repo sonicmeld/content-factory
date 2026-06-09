@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getChannels, createChannel, updateChannel, deleteChannel, getGCPProfiles, connectOAuth } from '../services/api';
+import { getChannels, createChannel, updateChannel, deleteChannel, getGCPProfiles, connectOAuth, getGenerationCombos } from '../services/api';
 import { PlusCircle, MonitorPlay, KeyRound, X, Trash2, Edit2, AlertTriangle, Cpu } from 'lucide-react';
 import type { Channel } from '../types';
 import { useNavigate } from 'react-router-dom';
@@ -10,6 +10,8 @@ export default function Channels() {
     const queryClient = useQueryClient();
     const { data: channels = [] } = useQuery({ queryKey: ['channels'], queryFn: getChannels });
     const { data: gcpProfiles = [] } = useQuery({ queryKey: ['gcp-profiles'], queryFn: getGCPProfiles });
+    const { data: combos = [] } = useQuery({ queryKey: ['generation-combos'], queryFn: () => getGenerationCombos() });
+    
     const [isAddChannelOpen, setIsAddChannelOpen] = useState(false);
 
     const [name, setName] = useState('');
@@ -115,6 +117,28 @@ export default function Channels() {
     const handleSave = () => {
         if (!name || !slug) return;
         createMutation.mutate({ name, slug, description, gcp_profile_id: gcpProfileId || undefined });
+    };
+
+    const renderComboSelect = (value: string, onChange: (v: string) => void, category: string, placeholder: string) => {
+        const options = combos.filter(c => c.category === category && c.is_active);
+        const hasValue = value && value.trim() !== '';
+        const isLegacy = hasValue && !options.find(o => o.name === value);
+        
+        return (
+            <select
+                value={value}
+                onChange={e => onChange(e.target.value)}
+                className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm font-mono"
+            >
+                <option value="">-- Disabled --</option>
+                {isLegacy && (
+                    <option value={value}>[Legacy] {value}</option>
+                )}
+                {options.map(o => (
+                    <option key={o.id} value={o.name}>{o.name}</option>
+                ))}
+            </select>
+        );
     };
 
     return (
@@ -329,33 +353,15 @@ export default function Channels() {
                                 <div className="space-y-3">
                                     <div className="space-y-1">
                                         <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Metadata Combo</label>
-                                        <input 
-                                            type="text"
-                                            value={metadataCombo}
-                                            onChange={e => setMetadataCombo(e.target.value)}
-                                            placeholder="e.g. YT_Research"
-                                            className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm font-mono"
-                                        />
+                                        {renderComboSelect(metadataCombo, setMetadataCombo, 'metadata', 'e.g. YT_Research')}
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Thumbnail Combo</label>
-                                        <input 
-                                            type="text"
-                                            value={thumbnailCombo}
-                                            onChange={e => setThumbnailCombo(e.target.value)}
-                                            placeholder="e.g. Retro_Thumbnail"
-                                            className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm font-mono"
-                                        />
+                                        {renderComboSelect(thumbnailCombo, setThumbnailCombo, 'thumbnail', 'e.g. Retro_Thumbnail')}
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Footage Combo</label>
-                                        <input 
-                                            type="text"
-                                            value={footageCombo}
-                                            onChange={e => setFootageCombo(e.target.value)}
-                                            placeholder="e.g. Retro_Footage"
-                                            className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm font-mono"
-                                        />
+                                        {renderComboSelect(footageCombo, setFootageCombo, 'footage', 'e.g. Retro_Footage')}
                                     </div>
                                 </div>
                             </div>
