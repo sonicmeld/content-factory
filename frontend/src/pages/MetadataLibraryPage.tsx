@@ -12,6 +12,15 @@ export default function MetadataLibraryPage() {
         queryFn: () => getMetadataLibrary({ search_query: searchQuery || undefined, category: category || undefined })
     });
 
+    const { data: allItems } = useQuery({
+        queryKey: ['metadata-library', 'all'],
+        queryFn: () => getMetadataLibrary({})
+    });
+
+    const derivedCategories = Array.from(
+        new Set((allItems || []).map(item => item.category).filter(Boolean))
+    ).sort();
+
     return (
         <div className="max-w-6xl mx-auto space-y-6">
             <div className="flex items-center justify-between">
@@ -44,10 +53,9 @@ export default function MetadataLibraryPage() {
                         className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary focus:outline-none"
                     >
                         <option value="">All Categories</option>
-                        <option value="gaming">Gaming</option>
-                        <option value="education">Education</option>
-                        <option value="entertainment">Entertainment</option>
-                        <option value="tech">Tech</option>
+                        {derivedCategories.map(c => (
+                            <option key={c} value={c}>{c}</option>
+                        ))}
                     </select>
                 </div>
             </div>
