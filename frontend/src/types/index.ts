@@ -218,4 +218,19 @@ export interface RuntimeAudit {
     status: string;
     error_message?: string;
     executed_at: string;
+    channel_name?: string;
+    channel_slug?: string;
+    package_number?: string;
 }
+
+export interface ExecutionTask {
+    package_generation_id: string;
+    package_id: string;
+    channel_name: string;
+    channel_slug: string;
+    package_number: string;
+    execution_type: string;
+    status: string;
+    source_type: string;
+}
+

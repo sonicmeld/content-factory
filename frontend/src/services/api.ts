@@ -197,4 +197,17 @@ import type { RuntimeAudit } from '../types';
 export const getRuntimeAudits = (packageId: string) =>
     api.get<RuntimeAudit[]>(`/packages/${packageId}/runtime-audits`).then(res => res.data);
 
+// Sprint 7C-2: Global Execution Center
+import type { ExecutionTask } from '../types';
+
+export const getExecutionTasks = (status?: string, channelId?: string) => {
+    const params = new URLSearchParams();
+    if (status) params.append('status', status);
+    if (channelId) params.append('channel_id', channelId);
+    return api.get<ExecutionTask[]>(`/execution-center/tasks?${params.toString()}`).then(res => res.data);
+};
+
+export const getExecutionTraces = () =>
+    api.get<RuntimeAudit[]>('/execution-center/traces').then(res => res.data);
+
 export default api;

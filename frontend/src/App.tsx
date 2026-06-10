@@ -9,6 +9,7 @@ import Uploads from './pages/Uploads';
 import Settings from './pages/Settings';
 import GenerationCombos from './pages/GenerationCombos';
 import MetadataLibraryPage from './pages/MetadataLibraryPage';
+import GlobalExecutionCenterPage from './pages/GlobalExecutionCenterPage';
 
 // Workspace Pages
 import WorkspaceOverview from './pages/workspace/WorkspaceOverview';
@@ -28,6 +29,7 @@ function App() {
         {/* Global Routes */}
         <Route element={<Layout><Outlet /></Layout>}>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/execution-center" element={<GlobalExecutionCenterPage />} />
           <Route path="/channels" element={<Channels />} />
           <Route path="/prompts" element={<PromptLibraryPage />} />
           <Route path="/assets" element={<Assets />} />
