@@ -336,7 +336,7 @@ def generate_metadata(db: Session, package_id: str, context_id: Optional[str] = 
         import logging
 
         logger = logging.getLogger(__name__)
-        source_context = ctx.title if context_id and ctx else None
+        source_context = selected_prompt.title if selected_prompt else None
         
         variant_data = {
             "id": str(uuid.uuid4()),
