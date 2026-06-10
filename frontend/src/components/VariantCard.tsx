@@ -7,11 +7,12 @@ interface Props {
     variant: MetadataVariant;
     onSelect: (id: string) => void;
     onDelete: (id: string) => void;
+    onPublish?: (variant: MetadataVariant) => void;
     isSelecting?: boolean;
     isDeleting?: boolean;
 }
 
-export default function VariantCard({ variant, onSelect, onDelete, isSelecting, isDeleting }: Props) {
+export default function VariantCard({ variant, onSelect, onDelete, onPublish, isSelecting, isDeleting }: Props) {
     return (
         <div className={`p-4 rounded-lg border transition-colors ${variant.is_selected ? 'border-primary bg-primary/5' : 'border-border/60 bg-secondary/20'}`}>
             <div className="flex items-start justify-between gap-4 mb-3">
@@ -21,10 +22,20 @@ export default function VariantCard({ variant, onSelect, onDelete, isSelecting, 
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                     {variant.is_selected ? (
-                        <span className="flex items-center gap-1.5 px-2 py-1 bg-primary/20 text-primary text-xs font-medium rounded">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            Selected
-                        </span>
+                        <>
+                            <span className="flex items-center gap-1.5 px-2 py-1 bg-primary/20 text-primary text-xs font-medium rounded">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                Selected
+                            </span>
+                            {onPublish && (
+                                <button
+                                    onClick={() => onPublish(variant)}
+                                    className="px-3 py-1 bg-secondary text-foreground hover:bg-secondary/80 text-xs font-medium rounded transition-colors"
+                                >
+                                    Publish to Library
+                                </button>
+                            )}
+                        </>
                     ) : (
                         <button
                             onClick={() => onSelect(variant.id)}

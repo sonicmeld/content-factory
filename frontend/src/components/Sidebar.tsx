@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, MonitorPlay, Image as ImageIcon, UploadCloud, Settings, Sparkles, Layers } from 'lucide-react';
+import { LayoutDashboard, MonitorPlay, Image as ImageIcon, UploadCloud, Settings, Sparkles, Layers, BookMarked } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { getUploadJobs } from '../services/api';
@@ -9,6 +9,7 @@ const navItems = [
     { label: 'Channels', icon: MonitorPlay, path: '/channels' },
     { label: 'Prompt Contexts', icon: Sparkles, path: '/prompts' },
     { label: 'Combos', icon: Layers, path: '/generation-combos' },
+    { label: 'Metadata Library', icon: BookMarked, path: '/metadata-library' },
     { label: 'Assets', icon: ImageIcon, path: '/assets' },
     { label: 'Uploads', icon: UploadCloud, path: '/uploads' },
     { label: 'Settings', icon: Settings, path: '/settings' },

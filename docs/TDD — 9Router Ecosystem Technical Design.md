@@ -1108,3 +1108,234 @@ channels
 ```
 
 untuk meminimalkan kebutuhan refactor pada sprint berikutnya.
+
+# 14. Global Metadata Library Architecture
+
+## 14.1 Purpose
+
+Global Metadata Library menyediakan reusable knowledge layer di atas Generation Studio.
+
+Generation Studio menghasilkan metadata candidates.
+
+Metadata Library menyimpan metadata yang sudah dikurasi operator dan dapat digunakan kembali oleh channel lain.
+
+Tujuan:
+
+* Mengurangi generation berulang.
+* Meningkatkan reuse metadata berkualitas.
+* Menjadikan generation sebagai opsi, bukan kewajiban.
+
+---
+
+## 14.2 Metadata Library
+
+Source:
+
+metadata_variants
+
+Promotion:
+
+Publish To Library
+
+Target:
+
+metadata_library
+
+Workflow:
+
+Generate
+↓
+Review
+↓
+Select
+↓
+Publish To Library
+↓
+Metadata Library
+
+---
+
+## 14.3 Metadata Reuse Workflow
+
+Library Item
+↓
+Channel
+↓
+Package
+
+Library bersifat global.
+
+Library tidak memiliki channel ownership.
+
+Channel hanya menjadi consumer.
+
+Package dapat menggunakan metadata dari:
+
+* Metadata Library
+* Generation Studio
+
+---
+
+## 14.4 Source Mode
+
+Package Workspace menyediakan dua mode:
+
+Metadata Source
+
+○ Generate New
+
+○ Use Library
+
+Generate New:
+
+Metadata dihasilkan melalui Generation Studio.
+
+Use Library:
+
+Metadata dipilih dari Metadata Library.
+
+---
+
+## 14.5 Prompt Library Integration
+
+Prompt Contexts berfungsi sebagai Global Prompt Library.
+
+Prompt Library menyediakan:
+
+* Metadata Prompt Templates
+* Thumbnail Prompt Templates
+* Future Footage Prompt Templates
+
+Prompt Library bersifat global.
+
+Channel tidak memiliki prompt.
+
+Channel hanya melakukan assignment dan consumption.
+
+---
+
+## 14.6 Asset Pool Architecture
+
+Asset Library bukan bagian dari Knowledge Library.
+
+Asset Library berfungsi sebagai:
+
+Operator Managed Asset Pool & Monitoring Layer.
+
+Supported Types:
+
+* Video (.mp4)
+* Timestamp (.txt)
+* Thumbnail (.png/.jpg/.webp)
+
+Not Supported:
+
+* Audio
+* Prompt Files
+
+Asset Library digunakan untuk:
+
+* Upload
+* Monitoring
+* Channel Asset Assignment
+* Bulk Content Preparation
+
+---
+
+## 14.7 Asset Pool Workflow
+
+Filesystem
+↓
+Asset Library
+↓
+Channel
+↓
+Package
+
+Asset Library dapat melakukan scan terhadap:
+
+* MP4 Files
+* Timestamp Files
+* Thumbnail Files
+
+sesuai folder channel.
+
+---
+
+## 14.8 Architecture Decision
+
+TDR-010
+
+Generation dan Metadata Library dipisahkan.
+
+Generation menghasilkan candidate.
+
+Metadata Library menyimpan curated metadata.
+
+---
+
+## 14.9 Architecture Decision
+
+TDR-011
+
+Metadata Library bersifat immutable.
+
+Perubahan dilakukan melalui clone.
+
+Source metadata tidak boleh berubah.
+
+---
+
+## 14.10 Architecture Decision
+
+TDR-012
+
+Generate dan Reuse adalah workflow yang setara.
+
+Package dapat berasal dari:
+
+* Generation Studio
+* Metadata Library
+
+---
+
+## 14.11 Architecture Decision
+
+TDR-013
+
+Asset Library dan Generation Assets memiliki fungsi berbeda.
+
+Asset Library:
+Operator Managed Assets
+
+Generation Assets:
+AI Generated Assets
+
+---
+
+## 14.12 Architecture Decision
+
+TDR-014
+
+Prompt Library bersifat global.
+
+Channels consume prompts.
+
+Channels do not own prompts.
+
+---
+
+## 14.13 Architecture Decision
+
+TDR-015
+
+Metadata Library dan Asset Pool merupakan subsystem terpisah.
+
+Metadata Library:
+Reusable Knowledge
+
+Asset Pool:
+Reusable Files
+
+```
+```

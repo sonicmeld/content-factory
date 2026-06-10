@@ -8,6 +8,7 @@ import Assets from './pages/Assets';
 import Uploads from './pages/Uploads';
 import Settings from './pages/Settings';
 import GenerationCombos from './pages/GenerationCombos';
+import MetadataLibraryPage from './pages/MetadataLibraryPage';
 
 // Workspace Pages
 import WorkspaceOverview from './pages/workspace/WorkspaceOverview';
@@ -32,6 +33,7 @@ function App() {
           <Route path="/assets" element={<Assets />} />
           <Route path="/uploads" element={<Uploads />} />
           <Route path="/generation-combos" element={<GenerationCombos />} />
+          <Route path="/metadata-library" element={<MetadataLibraryPage />} />
           <Route path="/settings" element={<Settings />} />
         </Route>
 

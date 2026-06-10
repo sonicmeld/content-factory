@@ -8,7 +8,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getPackageGeneration, generateMetadata, getPromptContexts, generateThumbnail, getGenerationReadiness, assemblePackage } from '../services/api';
+import { getPackageGeneration, generateMetadata, getPromptContexts, generateThumbnail, getGenerationReadiness, assemblePackage, getMetadataLibrary, cloneLibraryItem } from '../services/api';
 import type { ContentPackage } from '../types';
 import { toast } from 'sonner';
 import {
@@ -22,6 +22,7 @@ import {
     Sparkles,
     AlertTriangle,
     PackageCheck,
+    BookMarked,
 } from 'lucide-react';
 import GenerationReadinessPanel from './GenerationReadinessPanel';
 import MetadataVariantList from './MetadataVariantList';
@@ -69,10 +70,17 @@ function StatusBadge({ status }: { status: GenStatus }) {
 export default function PackageGenerationPanel({ package_, channelSlug }: Props) {
     const queryClient = useQueryClient();
     const [selectedContextId, setSelectedContextId] = useState<string>('');
+    const [sourceMode, setSourceMode] = useState<'generate' | 'library'>('generate');
+    const [selectedLibraryItemId, setSelectedLibraryItemId] = useState<string>('');
 
     const { data: promptContexts = [] } = useQuery({
         queryKey: ['prompt-contexts', package_.channel_id],
         queryFn: () => getPromptContexts(package_.channel_id),
+    });
+
+    const { data: libraryItems = [] } = useQuery({
+        queryKey: ['metadata-library'],
+        queryFn: () => getMetadataLibrary(),
     });
 
     const {
@@ -111,6 +119,18 @@ export default function PackageGenerationPanel({ package_, channelSlug }: Props)
         },
         onError: (err: any) => {
             const detail = err.response?.data?.error || err.response?.data?.detail || 'Failed to generate metadata';
+            toast.error(detail);
+        }
+    });
+
+    const cloneLibraryMutation = useMutation({
+        mutationFn: () => cloneLibraryItem(selectedLibraryItemId, package_.id),
+        onSuccess: () => {
+            toast.success('Cloned metadata from library');
+            queryClient.invalidateQueries({ queryKey: ['metadata-variants', package_.id] });
+        },
+        onError: (err: any) => {
+            const detail = err.response?.data?.error || err.response?.data?.detail || 'Failed to clone library item';
             toast.error(detail);
         }
     });
@@ -253,26 +273,64 @@ export default function PackageGenerationPanel({ package_, channelSlug }: Props)
                     </div>
                 )}
 
-                {/* Metadata Context Dropdown */}
-                <div className="space-y-1.5 pt-3 border-t border-border/60">
-                    <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Metadata Context</label>
-                    <select
-                        className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-xs focus:ring-1 focus:ring-primary focus:outline-none"
-                        value={selectedContextId}
-                        onChange={(e) => setSelectedContextId(e.target.value)}
-                        disabled={isMetadataProcessing || generateMetadataMutation.isPending}
-                    >
-                        <option value="">Default (No Context)</option>
-                        {promptContexts.map((ctx) => (
-                            <option key={ctx.id} value={ctx.id}>
-                                {ctx.title}
-                            </option>
-                        ))}
-                    </select>
+                {/* Source Mode Toggle */}
+                <div className="pt-3 border-t border-border/60">
+                    <div className="flex gap-2 mb-4 p-1 bg-secondary/50 rounded-lg w-fit">
+                        <button
+                            onClick={() => setSourceMode('generate')}
+                            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-2 ${sourceMode === 'generate' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                        >
+                            <Sparkles className="w-3.5 h-3.5" />
+                            Generate New
+                        </button>
+                        <button
+                            onClick={() => setSourceMode('library')}
+                            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-2 ${sourceMode === 'library' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                        >
+                            <BookMarked className="w-3.5 h-3.5" />
+                            Use Library
+                        </button>
+                    </div>
+
+                    {sourceMode === 'generate' ? (
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Metadata Context</label>
+                            <select
+                                className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-xs focus:ring-1 focus:ring-primary focus:outline-none"
+                                value={selectedContextId}
+                                onChange={(e) => setSelectedContextId(e.target.value)}
+                                disabled={isMetadataProcessing || generateMetadataMutation.isPending}
+                            >
+                                <option value="">Default (No Context)</option>
+                                {promptContexts.map((ctx) => (
+                                    <option key={ctx.id} value={ctx.id}>
+                                        {ctx.title}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    ) : (
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Select Library Item</label>
+                            <select
+                                className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-xs focus:ring-1 focus:ring-primary focus:outline-none"
+                                value={selectedLibraryItemId}
+                                onChange={(e) => setSelectedLibraryItemId(e.target.value)}
+                                disabled={cloneLibraryMutation.isPending}
+                            >
+                                <option value="">Select an item to clone...</option>
+                                {libraryItems.filter(i => i.is_active).map((item) => (
+                                    <option key={item.id} value={item.id}>
+                                        {item.title} {item.category ? `(${item.category})` : ''}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
                 </div>
 
                 {/* Selected Context Preview */}
-                {selectedContextId && (
+                {sourceMode === 'generate' && selectedContextId && (
                     <div className="mt-2 p-3 bg-secondary/30 rounded-md border border-border/50 space-y-2">
                         {promptContexts.find(c => c.id === selectedContextId)?.topic && (
                             <div>
@@ -294,6 +352,15 @@ export default function PackageGenerationPanel({ package_, channelSlug }: Props)
                         )}
                     </div>
                 )}
+                
+                {sourceMode === 'library' && selectedLibraryItemId && (
+                    <div className="mt-2 p-3 bg-secondary/30 rounded-md border border-border/50 space-y-2">
+                        <div>
+                            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-0.5">Description</span>
+                            <p className="text-xs text-muted-foreground line-clamp-3">{libraryItems.find(i => i.id === selectedLibraryItemId)?.description}</p>
+                        </div>
+                    </div>
+                )}
 
                 <div className="pt-3 border-t border-border/60">
                     <GenerationReadinessPanel channelId={package_.channel_id} />
@@ -309,19 +376,34 @@ export default function PackageGenerationPanel({ package_, channelSlug }: Props)
 
                 {/* Placeholder action buttons */}
                 <div className="pt-3 border-t border-border/60 flex gap-2 flex-wrap">
-                    <button
-                        onClick={() => generateMetadataMutation.mutate()}
-                        disabled={generateMetadataMutation.isPending || isMetadataProcessing || readiness?.metadata_ready === false}
-                        title={readiness?.metadata_ready === false ? "Metadata combo is missing or inactive" : undefined}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 active:bg-violet-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {generateMetadataMutation.isPending || isMetadataProcessing ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                            <Sparkles className="w-3.5 h-3.5" />
-                        )}
-                        Generate Metadata
-                    </button>
+                    {sourceMode === 'generate' ? (
+                        <button
+                            onClick={() => generateMetadataMutation.mutate()}
+                            disabled={generateMetadataMutation.isPending || isMetadataProcessing || readiness?.metadata_ready === false}
+                            title={readiness?.metadata_ready === false ? "Metadata combo is missing or inactive" : undefined}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 active:bg-violet-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {generateMetadataMutation.isPending || isMetadataProcessing ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                                <Sparkles className="w-3.5 h-3.5" />
+                            )}
+                            Generate Metadata
+                        </button>
+                    ) : (
+                        <button
+                            onClick={() => cloneLibraryMutation.mutate()}
+                            disabled={cloneLibraryMutation.isPending || !selectedLibraryItemId}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 active:bg-violet-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {cloneLibraryMutation.isPending ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                                <BookMarked className="w-3.5 h-3.5" />
+                            )}
+                            Clone from Library
+                        </button>
+                    )}
                     <button
                         onClick={() => generateThumbnailMutation.mutate()}
                         disabled={generateThumbnailMutation.isPending || isThumbnailProcessing || readiness?.thumbnail_ready === false}

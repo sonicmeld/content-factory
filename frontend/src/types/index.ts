@@ -179,3 +179,16 @@ export interface GenerationAsset {
     is_selected: number;
     created_at: string;
 }
+
+// Sprint 7B-1: Global Metadata Library
+export interface MetadataLibraryItem {
+    id: string;
+    title: string;
+    description: string;
+    category?: string;
+    tags?: string;
+    source_variant_id?: string;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
+}

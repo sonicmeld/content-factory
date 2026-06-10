@@ -1,9 +1,12 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getMetadataVariants, selectMetadataVariant, deleteMetadataVariant } from '../services/api';
+import { getMetadataVariants, selectMetadataVariant, deleteMetadataVariant, publishVariantToLibrary } from '../services/api';
 import VariantCard from './VariantCard';
+import PublishToLibraryModal from './PublishToLibraryModal';
 import { toast } from 'sonner';
 import { Loader2, Database } from 'lucide-react';
+import { useState } from 'react';
+import type { MetadataVariant } from '../types';
 
 interface Props {
     packageId: string;
@@ -11,6 +14,7 @@ interface Props {
 
 export default function MetadataVariantList({ packageId }: Props) {
     const queryClient = useQueryClient();
+    const [publishingVariant, setPublishingVariant] = useState<MetadataVariant | null>(null);
 
     const { data: variants, isLoading, isError } = useQuery({
         queryKey: ['metadata-variants', packageId],
@@ -39,6 +43,20 @@ export default function MetadataVariantList({ packageId }: Props) {
         },
         onError: (err: any) => {
             const detail = err.response?.data?.error || err.response?.data?.detail || 'Failed to delete variant';
+            toast.error(detail);
+        }
+    });
+
+    const publishMutation = useMutation({
+        mutationFn: ({ variantId, data }: { variantId: string, data: { category: string, tags: string } }) => 
+            publishVariantToLibrary(variantId, data),
+        onSuccess: () => {
+            toast.success('Published to Global Metadata Library');
+            setPublishingVariant(null);
+            queryClient.invalidateQueries({ queryKey: ['metadata-library'] });
+        },
+        onError: (err: any) => {
+            const detail = err.response?.data?.error || err.response?.data?.detail || 'Failed to publish to library';
             toast.error(detail);
         }
     });
@@ -80,11 +98,24 @@ export default function MetadataVariantList({ packageId }: Props) {
                         variant={variant}
                         onSelect={(id) => selectMutation.mutate(id)}
                         onDelete={(id) => deleteMutation.mutate(id)}
+                        onPublish={(variant) => setPublishingVariant(variant)}
                         isSelecting={selectMutation.isPending}
                         isDeleting={deleteMutation.isPending}
                     />
                 ))}
             </div>
+
+            {publishingVariant && (
+                <PublishToLibraryModal
+                    variant={publishingVariant}
+                    onClose={() => setPublishingVariant(null)}
+                    onPublish={(category, tags) => publishMutation.mutate({ 
+                        variantId: publishingVariant.id, 
+                        data: { category, tags } 
+                    })}
+                    isPublishing={publishMutation.isPending}
+                />
+            )}
         </div>
     );
 }

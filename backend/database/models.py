@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, DateTime, Text, Index
+from sqlalchemy import Column, String, Integer, DateTime, Text, Index, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import declarative_base
 
@@ -234,3 +234,17 @@ class GenerationAsset(Base):
         Index("idx_generation_assets_package_generation", "package_generation_id"),
         Index("idx_generation_assets_asset_type", "asset_type"),
     )
+
+# Sprint 7B-1: Global Metadata Library
+class MetadataLibrary(Base):
+    __tablename__ = "metadata_library"
+
+    id = Column(String, primary_key=True)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=False)
+    category = Column(String, nullable=True)
+    tags = Column(String, nullable=True)
+    source_variant_id = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())

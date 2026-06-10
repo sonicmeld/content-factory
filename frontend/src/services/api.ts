@@ -163,4 +163,14 @@ export const deleteGenerationAsset = (assetId: string) =>
 export const assemblePackage = (packageId: string) =>
     api.post<ContentPackage>(`/packages/${packageId}/assemble`).then(res => res.data);
 
+// Sprint 7B-1: Global Metadata Library
+export const getMetadataLibrary = (params?: { skip?: number; limit?: number; search_query?: string; category?: string }) =>
+    api.get<MetadataLibraryItem[]>('/metadata-library', { params }).then(res => res.data);
+
+export const publishVariantToLibrary = (variantId: string, data: { category?: string; tags?: string }) =>
+    api.post<MetadataLibraryItem>(`/metadata-library/publish/${variantId}`, data).then(res => res.data);
+
+export const cloneLibraryItem = (itemId: string, packageGenerationId: string) =>
+    api.post<MetadataVariant>(`/metadata-library/${itemId}/clone/${packageGenerationId}`).then(res => res.data);
+
 export default api;

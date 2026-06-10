@@ -19,6 +19,7 @@ from api.generation import router as generation_router
 from api.prompt_contexts import router as prompt_contexts_router
 from api.generation_combos import router as generation_combos_router
 from api.diagnostics import router as diagnostics_router
+from api.metadata_library import router as metadata_library_router
 from api import health
 from app.config import settings
 
@@ -88,6 +89,7 @@ app.include_router(generation_router)
 app.include_router(prompt_contexts_router)
 app.include_router(generation_combos_router)
 app.include_router(diagnostics_router)
+app.include_router(metadata_library_router)
 app.include_router(metadata_variants_router)
 app.include_router(generation_assets_package_router)
 app.include_router(generation_assets_router)

@@ -264,3 +264,31 @@ class GenerationAssetResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+# Sprint 7B-1: Global Metadata Library
+class MetadataLibraryCreate(BaseModel):
+    title: str
+    description: str
+    category: Optional[str] = None
+    tags: Optional[str] = None
+    source_variant_id: Optional[str] = None
+
+class MetadataLibraryUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+    tags: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class MetadataLibraryResponse(BaseModel):
+    id: str
+    title: str
+    description: str
+    category: Optional[str] = None
+    tags: Optional[str] = None
+    source_variant_id: Optional[str] = None
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

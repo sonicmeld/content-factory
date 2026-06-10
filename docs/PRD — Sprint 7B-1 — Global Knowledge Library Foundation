@@ -1,0 +1,262 @@
+# PRD — Sprint 7B-1 — Global Metadata Library Foundation
+
+## Objective
+
+Membangun Global Metadata Library sebagai lapisan reusable knowledge di atas Generation Studio.
+
+Saat ini seluruh output Generation Studio bersifat:
+
+* Per Package
+* Per Channel
+* Working Draft
+
+Sprint ini memperkenalkan kemampuan:
+
+Generate OR Reuse
+
+sehingga metadata yang sudah lolos review dapat digunakan kembali oleh channel lain tanpa harus melakukan generation ulang.
+
+---
+
+## Core Principles
+
+Metadata Source
+
+○ Generate New
+
+○ Use Library
+
+Metadata menjadi reusable knowledge object.
+
+Assets tetap dikelola melalui Asset Pool dan tidak menjadi bagian dari Metadata Library.
+
+Prompt Contexts berfungsi sebagai Global Prompt Library dan tetap terpisah dari Metadata Library.
+
+---
+
+## Architecture Direction
+
+Generation Studio menghasilkan metadata candidates.
+
+Metadata Library menyimpan metadata yang telah dikurasi operator.
+
+Channel dapat:
+
+* Generate metadata baru
+* Menggunakan metadata dari library
+* Clone dan memodifikasi metadata library
+
+tanpa mempengaruhi metadata sumber.
+
+# Problem Statement
+
+Saat ini workflow berhenti pada:
+
+Generate
+→ Review
+→ Select
+→ Promote
+→ Assemble
+→ Ready
+
+Namun hasil yang sudah dianggap baik tetap terikat pada package asalnya.
+
+Akibatnya:
+
+* Metadata bagus harus digenerate ulang.
+* Thumbnail bagus harus dibuat ulang.
+* Tidak ada knowledge reuse.
+* Tidak ada curated content repository.
+
+---
+
+# Product Goals
+
+## Goal 1
+
+Menyediakan Global Metadata Library.
+
+## Goal 2
+
+Menyediakan Global Asset Library.
+
+## Goal 3
+
+Memungkinkan operator menggunakan kembali konten yang sudah ada.
+
+## Goal 4
+
+Menjadikan generation sebagai opsi, bukan kewajiban.
+
+---
+
+# Scope
+
+## In Scope
+
+### Metadata Library
+
+Operator dapat mempublikasikan selected metadata ke library global.
+
+### Asset Library
+
+Operator dapat mempublikasikan selected asset ke library global.
+
+### Reuse Workflow
+
+Channel dapat menggunakan item library sebagai sumber package.
+
+### Library Search
+
+Pencarian sederhana berdasarkan judul, tag, kategori.
+
+---
+
+## Out of Scope
+
+### Automatic Recommendation
+
+Belum termasuk.
+
+### AI Similarity Search
+
+Belum termasuk.
+
+### Vector Database
+
+Belum termasuk.
+
+---
+
+# Architecture
+
+Current:
+
+Channel
+↓
+Package
+↓
+Metadata Variants
+↓
+Selected Metadata
+
+Future:
+
+Channel
+↓
+Package
+↓
+Metadata Variants
+↓
+Selected Metadata
+↓
+Publish To Library
+↓
+Global Metadata Library
+
+---
+
+# Library Principles
+
+## Principle 1
+
+Library bersifat global.
+
+## Principle 2
+
+Library tidak memiliki channel ownership.
+
+## Principle 3
+
+Library item dapat digunakan oleh banyak channel.
+
+## Principle 4
+
+Library item tidak boleh mengubah source package.
+
+---
+
+# Metadata Workflow
+
+Generate Metadata
+↓
+Review
+↓
+Select
+↓
+Publish To Library
+↓
+Metadata Library
+
+Reuse:
+
+Metadata Library
+↓
+Select Library Item
+↓
+Apply To Package
+
+---
+
+# Asset Workflow
+
+Generate Asset
+↓
+Review
+↓
+Select
+↓
+Publish To Library
+↓
+Asset Library
+
+Reuse:
+
+Asset Library
+↓
+Select Asset
+↓
+Apply To Package
+
+---
+
+# UI Requirements
+
+## Global Library Page
+
+Navigation:
+
+Library
+
+Sections:
+
+* Metadata Library
+* Asset Library
+
+---
+
+## Package Workspace
+
+Source Mode:
+
+( ) Generate New
+
+( ) Use Library
+
+---
+
+# Acceptance Criteria
+
+✓ Metadata dapat dipublikasikan ke library
+
+✓ Asset dapat dipublikasikan ke library
+
+✓ Library item dapat digunakan lintas channel
+
+✓ Source package tetap utuh
+
+✓ Existing Generation Studio tidak berubah
+
+✓ Existing Upload Queue tidak berubah
+
+✓ Existing Publisher tidak berubah
