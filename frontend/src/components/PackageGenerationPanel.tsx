@@ -27,6 +27,7 @@ import {
 import GenerationReadinessPanel from './GenerationReadinessPanel';
 import MetadataVariantList from './MetadataVariantList';
 import AssetGrid from './AssetGrid';
+import RuntimeTraceViewer from './RuntimeTraceViewer';
 
 interface Props {
     package_: ContentPackage;
@@ -435,6 +436,10 @@ export default function PackageGenerationPanel({ package_, channelSlug }: Props)
 
                 <div className="pt-3 border-t border-border/60">
                     <AssetGrid packageId={package_.id} />
+                </div>
+
+                <div className="pt-3 border-t border-border/60">
+                    <RuntimeTraceViewer packageId={package_.id} />
                 </div>
 
                 {/* Placeholder action buttons */}

@@ -274,3 +274,24 @@ def select_metadata_variant(package_id: str, variant_id: str, db: Session = Depe
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+from database.models import RuntimeAudit
+from api.schemas import RuntimeAuditResponse
+
+@router.get("/{package_id}/runtime-audits", response_model=List[RuntimeAuditResponse])
+def get_runtime_audits(package_id: str, db: Session = Depends(get_db)):
+    """
+    Retrieve all runtime audits for a given package, ordered by newest first.
+    """
+    # Verify package exists
+    package = get_package(db, package_id)
+    if not package:
+        raise HTTPException(status_code=404, detail=f"Package '{package_id}' not found.")
+        
+    audits = (
+        db.query(RuntimeAudit)
+        .filter(RuntimeAudit.package_id == package_id)
+        .order_by(RuntimeAudit.executed_at.desc())
+        .all()
+    )
+    return audits

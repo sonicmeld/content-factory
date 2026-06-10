@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, DateTime, Text, Index, Boolean, UniqueConstraint
+from sqlalchemy import Column, String, Integer, DateTime, Text, Index, Boolean, UniqueConstraint, JSON
 from sqlalchemy.sql import func
 from sqlalchemy.orm import declarative_base
 
@@ -266,3 +266,26 @@ class MetadataLibrary(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+# Sprint 7C-1: Runtime Audit Layer
+class RuntimeAudit(Base):
+    __tablename__ = "runtime_audits"
+
+    id = Column(String, primary_key=True)
+    execution_id = Column(String, unique=True, index=True, nullable=False)
+    package_id = Column(String, index=True, nullable=False)
+    execution_type = Column(String, nullable=False)
+    
+    selected_prompt_id = Column(String, nullable=True)
+    selected_prompt_title = Column(String, nullable=True)
+    
+    assigned_prompt_ids = Column(JSON, nullable=True)
+    assigned_prompt_titles = Column(JSON, nullable=True)
+    
+    prompt_preview = Column(String(1000), nullable=True)
+    combo_used = Column(String, nullable=True)
+    
+    status = Column(String, nullable=False) # pending | success | failed
+    error_message = Column(Text, nullable=True)
+    
+    executed_at = Column(DateTime, default=func.now())

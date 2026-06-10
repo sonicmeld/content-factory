@@ -315,3 +315,20 @@ class MetadataLibraryResponse(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+# Sprint 7C-1: Runtime Audit Layer
+class RuntimeAuditResponse(BaseModel):
+    id: str
+    execution_id: str
+    package_id: str
+    execution_type: str
+    selected_prompt_id: Optional[str] = None
+    selected_prompt_title: Optional[str] = None
+    assigned_prompt_ids: Optional[str] = None
+    assigned_prompt_titles: Optional[str] = None
+    combo_used: Optional[str] = None
+    status: str
+    error_message: Optional[str] = None
+    executed_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

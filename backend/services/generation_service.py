@@ -230,39 +230,38 @@ def generate_metadata(db: Session, package_id: str, context_id: Optional[str] = 
         video_filename = package.video_path.split("/")[-1].split("\\")[-1] if package.video_path else "unknown"
         timestamp_content = _read_timestamp_content(package.timestamp_path or "")
 
-        if context_id:
-            ctx = prompt_context_repository.get_by_id(db, context_id)
-            if not ctx:
-                raise ValueError("Prompt Context not found.")
-            if ctx.channel_id != package.channel_id:
-                raise ValueError("Prompt Context does not belong to Package Channel")
-            
-            user_message = (
-                "=== CHANNEL CONTEXT ===\n\n"
-                "Topic:\n"
-                f"{ctx.topic or ''}\n\n"
-                "Keywords:\n"
-                f"{ctx.keywords or ''}\n\n"
-                "Notes:\n"
-                f"{ctx.notes or ''}\n\n"
-                "=== PACKAGE INFORMATION ===\n\n"
-                "Channel:\n"
-                f"{channel.name}\n\n"
-                "Package:\n"
-                f"{package.package_number}\n\n"
-                "Video:\n"
-                f"{video_filename}\n\n"
-                "Timestamp:\n"
-                f"{timestamp_content}"
-            )
-        else:
-            user_message = (
-                f"Channel: {channel.name}\n"
-                f"Package Number: {package.package_number}\n"
-                f"Video File: {video_filename}\n"
-            )
-            if timestamp_content:
-                user_message += f"\nTimestamp File Content:\n{timestamp_content}"
+        # --- Sprint 7C-1: Runtime Core Composition ---
+        from services.runtime_core_service import (
+            resolve_prompt_chain,
+            build_prompt_chain_text,
+            build_runtime_payload,
+            resolve_combo,
+            create_runtime_audit,
+            finalize_runtime_audit
+        )
+        
+        # 1. Combo Resolver
+        valid_combo = resolve_combo(combo)
+        
+        # 2. Prompt Resolver
+        selected_prompt, assigned_prompts = resolve_prompt_chain(db, context_id, channel.id, "metadata")
+        
+        # 3. Prompt Composition Engine
+        prompt_chain_text = build_prompt_chain_text(selected_prompt, assigned_prompts)
+        
+        # 4. Runtime Context Builder
+        user_message = build_runtime_payload(prompt_chain_text, channel, package, timestamp_content, is_metadata=True)
+        
+        # 5. Create Runtime Audit (Pending)
+        audit = create_runtime_audit(
+            db, 
+            package_id, 
+            "metadata", 
+            selected_prompt, 
+            assigned_prompts, 
+            valid_combo, 
+            user_message
+        )
 
         payload = {
             "model": combo,
@@ -326,6 +325,7 @@ def generate_metadata(db: Session, package_id: str, context_id: Optional[str] = 
                     "error_message": error_msg,
                 },
             )
+            finalize_runtime_audit(db, audit.execution_id, success=False, error_message=error_msg)
             # Return instead of raising to prevent crashing the worker/endpoint
             return package_generation_repository.get_by_package_id(db, package_id)
 
@@ -353,6 +353,8 @@ def generate_metadata(db: Session, package_id: str, context_id: Optional[str] = 
         logger.info(f"[AUDIT] metadata_variant_created: Package {package_id}, Combo {combo}, Context {source_context}")
         print(f"[AUDIT] metadata_variant_created: Package {package_id}, Combo {combo}, Context {source_context}")
 
+        finalize_runtime_audit(db, audit.execution_id, success=True)
+
         return package_generation_repository.update_generation(
             db,
             package_id,
@@ -374,6 +376,8 @@ def generate_metadata(db: Session, package_id: str, context_id: Optional[str] = 
                 "error_message": str(exc),
             },
         )
+        if 'audit' in locals() and hasattr(audit, 'execution_id'):
+            finalize_runtime_audit(db, audit.execution_id, success=False, error_message=str(exc))
         raise
 
 def select_metadata_variant(db: Session, package_id: str, variant_id: str) -> PackageGeneration:
@@ -487,46 +491,38 @@ def generate_thumbnail(db: Session, package_id: str, context_id: Optional[str] =
         video_filename = package.video_path.split("/")[-1].split("\\")[-1] if package.video_path else "unknown"
         timestamp_content = _read_timestamp_content(package.timestamp_path or "")
 
-        # 4. Build prompt using prompt context if supplied
-        if context_id:
-            ctx = prompt_context_repository.get_by_id(db, context_id)
-            if not ctx:
-                raise ValueError("Prompt Context not found.")
-            if ctx.channel_id != package.channel_id:
-                raise ValueError("Prompt Context does not belong to Package Channel")
-
-            prompt = (
-                "=== CHANNEL CONTEXT ===\n\n"
-                "Topic:\n"
-                f"{ctx.topic or ''}\n\n"
-                "Keywords:\n"
-                f"{ctx.keywords or ''}\n\n"
-                "Notes:\n"
-                f"{ctx.notes or ''}\n\n"
-                "=== PACKAGE INFORMATION ===\n\n"
-                "Channel:\n"
-                f"{channel.name}\n\n"
-                "Package:\n"
-                f"{package.package_number}\n\n"
-                "Video:\n"
-                f"{video_filename}\n\n"
-                "Timestamp:\n"
-                f"{timestamp_content}\n\n"
-                "Generate a professional YouTube thumbnail concept."
-            )
-        else:
-            prompt = (
-                "=== PACKAGE INFORMATION ===\n\n"
-                "Channel:\n"
-                f"{channel.name}\n\n"
-                "Package:\n"
-                f"{package.package_number}\n\n"
-                "Video:\n"
-                f"{video_filename}\n\n"
-                "Timestamp:\n"
-                f"{timestamp_content}\n\n"
-                "Generate a professional YouTube thumbnail concept."
-            )
+        # --- Sprint 7C-1: Runtime Core Composition ---
+        from services.runtime_core_service import (
+            resolve_prompt_chain,
+            build_prompt_chain_text,
+            build_runtime_payload,
+            resolve_combo,
+            create_runtime_audit,
+            finalize_runtime_audit
+        )
+        
+        # 1. Combo Resolver
+        valid_combo = resolve_combo(combo)
+        
+        # 2. Prompt Resolver
+        selected_prompt, assigned_prompts = resolve_prompt_chain(db, context_id, channel.id, "thumbnail")
+        
+        # 3. Prompt Composition Engine
+        prompt_chain_text = build_prompt_chain_text(selected_prompt, assigned_prompts)
+        
+        # 4. Runtime Context Builder
+        prompt = build_runtime_payload(prompt_chain_text, channel, package, timestamp_content, is_metadata=False)
+        
+        # 5. Create Runtime Audit (Pending)
+        audit = create_runtime_audit(
+            db, 
+            package_id, 
+            "thumbnail", 
+            selected_prompt, 
+            assigned_prompts, 
+            valid_combo, 
+            prompt
+        )
 
         # 5. Call image service with model explicitly passed
         from services.image_service import generate_thumbnail as run_image_service
@@ -535,6 +531,7 @@ def generate_thumbnail(db: Session, package_id: str, context_id: Optional[str] =
         filename = os.path.basename(output_path)
 
         # Save success
+        finalize_runtime_audit(db, audit.execution_id, success=True)
         return package_generation_repository.update_generation(
             db,
             package_id,
@@ -543,7 +540,7 @@ def generate_thumbnail(db: Session, package_id: str, context_id: Optional[str] =
                 "thumbnail_status": "completed",
                 "error_message": None,
                 "thumbnail_combo_used": combo,
-                "prompt_context_used": ctx.title if context_id and ctx else None,
+                "prompt_context_used": selected_prompt.title if selected_prompt else None,
             },
         )
 
@@ -556,5 +553,7 @@ def generate_thumbnail(db: Session, package_id: str, context_id: Optional[str] =
                 "error_message": str(exc),
             },
         )
+        if 'audit' in locals() and hasattr(audit, 'execution_id'):
+            finalize_runtime_audit(db, audit.execution_id, success=False, error_message=str(exc))
         raise
 

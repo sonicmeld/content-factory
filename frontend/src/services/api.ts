@@ -191,4 +191,10 @@ export const publishVariantToLibrary = (variantId: string, data: { category?: st
 export const cloneLibraryItem = (itemId: string, packageGenerationId: string) =>
     api.post<MetadataVariant>(`/metadata-library/${itemId}/clone/${packageGenerationId}`).then(res => res.data);
 
+// Sprint 7C-1: Runtime Audit Layer
+import { RuntimeAudit } from '../types';
+
+export const getRuntimeAudits = (packageId: string) =>
+    api.get<RuntimeAudit[]>(`/packages/${packageId}/runtime-audits`).then(res => res.data);
+
 export default api;

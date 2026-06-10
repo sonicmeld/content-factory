@@ -203,3 +203,19 @@ export interface MetadataLibraryItem {
     created_at: string;
     updated_at: string;
 }
+
+// Sprint 7C-1: Runtime Audit Layer
+export interface RuntimeAudit {
+    id: string;
+    execution_id: string;
+    package_id: string;
+    execution_type: string;
+    selected_prompt_id?: string;
+    selected_prompt_title?: string;
+    assigned_prompt_ids?: string;
+    assigned_prompt_titles?: string;
+    combo_used?: string;
+    status: string;
+    error_message?: string;
+    executed_at: string;
+}
