@@ -22,11 +22,27 @@ def get_by_channel(db: Session, channel_id: str, include_inactive: bool = False)
     )
 
 
+def get_all(db: Session, prompt_type: Optional[str] = None, include_inactive: bool = False) -> List[PromptContext]:
+    """Retrieve all PromptContext records globally."""
+    query = db.query(PromptContext)
+    if prompt_type:
+        query = query.filter(PromptContext.prompt_type == prompt_type)
+    if not include_inactive:
+        query = query.filter(PromptContext.is_active == 1)
+        
+    return (
+        query
+        .order_by(PromptContext.created_at.desc())
+        .all()
+    )
+
+
 def create_context(db: Session, channel_id: str, data: dict) -> PromptContext:
     """Create a new PromptContext record."""
     db_ctx = PromptContext(
         id=str(uuid.uuid4()),
         channel_id=channel_id,
+        prompt_type=data.get("prompt_type", "metadata"),
         title=data["title"],
         topic=data.get("topic"),
         keywords=data.get("keywords"),

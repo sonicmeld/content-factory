@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getChannels, updateChannel, connectOAuth, disconnectOAuth } from '../../services/api';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
+import PromptAssignmentManager from '../../components/PromptAssignmentManager';
 
 export default function ChannelSettings() {
     const { slug } = useParams();
@@ -195,15 +196,8 @@ export default function ChannelSettings() {
                     </div>
                 </div>
 
-                <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden opacity-60">
-                    <div className="px-6 py-4 border-b border-border bg-secondary/30 flex items-center justify-between">
-                        <h3 className="font-semibold">AI Profile Assignment</h3>
-                        <span className="text-[10px] font-bold uppercase bg-secondary px-2 py-0.5 rounded-full text-muted-foreground">Planned Feature</span>
-                    </div>
-                    <div className="p-6">
-                        <p className="text-sm text-muted-foreground">Assign default AI Generation Profiles to ensure consistent metadata generation styles across all content packages.</p>
-                    </div>
-                </div>
+                {/* Prompt Assignment Manager */}
+                <PromptAssignmentManager channelId={currentChannel.id} />
 
                 <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden opacity-60">
                     <div className="px-6 py-4 border-b border-border bg-secondary/30 flex items-center justify-between">

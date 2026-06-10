@@ -20,6 +20,7 @@ from api.prompt_contexts import router as prompt_contexts_router
 from api.generation_combos import router as generation_combos_router
 from api.diagnostics import router as diagnostics_router
 from api.metadata_library import router as metadata_library_router
+from api.channel_prompt_assignments import router as channel_prompt_assignments_router
 from api import health
 from app.config import settings
 
@@ -93,6 +94,7 @@ app.include_router(metadata_library_router)
 app.include_router(metadata_variants_router)
 app.include_router(generation_assets_package_router)
 app.include_router(generation_assets_router)
+app.include_router(channel_prompt_assignments_router)
 app.include_router(health.router)
 
 @app.get("/api/config")

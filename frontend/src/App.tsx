@@ -3,7 +3,7 @@ import Layout from './components/Layout';
 import WorkspaceLayout from './components/WorkspaceLayout';
 import Dashboard from './pages/Dashboard';
 import Channels from './pages/Channels';
-import PromptFactory from './pages/PromptFactory';
+import PromptLibraryPage from './pages/PromptLibraryPage';
 import Assets from './pages/Assets';
 import Uploads from './pages/Uploads';
 import Settings from './pages/Settings';
@@ -29,7 +29,7 @@ function App() {
         <Route element={<Layout><Outlet /></Layout>}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/channels" element={<Channels />} />
-          <Route path="/prompts" element={<PromptFactory />} />
+          <Route path="/prompts" element={<PromptLibraryPage />} />
           <Route path="/assets" element={<Assets />} />
           <Route path="/uploads" element={<Uploads />} />
           <Route path="/generation-combos" element={<GenerationCombos />} />
@@ -46,7 +46,7 @@ function App() {
           <Route path="queue" element={<UploadQueue />} />
           <Route path="published" element={<PublishedVideos />} />
           <Route path="assets" element={<Assets />} />
-          <Route path="prompts" element={<PromptFactory />} />
+          <Route path="prompts" element={<PromptLibraryPage />} />
           <Route path="settings" element={<ChannelSettings />} />
         </Route>
       </Routes>

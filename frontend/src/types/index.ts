@@ -130,12 +130,23 @@ export interface GenerationReadiness {
 export interface PromptContext {
     id: string;
     channel_id: string;
+    prompt_type: string;
     title: string;
     topic?: string;
     keywords?: string;
     notes?: string;
     description?: string;
     is_active: boolean;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface ChannelPromptAssignment {
+    id: string;
+    channel_id: string;
+    prompt_id: string;
+    assignment_order: number;
+    is_active: number;
     created_at: string;
     updated_at: string;
 }

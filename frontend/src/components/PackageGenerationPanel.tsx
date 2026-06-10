@@ -8,7 +8,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getPackageGeneration, generateMetadata, getPromptContexts, generateThumbnail, getGenerationReadiness, assemblePackage, getMetadataLibrary, cloneLibraryItem } from '../services/api';
+import { getPackageGeneration, generateMetadata, getGlobalPromptContexts, getChannelPromptAssignments, generateThumbnail, getGenerationReadiness, assemblePackage, getMetadataLibrary, cloneLibraryItem } from '../services/api';
 import type { ContentPackage } from '../types';
 import { toast } from 'sonner';
 import {
@@ -69,14 +69,29 @@ function StatusBadge({ status }: { status: GenStatus }) {
 
 export default function PackageGenerationPanel({ package_, channelSlug }: Props) {
     const queryClient = useQueryClient();
-    const [selectedContextId, setSelectedContextId] = useState<string>('');
+    const [selectedMetadataContextId, setSelectedMetadataContextId] = useState<string>('');
+    const [selectedThumbnailContextId, setSelectedThumbnailContextId] = useState<string>('');
     const [sourceMode, setSourceMode] = useState<'generate' | 'library'>('generate');
     const [selectedLibraryItemId, setSelectedLibraryItemId] = useState<string>('');
 
-    const { data: promptContexts = [] } = useQuery({
-        queryKey: ['prompt-contexts', package_.channel_id],
-        queryFn: () => getPromptContexts(package_.channel_id),
+    const { data: assignments = [] } = useQuery({
+        queryKey: ['channel-prompt-assignments', package_.channel_id],
+        queryFn: () => getChannelPromptAssignments(package_.channel_id),
     });
+
+    const { data: globalPrompts = [] } = useQuery({
+        queryKey: ['global-prompt-contexts'],
+        queryFn: () => getGlobalPromptContexts(),
+    });
+
+    // Compute assigned prompts with full context data
+    const assignedPrompts = assignments
+        .sort((a: any, b: any) => a.assignment_order - b.assignment_order)
+        .map((a: any) => globalPrompts.find((p: any) => p.id === a.prompt_id))
+        .filter(Boolean);
+
+    const metadataPrompts = assignedPrompts.filter((p: any) => p.prompt_type === 'metadata');
+    const thumbnailPrompts = assignedPrompts.filter((p: any) => p.prompt_type === 'thumbnail');
 
     const { data: libraryItems = [] } = useQuery({
         queryKey: ['metadata-library'],
@@ -111,7 +126,7 @@ export default function PackageGenerationPanel({ package_, channelSlug }: Props)
     const noRecord = isError && (error as any)?.response?.status === 404;
 
     const generateMetadataMutation = useMutation({
-        mutationFn: () => generateMetadata(package_.id, selectedContextId || undefined),
+        mutationFn: () => generateMetadata(package_.id, selectedMetadataContextId || undefined),
         onSuccess: () => {
             toast.success('Metadata generation triggered');
             queryClient.invalidateQueries({ queryKey: ['package-generation', package_.id] });
@@ -136,7 +151,7 @@ export default function PackageGenerationPanel({ package_, channelSlug }: Props)
     });
 
     const generateThumbnailMutation = useMutation({
-        mutationFn: () => generateThumbnail(package_.id, selectedContextId || undefined),
+        mutationFn: () => generateThumbnail(package_.id, selectedThumbnailContextId || undefined),
         onSuccess: () => {
             toast.success('Thumbnail generation triggered');
             queryClient.invalidateQueries({ queryKey: ['package-generation', package_.id] });
@@ -293,21 +308,39 @@ export default function PackageGenerationPanel({ package_, channelSlug }: Props)
                     </div>
 
                     {sourceMode === 'generate' ? (
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Metadata Context</label>
-                            <select
-                                className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-xs focus:ring-1 focus:ring-primary focus:outline-none"
-                                value={selectedContextId}
-                                onChange={(e) => setSelectedContextId(e.target.value)}
-                                disabled={isMetadataProcessing || generateMetadataMutation.isPending}
-                            >
-                                <option value="">Default (No Context)</option>
-                                {promptContexts.map((ctx) => (
-                                    <option key={ctx.id} value={ctx.id}>
-                                        {ctx.title}
-                                    </option>
-                                ))}
-                            </select>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Metadata Context</label>
+                                <select
+                                    className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-xs focus:ring-1 focus:ring-primary focus:outline-none"
+                                    value={selectedMetadataContextId}
+                                    onChange={(e) => setSelectedMetadataContextId(e.target.value)}
+                                    disabled={isMetadataProcessing || generateMetadataMutation.isPending}
+                                >
+                                    <option value="">Default (No Context)</option>
+                                    {metadataPrompts.map((ctx: any) => (
+                                        <option key={ctx.id} value={ctx.id}>
+                                            {ctx.title}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Thumbnail Context</label>
+                                <select
+                                    className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-xs focus:ring-1 focus:ring-primary focus:outline-none"
+                                    value={selectedThumbnailContextId}
+                                    onChange={(e) => setSelectedThumbnailContextId(e.target.value)}
+                                    disabled={isThumbnailProcessing || generateThumbnailMutation.isPending}
+                                >
+                                    <option value="">Default (No Context)</option>
+                                    {thumbnailPrompts.map((ctx: any) => (
+                                        <option key={ctx.id} value={ctx.id}>
+                                            {ctx.title}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
                     ) : (
                         <div className="space-y-1.5">
@@ -329,25 +362,55 @@ export default function PackageGenerationPanel({ package_, channelSlug }: Props)
                     )}
                 </div>
 
-                {/* Selected Context Preview */}
-                {sourceMode === 'generate' && selectedContextId && (
+                {/* Selected Context Preview (Metadata) */}
+                {sourceMode === 'generate' && selectedMetadataContextId && (
                     <div className="mt-2 p-3 bg-secondary/30 rounded-md border border-border/50 space-y-2">
-                        {promptContexts.find(c => c.id === selectedContextId)?.topic && (
+                        <div className="flex items-center gap-2 mb-2">
+                            <span className="text-[10px] font-bold uppercase tracking-wider bg-primary/20 text-primary px-2 py-0.5 rounded">Metadata Context</span>
+                        </div>
+                        {globalPrompts.find((c: any) => c.id === selectedMetadataContextId)?.topic && (
                             <div>
                                 <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-0.5">Topic</span>
-                                <p className="text-xs text-foreground font-medium">{promptContexts.find(c => c.id === selectedContextId)?.topic}</p>
+                                <p className="text-xs text-foreground font-medium">{globalPrompts.find((c: any) => c.id === selectedMetadataContextId)?.topic}</p>
                             </div>
                         )}
-                        {promptContexts.find(c => c.id === selectedContextId)?.keywords && (
+                        {globalPrompts.find((c: any) => c.id === selectedMetadataContextId)?.keywords && (
                             <div>
                                 <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-0.5">Keywords</span>
-                                <p className="text-xs text-muted-foreground">{promptContexts.find(c => c.id === selectedContextId)?.keywords}</p>
+                                <p className="text-xs text-muted-foreground">{globalPrompts.find((c: any) => c.id === selectedMetadataContextId)?.keywords}</p>
                             </div>
                         )}
-                        {promptContexts.find(c => c.id === selectedContextId)?.notes && (
+                        {globalPrompts.find((c: any) => c.id === selectedMetadataContextId)?.notes && (
                             <div>
                                 <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-0.5">Notes</span>
-                                <p className="text-xs text-muted-foreground whitespace-pre-wrap">{promptContexts.find(c => c.id === selectedContextId)?.notes}</p>
+                                <p className="text-xs text-muted-foreground whitespace-pre-wrap">{globalPrompts.find((c: any) => c.id === selectedMetadataContextId)?.notes}</p>
+                            </div>
+                        )}
+                    </div>
+                )}
+                
+                {/* Selected Context Preview (Thumbnail) */}
+                {sourceMode === 'generate' && selectedThumbnailContextId && (
+                    <div className="mt-2 p-3 bg-secondary/30 rounded-md border border-border/50 space-y-2">
+                        <div className="flex items-center gap-2 mb-2">
+                            <span className="text-[10px] font-bold uppercase tracking-wider bg-primary/20 text-primary px-2 py-0.5 rounded">Thumbnail Context</span>
+                        </div>
+                        {globalPrompts.find((c: any) => c.id === selectedThumbnailContextId)?.topic && (
+                            <div>
+                                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-0.5">Topic</span>
+                                <p className="text-xs text-foreground font-medium">{globalPrompts.find((c: any) => c.id === selectedThumbnailContextId)?.topic}</p>
+                            </div>
+                        )}
+                        {globalPrompts.find((c: any) => c.id === selectedThumbnailContextId)?.keywords && (
+                            <div>
+                                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-0.5">Keywords</span>
+                                <p className="text-xs text-muted-foreground">{globalPrompts.find((c: any) => c.id === selectedThumbnailContextId)?.keywords}</p>
+                            </div>
+                        )}
+                        {globalPrompts.find((c: any) => c.id === selectedThumbnailContextId)?.notes && (
+                            <div>
+                                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-0.5">Notes</span>
+                                <p className="text-xs text-muted-foreground whitespace-pre-wrap">{globalPrompts.find((c: any) => c.id === selectedThumbnailContextId)?.notes}</p>
                             </div>
                         )}
                     </div>

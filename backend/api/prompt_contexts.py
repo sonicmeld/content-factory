@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 
 from database.database import get_db
 from api.schemas import PromptContextCreate, PromptContextUpdate, PromptContextResponse
@@ -15,6 +15,12 @@ def get_channel_prompt_contexts(channel_id: str, include_inactive: bool = False,
     return prompt_context_service.get_prompt_contexts_by_channel(db, channel_id, include_inactive)
 
 
+@router.get("/api/prompt-contexts", response_model=List[PromptContextResponse])
+def get_global_prompt_contexts(prompt_type: Optional[str] = None, include_inactive: bool = False, db: Session = Depends(get_db)):
+    """Retrieve all Prompt Context records globally."""
+    return prompt_context_service.get_all_prompt_contexts(db, prompt_type, include_inactive)
+
+
 @router.post("/api/channels/{channel_id}/prompt-contexts", response_model=PromptContextResponse)
 def create_channel_prompt_context(
     channel_id: str,
@@ -23,6 +29,16 @@ def create_channel_prompt_context(
 ):
     """Create a new Prompt Context record for a channel."""
     return prompt_context_service.create_prompt_context(db, channel_id, context_in)
+
+
+@router.post("/api/prompt-contexts", response_model=PromptContextResponse)
+def create_global_prompt_context(
+    context_in: PromptContextCreate,
+    db: Session = Depends(get_db)
+):
+    """Create a new Prompt Context record globally."""
+    # Using 'global' as the legacy channel_id for backwards compatibility.
+    return prompt_context_service.create_prompt_context(db, "global", context_in)
 
 
 @router.put("/api/prompt-contexts/{id}", response_model=PromptContextResponse)

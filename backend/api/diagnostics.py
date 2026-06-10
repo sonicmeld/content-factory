@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from database.database import get_db
-from database.models import Channel, PromptContext, GenerationCombo
+from database.models import Channel, PromptContext, GenerationCombo, ChannelPromptAssignment
 from services.generation_combo_service import validate_metadata_ready, validate_thumbnail_ready, validate_footage_ready
 from pydantic import BaseModel
 
@@ -33,10 +33,19 @@ def get_generation_readiness(channel_id: str, db: Session = Depends(get_db)):
     thumbnail_ready = validate_thumbnail_ready(db, channel)
     footage_ready = validate_footage_ready(db, channel)
     
-    active_prompt_contexts = db.query(PromptContext).filter(
-        PromptContext.channel_id == channel_id,
-        PromptContext.is_active == 1
+    active_assignments = db.query(ChannelPromptAssignment).filter(
+        ChannelPromptAssignment.channel_id == channel_id,
+        ChannelPromptAssignment.is_active == 1
     ).count()
+
+    if active_assignments > 0:
+        active_prompt_contexts = active_assignments
+    else:
+        # Legacy fallback
+        active_prompt_contexts = db.query(PromptContext).filter(
+            PromptContext.channel_id == channel_id,
+            PromptContext.is_active == 1
+        ).count()
     
     active_combos = db.query(GenerationCombo).filter(
         GenerationCombo.is_active == 1

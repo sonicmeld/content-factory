@@ -21,6 +21,11 @@ def get_prompt_contexts_by_channel(db: Session, channel_id: str, include_inactiv
     return prompt_context_repository.get_by_channel(db, channel_id, include_inactive)
 
 
+def get_all_prompt_contexts(db: Session, prompt_type: Optional[str] = None, include_inactive: bool = False) -> List[PromptContext]:
+    """Get all prompt contexts globally."""
+    return prompt_context_repository.get_all(db, prompt_type, include_inactive)
+
+
 def create_prompt_context(db: Session, channel_id: str, context_in: PromptContextCreate) -> PromptContext:
     """Create a new prompt context for a channel."""
     data = context_in.model_dump()

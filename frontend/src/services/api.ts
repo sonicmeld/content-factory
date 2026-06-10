@@ -101,18 +101,38 @@ export const generateMetadata = (packageId: string, contextId?: string) =>
 export const generateThumbnail = (packageId: string, contextId?: string) =>
     api.post<PackageGeneration>(`/packages/${packageId}/generate-thumbnail`, { context_id: contextId }).then(res => res.data);
 
-// Prompt Contexts CRUD (Sprint 7A-3.1)
+// Prompt Contexts CRUD
 export const getPromptContexts = (channelId: string, includeInactive: boolean = false) =>
     api.get<PromptContext[]>(`/channels/${channelId}/prompt-contexts`, { params: { include_inactive: includeInactive } }).then(res => res.data);
 
+export const getGlobalPromptContexts = (promptType?: string, includeInactive: boolean = false) =>
+    api.get<PromptContext[]>('/prompt-contexts', { params: { prompt_type: promptType, include_inactive: includeInactive } }).then(res => res.data);
+
 export const createPromptContext = (channelId: string, data: Partial<PromptContext>) =>
     api.post<PromptContext>(`/channels/${channelId}/prompt-contexts`, data).then(res => res.data);
+
+export const createGlobalPromptContext = (data: Partial<PromptContext>) =>
+    api.post<PromptContext>('/prompt-contexts', data).then(res => res.data);
 
 export const updatePromptContext = (id: string, data: Partial<PromptContext>) =>
     api.put<PromptContext>(`/prompt-contexts/${id}`, data).then(res => res.data);
 
 export const deletePromptContext = (id: string) =>
     api.delete<{ message: string }>(`/prompt-contexts/${id}`).then(res => res.data);
+
+// Sprint 7B-2: Channel Prompt Assignments
+export const getChannelPromptAssignments = (channelId: string, includeInactive: boolean = false) =>
+    api.get<any[]>(`/channels/${channelId}/prompt-assignments`, { params: { include_inactive: includeInactive } }).then(res => res.data);
+
+export const createChannelPromptAssignment = (channelId: string, data: { prompt_id: string, assignment_order?: number, is_active?: number }) =>
+    api.post<any>(`/channels/${channelId}/prompt-assignments`, data).then(res => res.data);
+
+export const updateChannelPromptAssignment = (channelId: string, assignmentId: string, data: { assignment_order?: number, is_active?: number }) =>
+    api.put<any>(`/channels/${channelId}/prompt-assignments/${assignmentId}`, data).then(res => res.data);
+
+export const deleteChannelPromptAssignment = (channelId: string, assignmentId: string) =>
+    api.delete<{ message: string }>(`/channels/${channelId}/prompt-assignments/${assignmentId}`).then(res => res.data);
+
 
 // Sprint 7A-4.5: Global Combo Registry
 export const getGenerationCombos = (category?: string) => {

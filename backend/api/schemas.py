@@ -175,6 +175,7 @@ class PackageGenerationResponse(BaseModel):
 
 # Sprint 7A-3.1: Metadata Context schemas
 class PromptContextBase(BaseModel):
+    prompt_type: str = "metadata"
     title: str
     topic: Optional[str] = None
     keywords: Optional[str] = None
@@ -187,6 +188,7 @@ class PromptContextCreate(PromptContextBase):
 
 
 class PromptContextUpdate(BaseModel):
+    prompt_type: Optional[str] = None
     title: Optional[str] = None
     topic: Optional[str] = None
     keywords: Optional[str] = None
@@ -206,6 +208,27 @@ class PromptContextResponse(PromptContextBase):
 
 class GenerateMetadataRequest(BaseModel):
     context_id: Optional[str] = None
+
+# Sprint 7B-2: Channel Prompt Assignments schemas
+class ChannelPromptAssignmentBase(BaseModel):
+    prompt_id: str
+    assignment_order: int = 1
+    is_active: int = 1
+
+class ChannelPromptAssignmentCreate(ChannelPromptAssignmentBase):
+    pass
+
+class ChannelPromptAssignmentUpdate(BaseModel):
+    assignment_order: Optional[int] = None
+    is_active: Optional[int] = None
+
+class ChannelPromptAssignmentResponse(ChannelPromptAssignmentBase):
+    id: str
+    channel_id: str
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Sprint 7A-4.5: Global Combo Registry schemas

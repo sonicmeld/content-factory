@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, DateTime, Text, Index, Boolean
+from sqlalchemy import Column, String, Integer, DateTime, Text, Index, Boolean, UniqueConstraint
 from sqlalchemy.sql import func
 from sqlalchemy.orm import declarative_base
 
@@ -166,12 +166,13 @@ class PackageGeneration(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
 
-# Sprint 7A-3.1: Metadata Context Layer
+# Sprint 7A-3.1 / Sprint 7B-2: Prompt Context / Global Prompt Library
 class PromptContext(Base):
     __tablename__ = "prompt_contexts"
 
     id = Column(String, primary_key=True)
-    channel_id = Column(String, nullable=False)
+    channel_id = Column(String, nullable=False) # Legacy Compatibility Field
+    prompt_type = Column(String, nullable=False, default="metadata") # metadata, thumbnail, footage
     title = Column(String, nullable=False)
     topic = Column(String, nullable=True)
     keywords = Column(String, nullable=True)
@@ -180,6 +181,23 @@ class PromptContext(Base):
     is_active = Column(Integer, default=1)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+# Sprint 7B-2: Channel Prompt Assignments
+class ChannelPromptAssignment(Base):
+    __tablename__ = "channel_prompt_assignments"
+
+    id = Column(String, primary_key=True)
+    channel_id = Column(String, nullable=False)
+    prompt_id = Column(String, nullable=False)
+    assignment_order = Column(Integer, nullable=False, default=1)
+    is_active = Column(Integer, default=1)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        Index("idx_channel_prompt_assignments_channel_id", "channel_id"),
+        UniqueConstraint("channel_id", "prompt_id", name="uq_channel_prompt"),
+    )
 
 # Sprint 7A-4.5: Global Combo Registry
 class GenerationCombo(Base):

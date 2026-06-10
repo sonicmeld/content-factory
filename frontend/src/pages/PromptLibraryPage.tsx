@@ -1,43 +1,34 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getChannels, getPromptContexts, createPromptContext, updatePromptContext, deletePromptContext } from '../services/api';
-import { Sparkles, PlusCircle, Edit2, Trash2, Loader2, X, FileText, Info } from 'lucide-react';
+import { getGlobalPromptContexts, createGlobalPromptContext, updatePromptContext, deletePromptContext } from '../services/api';
+import { Sparkles, PlusCircle, Edit2, Trash2, Loader2, X, FileText, Info, Filter } from 'lucide-react';
 import { toast } from 'sonner';
-import { useParams } from 'react-router-dom';
 import type { PromptContext } from '../types';
 
-export default function PromptFactory() {
-    const { slug } = useParams();
+export default function PromptLibraryPage() {
     const queryClient = useQueryClient();
     
-    // Fetch channels to find the current channel by slug or list them
-    const { data: channels = [] } = useQuery({ queryKey: ['channels'], queryFn: getChannels });
-    
-    // Determine active channel if in workspace
-    const workspaceChannel = slug ? channels.find(c => c.slug === slug) : null;
-    const [selectedChannelId, setSelectedChannelId] = useState('');
-    
-    const activeChannelId = workspaceChannel?.id || selectedChannelId;
-    const activeChannel = channels.find(c => c.id === activeChannelId);
-
-    // Fetch prompt contexts for the active channel
-    const { data: contexts = [], isLoading: isContextsLoading } = useQuery({
-        queryKey: ['prompt-contexts', activeChannelId],
-        queryFn: () => getPromptContexts(activeChannelId, true), // Fetch all including inactive
-        enabled: !!activeChannelId
-    });
-
-    // Form states
+    const [selectedType, setSelectedType] = useState<string>(''); // empty means all
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingContext, setEditingContext] = useState<PromptContext | null>(null);
+    
+    // Form states
+    const [promptType, setPromptType] = useState('metadata');
     const [title, setTitle] = useState('');
     const [topic, setTopic] = useState('');
     const [keywords, setKeywords] = useState('');
     const [notes, setNotes] = useState('');
     const [description, setDescription] = useState('');
 
+    // Fetch global prompt contexts
+    const { data: contexts = [], isLoading: isContextsLoading } = useQuery({
+        queryKey: ['global-prompt-contexts', selectedType],
+        queryFn: () => getGlobalPromptContexts(selectedType || undefined, true),
+    });
+
     const openCreateModal = () => {
         setEditingContext(null);
+        setPromptType('metadata');
         setTitle('');
         setTopic('');
         setKeywords('');
@@ -48,6 +39,7 @@ export default function PromptFactory() {
 
     const openEditModal = (ctx: PromptContext) => {
         setEditingContext(ctx);
+        setPromptType(ctx.prompt_type || 'metadata');
         setTitle(ctx.title);
         setTopic(ctx.topic || '');
         setKeywords(ctx.keywords || '');
@@ -57,9 +49,9 @@ export default function PromptFactory() {
     };
 
     const createMutation = useMutation({
-        mutationFn: (data: Partial<PromptContext>) => createPromptContext(activeChannelId, data),
+        mutationFn: (data: Partial<PromptContext>) => createGlobalPromptContext(data),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['prompt-contexts', activeChannelId] });
+            queryClient.invalidateQueries({ queryKey: ['global-prompt-contexts'] });
             toast.success("Prompt Context created successfully");
             setIsModalOpen(false);
         },
@@ -71,7 +63,7 @@ export default function PromptFactory() {
     const updateMutation = useMutation({
         mutationFn: ({ id, data }: { id: string, data: Partial<PromptContext> }) => updatePromptContext(id, data),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['prompt-contexts', activeChannelId] });
+            queryClient.invalidateQueries({ queryKey: ['global-prompt-contexts'] });
             toast.success("Prompt Context updated successfully");
             setIsModalOpen(false);
         },
@@ -83,7 +75,7 @@ export default function PromptFactory() {
     const deleteMutation = useMutation({
         mutationFn: (id: string) => deletePromptContext(id),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['prompt-contexts', activeChannelId] });
+            queryClient.invalidateQueries({ queryKey: ['global-prompt-contexts'] });
             toast.success("Prompt Context deleted successfully");
         },
         onError: (err: any) => {
@@ -99,6 +91,7 @@ export default function PromptFactory() {
         }
 
         const payload = {
+            prompt_type: promptType,
             title,
             topic: topic || undefined,
             keywords: keywords || undefined,
@@ -130,44 +123,38 @@ export default function PromptFactory() {
                 <div>
                     <h1 className="text-2xl font-bold flex items-center gap-2">
                         <Sparkles className="w-6 h-6 text-primary" />
-                        Prompt Contexts
+                        Global Prompt Library
                     </h1>
                     <p className="text-muted-foreground text-sm mt-1">
-                        Manage reusable channel-level contexts that provide topic, keywords, and notes for YouTube metadata generation.
+                        Manage global, reusable prompt contexts (Metadata, Thumbnail, Footage) to be assigned across channels.
                     </p>
                 </div>
-                {activeChannelId && (
-                    <button 
-                        onClick={openCreateModal}
-                        className="bg-primary text-primary-foreground px-4 py-2.5 rounded-md font-medium text-sm hover:bg-primary/90 flex items-center gap-2 shadow-sm transition-all hover:scale-[1.02]"
-                    >
-                        <PlusCircle className="w-4 h-4" /> Add Context
-                    </button>
-                )}
+                <button 
+                    onClick={openCreateModal}
+                    className="bg-primary text-primary-foreground px-4 py-2.5 rounded-md font-medium text-sm hover:bg-primary/90 flex items-center gap-2 shadow-sm transition-all hover:scale-[1.02]"
+                >
+                    <PlusCircle className="w-4 h-4" /> Add Prompt
+                </button>
             </div>
 
-            {/* General Channel Selector (Only visible if not inside a channel workspace) */}
-            {!slug && (
-                <div className="bg-card border border-border p-5 rounded-lg max-w-md shadow-sm">
-                    <label className="text-sm font-semibold text-foreground mb-2 block">Select Channel Target</label>
-                    <select 
-                        className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary focus:outline-none"
-                        value={selectedChannelId}
-                        onChange={(e) => setSelectedChannelId(e.target.value)}
-                    >
-                        <option value="">Select a Channel...</option>
-                        {channels.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
-                </div>
-            )}
+            {/* Filter */}
+            <div className="flex items-center gap-2 bg-card border border-border p-3 rounded-lg shadow-sm w-fit">
+                <Filter className="w-4 h-4 text-muted-foreground" />
+                <label className="text-sm font-medium text-foreground">Type Filter:</label>
+                <select 
+                    className="bg-secondary border border-border rounded-md px-3 py-1 text-sm focus:ring-1 focus:ring-primary focus:outline-none ml-2"
+                    value={selectedType}
+                    onChange={(e) => setSelectedType(e.target.value)}
+                >
+                    <option value="">All Types</option>
+                    <option value="metadata">Metadata</option>
+                    <option value="thumbnail">Thumbnail</option>
+                    <option value="footage">Footage</option>
+                </select>
+            </div>
 
             {/* Context Manager Area */}
-            {!activeChannelId ? (
-                <div className="h-64 flex flex-col items-center justify-center border border-dashed border-border rounded-xl bg-secondary/10 text-muted-foreground space-y-2">
-                    <Info className="w-8 h-8 text-muted-foreground/50" />
-                    <p className="font-medium">Please select a channel to manage prompt contexts.</p>
-                </div>
-            ) : isContextsLoading ? (
+            {isContextsLoading ? (
                 <div className="h-64 flex items-center justify-center">
                     <Loader2 className="w-8 h-8 animate-spin text-primary" />
                 </div>
@@ -175,15 +162,9 @@ export default function PromptFactory() {
                 <div className="h-64 flex flex-col items-center justify-center border border-dashed border-border rounded-xl bg-secondary/15 text-muted-foreground space-y-4">
                     <FileText className="w-10 h-10 text-muted-foreground/30" />
                     <div className="text-center">
-                        <p className="font-semibold text-foreground">No prompt contexts yet</p>
-                        <p className="text-sm mt-1">Create a context to start tuning metadata outputs for <strong>{activeChannel?.name}</strong>.</p>
+                        <p className="font-semibold text-foreground">No prompts found</p>
+                        <p className="text-sm mt-1">Create a global prompt context to begin.</p>
                     </div>
-                    <button 
-                        onClick={openCreateModal}
-                        className="bg-secondary text-secondary-foreground border border-border px-4 py-2 rounded-md font-medium text-sm hover:bg-secondary/80 flex items-center gap-2 transition-colors"
-                    >
-                        <PlusCircle className="w-4 h-4" /> Create First Context
-                    </button>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -194,9 +175,12 @@ export default function PromptFactory() {
                         >
                             <div className="space-y-4">
                                 <div className="flex items-start justify-between gap-2 border-b border-border pb-3">
-                                    <h3 className="font-semibold text-lg text-card-foreground group-hover:text-primary transition-colors truncate" title={ctx.title}>
-                                        {ctx.title}
-                                    </h3>
+                                    <div>
+                                        <h3 className="font-semibold text-lg text-card-foreground group-hover:text-primary transition-colors line-clamp-1" title={ctx.title}>
+                                            {ctx.title}
+                                        </h3>
+                                        <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">{ctx.prompt_type}</span>
+                                    </div>
                                     <div className="flex items-center gap-1 opacity-80 md:opacity-0 group-hover:opacity-100 transition-opacity">
                                         <button 
                                             onClick={() => handleToggleActive(ctx)}
@@ -255,11 +239,6 @@ export default function PromptFactory() {
                                     )}
                                 </div>
                             </div>
-                            
-                            <div className="text-[10px] text-muted-foreground mt-4 pt-3 border-t border-border/30 flex items-center justify-between">
-                                <span>Updated {new Date(ctx.updated_at).toLocaleDateString()}</span>
-                                <span>Usage Count: 0</span>
-                            </div>
                         </div>
                     ))}
                 </div>
@@ -273,7 +252,7 @@ export default function PromptFactory() {
                         <div className="p-5 border-b border-border flex items-center justify-between bg-secondary/20">
                             <h2 className="text-lg font-bold flex items-center gap-2">
                                 <Sparkles className="w-5 h-5 text-primary" />
-                                {editingContext ? 'Edit Prompt Context' : 'Add Prompt Context'}
+                                {editingContext ? 'Edit Global Prompt' : 'Add Global Prompt'}
                             </h2>
                             <button 
                                 onClick={() => setIsModalOpen(false)}
@@ -285,12 +264,25 @@ export default function PromptFactory() {
 
                         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
                             <div>
-                                <label className="text-sm font-semibold text-foreground mb-1 block">Context Title <span className="text-red-500">*</span></label>
+                                <label className="text-sm font-semibold text-foreground mb-1 block">Prompt Type</label>
+                                <select 
+                                    className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary focus:outline-none"
+                                    value={promptType}
+                                    onChange={(e) => setPromptType(e.target.value)}
+                                >
+                                    <option value="metadata">Metadata</option>
+                                    <option value="thumbnail">Thumbnail</option>
+                                    <option value="footage">Footage</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="text-sm font-semibold text-foreground mb-1 block">Title <span className="text-red-500">*</span></label>
                                 <input 
                                     type="text"
                                     required
                                     className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary focus:outline-none"
-                                    placeholder="e.g. Woodworking Beginner Series"
+                                    placeholder="e.g. Universal Hook Framework"
                                     value={title}
                                     onChange={(e) => setTitle(e.target.value)}
                                 />
@@ -312,7 +304,7 @@ export default function PromptFactory() {
                                 <input 
                                     type="text"
                                     className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary focus:outline-none"
-                                    placeholder="e.g. 10 Woodworking Tips for Small Workshops"
+                                    placeholder="e.g. Focus on educational hooks"
                                     value={topic}
                                     onChange={(e) => setTopic(e.target.value)}
                                 />
@@ -323,18 +315,18 @@ export default function PromptFactory() {
                                 <input 
                                     type="text"
                                     className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary focus:outline-none"
-                                    placeholder="e.g. woodworking, diy workshop, beginner woodworking"
+                                    placeholder="e.g. learning, step-by-step, actionable"
                                     value={keywords}
                                     onChange={(e) => setKeywords(e.target.value)}
                                 />
                             </div>
 
                             <div>
-                                <label className="text-sm font-semibold text-foreground mb-1 block">Notes / Niche Rules</label>
+                                <label className="text-sm font-semibold text-foreground mb-1 block">Notes / Rules</label>
                                 <textarea 
                                     rows={4}
                                     className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary focus:outline-none resize-none"
-                                    placeholder="e.g. Educational content targeting hobbyists. Keep the tone friendly and encouraging."
+                                    placeholder="e.g. Make sure to adhere to strict brand guidelines."
                                     value={notes}
                                     onChange={(e) => setNotes(e.target.value)}
                                 />
