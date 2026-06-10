@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getGlobalPromptContexts, createGlobalPromptContext, updatePromptContext, deletePromptContext } from '../services/api';
-import { Sparkles, PlusCircle, Edit2, Trash2, Loader2, X, FileText, Info, Filter } from 'lucide-react';
+import { Sparkles, PlusCircle, Edit2, Trash2, Loader2, X, FileText, Filter } from 'lucide-react';
 import { toast } from 'sonner';
 import type { PromptContext } from '../types';
 

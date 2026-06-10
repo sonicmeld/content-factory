@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getChannelPromptAssignments, getGlobalPromptContexts, createChannelPromptAssignment, updateChannelPromptAssignment, deleteChannelPromptAssignment } from '../services/api';
 import { PlusCircle, Trash2, ArrowUp, ArrowDown, Sparkles, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import type { ChannelPromptAssignment, PromptContext } from '../types';
+import type { ChannelPromptAssignment } from '../types';
 
 interface PromptAssignmentManagerProps {
     channelId: string;
