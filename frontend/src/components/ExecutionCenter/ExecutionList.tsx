@@ -1,8 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getExecutionTasks, generateMetadata, generateThumbnail } from '../../../services/api';
+import { getExecutionTasks, generateMetadata, generateThumbnail } from '../../services/api';
 import ExecutionRecordRow from './ExecutionRecordRow';
 import { Loader2, Inbox } from 'lucide-react';
-import type { ExecutionTask } from '../../../types';
+import type { ExecutionTask } from '../../types';
 import { toast } from 'sonner';
 
 interface ExecutionListProps {
@@ -65,7 +65,7 @@ export default function ExecutionList({ statusFilter, onOpenTrace }: ExecutionLi
 
     return (
         <div className="divide-y divide-border/40">
-            {tasks.map((task) => (
+            {tasks.map((task: ExecutionTask) => (
                 <ExecutionRecordRow
                     key={`${task.package_generation_id}-${task.execution_type}`}
                     task={task}

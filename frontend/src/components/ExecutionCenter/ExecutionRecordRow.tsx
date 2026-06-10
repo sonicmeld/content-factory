@@ -1,6 +1,6 @@
 import { PlayCircle, Eye, FileText, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import type { ExecutionTask } from '../../../types';
+import type { ExecutionTask } from '../../types';
 
 interface ExecutionRecordRowProps {
     task: ExecutionTask;
