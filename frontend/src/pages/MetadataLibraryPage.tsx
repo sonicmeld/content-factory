@@ -80,7 +80,7 @@ export default function MetadataLibraryPage() {
                             
                             {item.tags && (
                                 <div className="mt-auto pt-3 border-t border-border/50 flex flex-wrap gap-1">
-                                    {item.tags.split(',').map((tag, idx) => (
+                                    {item.tags.split(',').map((tag: string, idx: number) => (
                                         <span key={idx} className="px-1.5 py-0.5 bg-secondary text-secondary-foreground text-[10px] rounded-sm">
                                             {tag.trim()}
                                         </span>
