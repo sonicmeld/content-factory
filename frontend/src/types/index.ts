@@ -234,3 +234,15 @@ export interface ExecutionTask {
     source_type: string;
 }
 
+export interface WorkboxPackage {
+    package_generation_id: string;
+    package_id: string;
+    channel_name: string;
+    channel_slug: string;
+    package_number: string;
+    assembly_readiness: 'READY' | 'PARTIAL' | 'BLOCKED';
+    production_gaps: string[];
+    asset_statuses: Record<string, string>;
+    production_sources: Record<string, string>;
+}
+

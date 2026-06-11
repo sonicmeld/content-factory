@@ -207,6 +207,13 @@ export const getExecutionTasks = (status?: string, channelId?: string) => {
     return api.get<ExecutionTask[]>(`/execution-center/tasks?${params.toString()}`).then(res => res.data);
 };
 
+import type { WorkboxPackage } from '../types';
+export const getWorkboxPackages = (channelId?: string) => {
+    const params = new URLSearchParams();
+    if (channelId) params.append('channel_id', channelId);
+    return api.get<WorkboxPackage[]>(`/execution-center/workbox?${params.toString()}`).then(res => res.data);
+};
+
 export const getExecutionTraces = () =>
     api.get<RuntimeAudit[]>('/execution-center/traces').then(res => res.data);
 

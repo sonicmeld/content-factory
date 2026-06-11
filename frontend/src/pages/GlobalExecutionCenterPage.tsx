@@ -1,18 +1,19 @@
 import { useState } from 'react';
 import { Activity, CheckCircle2, AlertCircle, ScrollText, X } from 'lucide-react';
 import ExecutionList from '../components/ExecutionCenter/ExecutionList';
+import WorkboxList from '../components/ExecutionCenter/WorkboxList';
 import RuntimeTraceViewer from '../components/RuntimeTraceViewer';
 import { useQuery } from '@tanstack/react-query';
 import { getExecutionTraces } from '../services/api';
 
 export default function GlobalExecutionCenterPage() {
-    const [activeTab, setActiveTab] = useState<'active' | 'completed' | 'failed' | 'traces'>('active');
+    const [activeTab, setActiveTab] = useState<'gaps' | 'active' | 'ready' | 'traces'>('gaps');
     const [selectedTracePackageId, setSelectedTracePackageId] = useState<string | null>(null);
 
     const tabs = [
-        { id: 'active', label: 'Active', icon: Activity },
-        { id: 'completed', label: 'Completed', icon: CheckCircle2 },
-        { id: 'failed', label: 'Failed', icon: AlertCircle },
+        { id: 'gaps', label: 'Production Gaps', icon: AlertCircle },
+        { id: 'active', label: 'Active Executions', icon: Activity },
+        { id: 'ready', label: 'Assembly Ready', icon: CheckCircle2 },
         { id: 'traces', label: 'Traces', icon: ScrollText },
     ] as const;
 
@@ -103,9 +104,9 @@ export default function GlobalExecutionCenterPage() {
                 </div>
 
                 <div className="flex-1 bg-card">
+                    {activeTab === 'gaps' && <WorkboxList filterReadiness={undefined} />}
                     {activeTab === 'active' && <ExecutionList statusFilter="active" onOpenTrace={setSelectedTracePackageId} />}
-                    {activeTab === 'completed' && <ExecutionList statusFilter="completed" onOpenTrace={setSelectedTracePackageId} />}
-                    {activeTab === 'failed' && <ExecutionList statusFilter="failed" onOpenTrace={setSelectedTracePackageId} />}
+                    {activeTab === 'ready' && <WorkboxList filterReadiness="READY" />}
                     {activeTab === 'traces' && <GlobalTracesList />}
                 </div>
             </div>

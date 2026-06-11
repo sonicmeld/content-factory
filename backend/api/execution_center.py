@@ -126,3 +126,97 @@ def get_execution_traces(
         })
 
     return results
+
+@router.get("/workbox")
+def get_workbox_packages(
+    channel_id: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Returns a package-centric view for the Global Execution Workbox.
+    Evaluates Production Gaps and Assembly Readiness dynamically.
+    
+    Production Gaps are operational projections.
+    Current implementation derives gaps from package_generations.
+    Future implementations may derive gaps from Production Asset availability directly.
+    """
+    query = db.query(PackageGeneration, ContentPackage, Channel).join(
+        ContentPackage, PackageGeneration.package_id == ContentPackage.id
+    ).join(
+        Channel, ContentPackage.channel_id == Channel.id
+    )
+
+    if channel_id:
+        query = query.filter(ContentPackage.channel_id == channel_id)
+
+    records = query.all()
+    gen_ids = [pg.id for pg, cp, ch in records]
+    
+    variants = []
+    if gen_ids:
+        variants = db.query(MetadataVariant).filter(MetadataVariant.package_generation_id.in_(gen_ids)).all()
+        
+    variant_map = {}
+    for v in variants:
+        if v.package_generation_id not in variant_map:
+            variant_map[v.package_generation_id] = []
+        variant_map[v.package_generation_id].append(v)
+
+    workbox_packages = []
+    
+    for pg, cp, ch in records:
+        asset_statuses = {
+            "Metadata": pg.metadata_status,
+            "Thumbnail": pg.thumbnail_status
+        }
+        
+        # 1. Evaluate Assembly Readiness
+        # READY: All required production assets are available
+        # PARTIAL: One or more production assets exist (or are in progress)
+        # BLOCKED: Required production assets are missing
+        if all(s == "completed" for s in asset_statuses.values()):
+            assembly_readiness = "READY"
+        elif any(s in ["completed", "pending", "processing"] for s in asset_statuses.values()):
+            assembly_readiness = "PARTIAL"
+        else:
+            assembly_readiness = "BLOCKED"
+            
+        # 2. Evaluate Production Gaps (Extensible)
+        production_gaps = []
+        for asset_type, status in asset_statuses.items():
+            if status != "completed":
+                production_gaps.append(asset_type)
+                
+        # 3. Evaluate Production Sources (with strict Unknown fallback)
+        production_sources = {}
+        
+        # Metadata Source
+        md_source = "Unknown"
+        if pg.metadata_status == "completed":
+            vs = variant_map.get(pg.id, [])
+            if any(v.source_combo == "Library" for v in vs):
+                md_source = "Library"
+            elif any(v.source_combo for v in vs):
+                md_source = "Generated"
+            # If no variants or source_combo is empty, it stays Unknown
+            
+        production_sources["Metadata"] = md_source
+        
+        # Thumbnail Source
+        production_sources["Thumbnail"] = "Unknown"
+        
+        workbox_packages.append({
+            "package_generation_id": pg.id,
+            "package_id": cp.id,
+            "channel_name": ch.name,
+            "channel_slug": ch.slug,
+            "package_number": cp.package_number,
+            "assembly_readiness": assembly_readiness,
+            "production_gaps": production_gaps,
+            "asset_statuses": asset_statuses,
+            "production_sources": production_sources
+        })
+        
+    workbox_packages.sort(key=lambda x: str(x["package_generation_id"]), reverse=True)
+    return workbox_packages
+
