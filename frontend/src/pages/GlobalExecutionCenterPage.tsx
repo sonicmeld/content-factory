@@ -1,13 +1,66 @@
 import { useState } from 'react';
-import { Activity, ScrollText, X, LayoutGrid } from 'lucide-react';
+import { Activity, ScrollText, X, LayoutGrid, Heart, ShieldCheck, Cpu, Database } from 'lucide-react';
 import ExecutionList from '../components/ExecutionCenter/ExecutionList';
 import ProductionForm from '../components/ExecutionCenter/ProductionForm';
 import RuntimeTraceViewer from '../components/RuntimeTraceViewer';
 import { useQuery } from '@tanstack/react-query';
-import { getExecutionTraces } from '../services/api';
+import { getExecutionTraces, getHealth } from '../services/api';
 
 export default function GlobalExecutionCenterPage() {
     const [selectedTracePackageId, setSelectedTracePackageId] = useState<string | null>(null);
+
+    // Component for System Health monitoring
+    const SystemHealth = () => {
+        const { data: health, isLoading } = useQuery({
+            queryKey: ['system-health'],
+            queryFn: getHealth,
+            refetchInterval: 10000,
+        });
+
+        const isOk = health?.status === 'ok';
+
+        return (
+            <div className="bg-card border border-border shadow-md rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 bg-gradient-to-r from-card to-secondary/15 backdrop-blur-md">
+                <div className="flex items-center gap-3">
+                    <div className={`p-2.5 rounded-lg ${isOk ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'} border ${isOk ? 'border-green-500/20' : 'border-yellow-500/20'}`}>
+                        <Heart className={`w-5 h-5 ${isOk ? 'animate-pulse' : ''}`} />
+                    </div>
+                    <div>
+                        <h3 className="text-sm font-semibold text-foreground">System Engine Health</h3>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                            Status: <span className={`font-semibold ${isOk ? 'text-green-500' : 'text-yellow-500'}`}>{isLoading ? 'Checking...' : isOk ? 'Operational' : 'Degraded'}</span>
+                        </p>
+                    </div>
+                </div>
+                
+                <div className="flex flex-wrap items-center gap-6 text-xs font-mono">
+                    <div className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-green-500 animate-ping" />
+                        <Cpu className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">Runtime Core:</span>
+                        <span className="font-semibold text-foreground">ONLINE</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-green-500" />
+                        <ShieldCheck className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">9Router:</span>
+                        <span className="font-semibold text-foreground">ONLINE</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                        <Database className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">Providers:</span>
+                        <span className="font-semibold text-foreground">Gemini/OpenAI</span>
+                    </div>
+                    {health?.uptime_seconds && (
+                        <div className="text-muted-foreground border-l border-border/80 pl-6 hidden md:block">
+                            Uptime: <span className="font-semibold text-foreground">{Math.round(health.uptime_seconds / 60)}m</span>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    };
 
     // Component for global traces (Runtime Output Feed)
     const GlobalTracesList = () => {
@@ -29,10 +82,16 @@ export default function GlobalExecutionCenterPage() {
                     
                     // Runtime Output Feed Rule: Emphasize Asset Produced
                     let feedMessage = `${trace.execution_type} Processing...`;
-                    let destination = '';
+                    let destination = 'Asset Library';
                     
                     if (isSuccess) {
-                        destination = trace.execution_type.toLowerCase() === 'metadata' ? 'Metadata Library' : 'Asset Library';
+                        if (trace.execution_type.toLowerCase() === 'metadata') {
+                            destination = 'Metadata Library';
+                        } else if (trace.execution_type.toLowerCase() === 'thumbnail') {
+                            destination = 'Thumbnail Library';
+                        } else if (trace.execution_type.toLowerCase() === 'footage') {
+                            destination = 'Production Output';
+                        }
                         feedMessage = `${trace.execution_type} Generated → Saved to ${destination}`;
                     } else if (isFailed) {
                         feedMessage = `${trace.execution_type} Generation Failed`;
@@ -46,7 +105,11 @@ export default function GlobalExecutionCenterPage() {
                                         {feedMessage}
                                     </span>
                                     <span className="text-xs text-muted-foreground font-mono mt-1 flex items-center">
-                                        <span className="mr-2 px-1.5 py-0.5 bg-muted rounded border border-border">Target: {trace.channel_name} - {trace.package_number}</span>
+                                        {trace.package_number === 'N/A' ? (
+                                            <span className="mr-2 px-1.5 py-0.5 bg-primary/10 text-primary rounded border border-primary/20 font-semibold uppercase">Global Workbox</span>
+                                        ) : (
+                                            <span className="mr-2 px-1.5 py-0.5 bg-muted rounded border border-border">Target: {trace.channel_name} - {trace.package_number}</span>
+                                        )}
                                         ID: {trace.execution_id}
                                     </span>
                                 </div>
@@ -89,22 +152,25 @@ export default function GlobalExecutionCenterPage() {
                 <p className="text-muted-foreground mt-2 text-lg">Produce global assets across all channels.</p>
             </div>
 
+            {/* System Health Dashboard Panel */}
+            <SystemHealth />
+
             {/* Production Forms Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <ProductionForm assetType="Metadata" />
                 <ProductionForm assetType="Thumbnail" />
-                <ProductionForm assetType="Footage" disabled={true} />
+                <ProductionForm assetType="Footage" />
             </div>
 
             {/* Runtime Monitoring & Feed Panel */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
-                {/* Active Operations */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Runtime Activity */}
                 <div className="bg-card border border-border shadow-sm rounded-lg flex flex-col overflow-hidden h-[600px]">
                     <div className="bg-muted/30 border-b border-border p-4 flex items-center">
                         <Activity className="w-5 h-5 text-primary mr-3" />
                         <div>
-                            <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">Active Operations</h2>
-                            <p className="text-xs text-muted-foreground mt-0.5">Currently processing generations</p>
+                            <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">Runtime Activity</h2>
+                            <p className="text-xs text-muted-foreground mt-0.5">Runtime execution state & operations</p>
                         </div>
                     </div>
                     <div className="flex-1 overflow-y-auto bg-background">

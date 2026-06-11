@@ -1,12 +1,26 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, BackgroundTasks, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from typing import List, Optional
+import uuid
+import requests
+import json
+import os
+from datetime import datetime
+from pydantic import BaseModel
 
-from database.database import get_db
-from database.models import PackageGeneration, ContentPackage, Channel, RuntimeAudit, MetadataVariant, GenerationAsset
+from database.database import get_db, SessionLocal
+from database.models import PackageGeneration, ContentPackage, Channel, RuntimeAudit, MetadataVariant, GenerationAsset, GenerationCombo, PromptContext, MetadataLibrary, Asset
+from app.config import settings
+from services.image_service import generate_thumbnail, generate_footage
 
 router = APIRouter(prefix="/api/execution-center", tags=["Execution Center"])
+
+class GlobalGenerateRequest(BaseModel):
+    asset_type: str  # 'Metadata' | 'Thumbnail' | 'Footage'
+    combo_id: str
+    prompt_ids: List[str]
+    output_count: int = 1
 
 @router.get("/tasks")
 def get_execution_tasks(
@@ -15,85 +29,44 @@ def get_execution_tasks(
     db: Session = Depends(get_db)
 ):
     """
-    Returns normalized execution records.
+    Returns normalized execution records from RuntimeAudit.
     Frontend owns grouping into Active, Completed, Failed.
     """
-    query = db.query(PackageGeneration, ContentPackage, Channel).join(
-        ContentPackage, PackageGeneration.package_id == ContentPackage.id
-    ).join(
+    query = db.query(RuntimeAudit, ContentPackage, Channel).outerjoin(
+        ContentPackage, RuntimeAudit.package_id == ContentPackage.id
+    ).outerjoin(
         Channel, ContentPackage.channel_id == Channel.id
     )
 
     if channel_id:
         query = query.filter(ContentPackage.channel_id == channel_id)
 
-    records = query.all()
-
-    # Pre-fetch variants to determine Source Type for completed metadata tasks
-    gen_ids = [pg.id for pg, cp, ch in records]
-    
-    variants = []
-    if gen_ids:
-        variants = db.query(MetadataVariant).filter(MetadataVariant.package_generation_id.in_(gen_ids)).all()
-        
-    variant_map = {}
-    for v in variants:
-        if v.package_generation_id not in variant_map:
-            variant_map[v.package_generation_id] = []
-        variant_map[v.package_generation_id].append(v)
-
-    tasks = []
-    
-    for pg, cp, ch in records:
-        # Metadata Task extraction
-        md_status = pg.metadata_status
-        
-        # Source Type Unknown Fallback applied if not completed
-        source_type = "Unknown"
-        if md_status == "completed":
-            source_type = "Generated" # Default for completed
-            vs = variant_map.get(pg.id, [])
-            if any(v.source_combo == "Library" for v in vs):
-                source_type = "Library"
-        elif md_status in ["pending", "processing", "failed"]:
-            source_type = "Generated" # Execution in progress/failed usually means it's being generated
-            
-        tasks.append({
-            "package_generation_id": pg.id,
-            "package_id": cp.id,
-            "channel_name": ch.name,
-            "channel_slug": ch.slug,
-            "package_number": cp.package_number,
-            "execution_type": "Metadata",
-            "status": md_status,
-            "source_type": source_type
-        })
-
-        # Thumbnail Task extraction
-        th_status = pg.thumbnail_status
-        th_source_type = "Generated" if th_status in ["pending", "processing", "failed", "completed"] else "Unknown"
-        
-        tasks.append({
-            "package_generation_id": pg.id,
-            "package_id": cp.id,
-            "channel_name": ch.name,
-            "channel_slug": ch.slug,
-            "package_number": cp.package_number,
-            "execution_type": "Thumbnail",
-            "status": th_status,
-            "source_type": th_source_type
-        })
-
-    # If the API receives a status filter, apply it here
+    # Filter status based on runtime audit status mapping
+    # pending -> active, success -> completed, failed -> failed
     if status:
         if status == "active":
-            tasks = [t for t in tasks if t["status"] in ["pending", "processing"]]
+            query = query.filter(RuntimeAudit.status == "pending")
+        elif status == "completed":
+            query = query.filter(RuntimeAudit.status == "success")
+        elif status == "failed":
+            query = query.filter(RuntimeAudit.status == "failed")
         else:
-            tasks = [t for t in tasks if t["status"] == status]
+            query = query.filter(RuntimeAudit.status == status)
 
-    # Sort descending by package generation id roughly equates to creation time
-    # But for a stable UI, sort by package_id / generation_id
-    tasks.sort(key=lambda x: str(x["package_generation_id"]), reverse=True)
+    records = query.order_by(desc(RuntimeAudit.executed_at)).limit(100).all()
+
+    tasks = []
+    for ra, cp, ch in records:
+        tasks.append({
+            "package_generation_id": ra.id,
+            "package_id": cp.id if cp else ra.package_id,
+            "channel_name": ch.name if ch else "Global",
+            "channel_slug": ch.slug if ch else "shared",
+            "package_number": cp.package_number if cp else "N/A",
+            "execution_type": ra.execution_type,
+            "status": "pending" if ra.status == "pending" else "completed" if ra.status == "success" else "failed",
+            "source_type": "Generated"
+        })
 
     return tasks
 
@@ -104,9 +77,9 @@ def get_execution_traces(
     """
     Returns global runtime audits to populate the Traces feed.
     """
-    query = db.query(RuntimeAudit, ContentPackage, Channel).join(
+    query = db.query(RuntimeAudit, ContentPackage, Channel).outerjoin(
         ContentPackage, RuntimeAudit.package_id == ContentPackage.id
-    ).join(
+    ).outerjoin(
         Channel, ContentPackage.channel_id == Channel.id
     ).order_by(desc(RuntimeAudit.executed_at)).limit(100) # Limit to recent 100 for performance
     
@@ -120,9 +93,9 @@ def get_execution_traces(
             "status": ra.status,
             "error_message": ra.error_message,
             "executed_at": ra.executed_at,
-            "channel_name": ch.name,
-            "channel_slug": ch.slug,
-            "package_number": cp.package_number
+            "channel_name": ch.name if ch else "Global",
+            "channel_slug": ch.slug if ch else "shared",
+            "package_number": cp.package_number if cp else "N/A"
         })
 
     return results
@@ -135,10 +108,6 @@ def get_workbox_packages(
     """
     Returns a package-centric view for the Global Execution Workbox.
     Evaluates Production Gaps and Assembly Readiness dynamically.
-    
-    Production Gaps are operational projections.
-    Current implementation derives gaps from package_generations.
-    Future implementations may derive gaps from Production Asset availability directly.
     """
     query = db.query(PackageGeneration, ContentPackage, Channel).join(
         ContentPackage, PackageGeneration.package_id == ContentPackage.id
@@ -171,19 +140,14 @@ def get_workbox_packages(
         asset_map[a.package_generation_id].append(a)
 
     workbox_packages = []
-    
-    # REQUIRED_ASSET_TYPES defines what mapped assets must exist for a package to be READY
     REQUIRED_ASSET_TYPES = ['Metadata', 'Thumbnail']
     
     for pg, cp, ch in records:
-        # Generation execution status (for legacy reporting / history)
         asset_statuses = {
             "Metadata": pg.metadata_status,
             "Thumbnail": pg.thumbnail_status
         }
         
-        # Mapped Status Evaluator (Opsi B)
-        # Check if there is an explicit mapping (is_selected=True)
         vs = variant_map.get(pg.id, [])
         ths = [a for a in asset_map.get(pg.id, []) if a.asset_type == 'thumbnail']
         
@@ -195,7 +159,6 @@ def get_workbox_packages(
             "Thumbnail": has_mapped_thumbnail
         }
         
-        # 1. Evaluate Assembly Readiness based on Mapped Assets
         is_ready = True
         has_partial = False
         for req_asset in REQUIRED_ASSET_TYPES:
@@ -211,17 +174,12 @@ def get_workbox_packages(
         else:
             assembly_readiness = "BLOCKED"
             
-        # 2. Evaluate Production Gaps
-        # A gap exists if a REQUIRED asset is NOT mapped.
         production_gaps = []
         for req_asset in REQUIRED_ASSET_TYPES:
             if not mapped_assets.get(req_asset):
                 production_gaps.append(req_asset)
                 
-        # 3. Evaluate Production Sources (with strict Unknown fallback)
         production_sources = {}
-        
-        # Metadata Source
         md_source = "Unknown"
         if pg.metadata_status == "completed":
             vs = variant_map.get(pg.id, [])
@@ -229,11 +187,8 @@ def get_workbox_packages(
                 md_source = "Library"
             elif any(v.source_combo for v in vs):
                 md_source = "Generated"
-            # If no variants or source_combo is empty, it stays Unknown
             
         production_sources["Metadata"] = md_source
-        
-        # Thumbnail Source
         production_sources["Thumbnail"] = "Unknown"
         
         workbox_packages.append({
@@ -252,4 +207,227 @@ def get_workbox_packages(
         
     workbox_packages.sort(key=lambda x: str(x["package_generation_id"]), reverse=True)
     return workbox_packages
+
+@router.post("/generate")
+def generate_global_assets(
+    request: GlobalGenerateRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    """
+    Triggers global asset generation (Metadata, Thumbnail, or Footage)
+    independent of any Package.
+    """
+    # 1. Fetch Combo
+    combo = db.query(GenerationCombo).filter(GenerationCombo.id == request.combo_id).first()
+    if not combo:
+        raise HTTPException(status_code=404, detail="Generation Combo not found.")
+        
+    # 2. Fetch Prompts to verify they exist and match the asset_type
+    prompts = db.query(PromptContext).filter(PromptContext.id.in_(request.prompt_ids)).all()
+    if len(prompts) != len(request.prompt_ids):
+        found_ids = {p.id for p in prompts}
+        missing_ids = [pid for pid in request.prompt_ids if pid not in found_ids]
+        raise HTTPException(status_code=404, detail=f"Prompt context(s) not found: {', '.join(missing_ids)}")
+
+    # Strict Prompt Type Isolation check
+    expected_prompt_type = request.asset_type.lower()
+    for p in prompts:
+        if p.prompt_type != expected_prompt_type:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Prompt '{p.title}' type '{p.prompt_type}' does not match asset type '{expected_prompt_type}'"
+            )
+
+    # 3. Create Runtime Audit with package_id = "GLOBAL_WORKBOX"
+    execution_id = str(uuid.uuid4())
+    
+    # Generate prompt chain text
+    prompt_map = {p.id: p for p in prompts}
+    ordered_prompts = [prompt_map[pid] for pid in request.prompt_ids if pid in prompt_map]
+    chain_parts = []
+    for idx, prompt in enumerate(ordered_prompts, start=1):
+        chain_parts.append(f"=== PROMPT {idx}: {prompt.title.upper()} ===")
+        if prompt.topic: chain_parts.append(f"Topic: {prompt.topic}")
+        if prompt.keywords: chain_parts.append(f"Keywords: {prompt.keywords}")
+        if prompt.notes: chain_parts.append(f"Notes: {prompt.notes}")
+        if prompt.description: chain_parts.append(f"Description: {prompt.description}")
+    
+    prompt_chain_text = "\n".join(chain_parts)
+    user_message = prompt_chain_text
+    if request.asset_type.lower() != "metadata":
+        user_message += "\nGenerate a professional concept/image based on the above information."
+
+    assigned_ids = [p.id for p in ordered_prompts]
+    assigned_titles = [p.title for p in ordered_prompts]
+    
+    audit = RuntimeAudit(
+        id=str(uuid.uuid4()),
+        execution_id=execution_id,
+        package_id="GLOBAL_WORKBOX",
+        execution_type=request.asset_type,
+        selected_prompt_id=ordered_prompts[0].id if ordered_prompts else None,
+        selected_prompt_title=ordered_prompts[0].title if ordered_prompts else None,
+        assigned_prompt_ids=json.dumps(assigned_ids),
+        assigned_prompt_titles=json.dumps(assigned_titles),
+        prompt_preview=user_message[:1000],
+        combo_used=combo.name,
+        status="pending",
+        error_message=None,
+        executed_at=datetime.utcnow()
+    )
+    db.add(audit)
+    db.commit()
+    db.refresh(audit)
+
+    # 4. Trigger background task
+    background_tasks.add_task(
+        run_global_generation,
+        request.asset_type,
+        request.combo_id,
+        request.prompt_ids,
+        request.output_count,
+        execution_id
+    )
+
+    return {"message": "Global asset generation started.", "execution_id": execution_id}
+
+
+def run_global_generation(
+    asset_type: str,
+    combo_id: str,
+    prompt_ids: List[str],
+    output_count: int,
+    execution_id: str
+):
+    db = SessionLocal()
+    try:
+        # 1. Fetch Combo
+        combo = db.query(GenerationCombo).filter(GenerationCombo.id == combo_id).first()
+        if not combo:
+            raise ValueError(f"Combo '{combo_id}' not found.")
+
+        # 2. Fetch Prompt Contexts
+        prompt_contexts = db.query(PromptContext).filter(PromptContext.id.in_(prompt_ids)).all()
+        prompt_map = {p.id: p for p in prompt_contexts}
+        ordered_prompts = [prompt_map[pid] for pid in prompt_ids if pid in prompt_map]
+
+        # 3. Build Prompt Chain
+        chain_parts = []
+        for idx, prompt in enumerate(ordered_prompts, start=1):
+            chain_parts.append(f"=== PROMPT {idx}: {prompt.title.upper()} ===")
+            if prompt.topic: chain_parts.append(f"Topic: {prompt.topic}")
+            if prompt.keywords: chain_parts.append(f"Keywords: {prompt.keywords}")
+            if prompt.notes: chain_parts.append(f"Notes: {prompt.notes}")
+            if prompt.description: chain_parts.append(f"Description: {prompt.description}")
+        
+        prompt_chain_text = "\n".join(chain_parts)
+
+        # Build runtime payload without package context
+        is_metadata = asset_type.lower() == "metadata"
+        user_message = prompt_chain_text
+        if not is_metadata:
+            user_message += "\nGenerate a professional concept/image based on the above information."
+
+        # Fetch Audit
+        audit = db.query(RuntimeAudit).filter(RuntimeAudit.execution_id == execution_id).first()
+
+        # Execute generation loop based on output_count
+        for i in range(output_count):
+            if is_metadata:
+                # Call LLM via 9Router
+                payload = {
+                    "model": combo.name,
+                    "stream": False,
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": (
+                                "You are a YouTube metadata generator. "
+                                "Based on the provided information, generate a compelling YouTube video title and description. "
+                                "Respond ONLY in this format:\n"
+                                "Title: <video title here>\n"
+                                "Description: <video description here>"
+                            ),
+                        },
+                        {"role": "user", "content": user_message},
+                    ],
+                }
+
+                headers = {
+                    "Authorization": f"Bearer {settings.NINE_ROUTER_API_KEY}",
+                    "Content-Type": "application/json",
+                }
+
+                api_url = f"{settings.NINE_ROUTER_URL.rstrip('/')}/v1/chat/completions"
+                response = requests.post(api_url, json=payload, headers=headers, timeout=60)
+                response.raise_for_status()
+                data = response.json()
+
+                raw_text = (
+                    data.get("choices", [{}])[0]
+                    .get("message", {})
+                    .get("content", "")
+                )
+                if not raw_text:
+                    raise ValueError("No content returned in chat completion choices.")
+                
+                # Parse title and description
+                from services.generation_service import _parse_title_description
+                title, description = _parse_title_description(raw_text)
+
+                # Save directly to MetadataLibrary
+                tags_list = [p.keywords for p in ordered_prompts if p.keywords]
+                tags_str = ", ".join(tags_list) if tags_list else None
+                
+                lib_item = MetadataLibrary(
+                    id=str(uuid.uuid4()),
+                    title=title,
+                    description=description,
+                    category=combo.category,
+                    tags=tags_str,
+                    source_variant_id=None,
+                    is_active=True
+                )
+                db.add(lib_item)
+                db.commit()
+            else:
+                # Image/Footage generation
+                model_name = combo.name or "gemini/gemini-2.5-flash-image"
+                
+                if asset_type.lower() == "thumbnail":
+                    output_path = generate_thumbnail(db, user_message, None, model_name)
+                else:
+                    output_path = generate_footage(db, user_message, None, model_name)
+                
+                # Register in Asset table
+                asset = Asset(
+                    id=str(uuid.uuid4()),
+                    channel_id=None,
+                    asset_type=asset_type.lower(),
+                    filename=os.path.basename(output_path),
+                    file_path=output_path,
+                    file_size=os.path.getsize(output_path) if os.path.exists(output_path) else 0,
+                    mime_type="image/jpeg"
+                )
+                db.add(asset)
+                db.commit()
+
+        # Update Audit to success
+        if audit:
+            audit.status = "success"
+            db.commit()
+
+    except Exception as e:
+        db.rollback()
+        import logging
+        logging.getLogger(__name__).error(f"Global generation failed: {str(e)}", exc_info=True)
+        # Update Audit to failed
+        if audit:
+            audit.status = "failed"
+            audit.error_message = str(e)[:1000]
+            db.commit()
+    finally:
+        db.close()
+
 

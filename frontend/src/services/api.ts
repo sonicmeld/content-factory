@@ -23,6 +23,7 @@ export const disconnectOAuth = (data: { channel_id: string }) => api.post<{ mess
 
 // System Config
 export const getConfig = () => api.get<any>('/config').then(res => res.data);
+export const getHealth = () => api.get<any>('/health').then(res => res.data);
 
 // Assets
 export const getAssets = (channelId?: string, assetType?: string) => {
@@ -216,5 +217,8 @@ export const getWorkboxPackages = (channelId?: string) => {
 
 export const getExecutionTraces = () =>
     api.get<RuntimeAudit[]>('/execution-center/traces').then(res => res.data);
+
+export const generateGlobalAsset = (data: { asset_type: string; combo_id: string; prompt_ids: string[]; output_count: number }) =>
+    api.post<{ message: string; execution_id: string }>('/execution-center/generate', data).then(res => res.data);
 
 export default api;

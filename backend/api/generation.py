@@ -283,10 +283,11 @@ def get_runtime_audits(package_id: str, db: Session = Depends(get_db)):
     """
     Retrieve all runtime audits for a given package, ordered by newest first.
     """
-    # Verify package exists
-    package = get_package(db, package_id)
-    if not package:
-        raise HTTPException(status_code=404, detail=f"Package '{package_id}' not found.")
+    if package_id != "GLOBAL_WORKBOX":
+        # Verify package exists
+        package = get_package(db, package_id)
+        if not package:
+            raise HTTPException(status_code=404, detail=f"Package '{package_id}' not found.")
         
     audits = (
         db.query(RuntimeAudit)
