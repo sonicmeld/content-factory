@@ -41,18 +41,14 @@ export default function PublishToLibraryModal({ variant, onClose, onPublish, isP
                         <label className="block text-sm font-medium text-foreground mb-1">
                             Category (Optional)
                         </label>
-                        <select
+                        <input
+                            type="text"
                             value={category}
                             onChange={(e) => setCategory(e.target.value)}
-                            className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground"
+                            placeholder="e.g., Gaming, Education, Tech"
+                            className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground"
                             disabled={isPublishing}
-                        >
-                            <option value="">None</option>
-                            <option value="gaming">Gaming</option>
-                            <option value="education">Education</option>
-                            <option value="entertainment">Entertainment</option>
-                            <option value="tech">Tech</option>
-                        </select>
+                        />
                     </div>
 
                     <div>

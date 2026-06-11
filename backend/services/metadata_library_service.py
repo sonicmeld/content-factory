@@ -13,7 +13,7 @@ def publish_variant_to_library(db: Session, variant_id: str, category: str = Non
     """
     Publishes a selected MetadataVariant to the Global Metadata Library.
     """
-    variant = variant_repo.get_variant(db, variant_id)
+    variant = variant_repo.get_by_id(db, variant_id)
     if not variant:
         raise HTTPException(status_code=404, detail="Metadata variant not found")
         
