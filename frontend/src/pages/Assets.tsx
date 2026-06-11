@@ -181,8 +181,6 @@ export default function Assets() {
                         <option value="video">Raw Videos</option>
                         <option value="footage">Footage</option>
                         <option value="thumbnails">Thumbnails</option>
-                        <option value="audio">Audio</option>
-                        <option value="prompts">Prompts</option>
                     </select>
                     
                     {workspaceSlug && (
@@ -368,8 +366,6 @@ export default function Assets() {
                                     <option value="video">Raw Videos</option>
                                     <option value="footage">Footage</option>
                                     <option value="thumbnails">Thumbnails</option>
-                                    <option value="audio">Audio</option>
-                                    <option value="prompts">Prompts</option>
                                 </select>
                             </div>
 
