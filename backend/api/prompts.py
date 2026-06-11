@@ -27,7 +27,7 @@ def generate_thumbnail_api(request: GenerateThumbnailRequest, db: Session = Depe
             filename=os.path.basename(output_path),
             file_path=output_path,
             file_size=os.path.getsize(output_path) if os.path.exists(output_path) else 0,
-            mime_type="image/jpeg"
+            mime_type="image/png"
         )
         db.add(asset)
         db.commit()

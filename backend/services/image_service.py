@@ -55,7 +55,7 @@ def generate_thumbnail(db: Session, prompt: str, channel_id: str, model: str) ->
     channel = get_channel(db, channel_id)
     slug = channel.slug if channel else "shared"
     
-    filename = f"thumb_{uuid.uuid4().hex[:8]}.jpg"
+    filename = f"thumb_{uuid.uuid4().hex[:8]}.png"
     directory = os.path.join(settings.DATA_PATH, "channels", slug, "assets", "thumbnails")
     os.makedirs(directory, exist_ok=True)
     
@@ -71,7 +71,7 @@ def generate_footage(db: Session, prompt: str, channel_id: str, model: str) -> s
     channel = get_channel(db, channel_id)
     slug = channel.slug if channel else "shared"
     
-    filename = f"footage_{uuid.uuid4().hex[:8]}.jpg"
+    filename = f"footage_{uuid.uuid4().hex[:8]}.png"
     directory = os.path.join(settings.DATA_PATH, "channels", slug, "assets", "footage")
     os.makedirs(directory, exist_ok=True)
     

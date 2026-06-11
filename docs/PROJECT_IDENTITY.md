@@ -158,3 +158,12 @@ Content Creation
 Content Factory
 ↓
 Content Operations & Distribution
+
+---
+
+## Global Production Footage Ownership
+
+Footage generated inside the Global Production Workbox (Execution Center) is treated as raw content material needed for offline video compilation (making MP4 files on the operator's local PC).
+*   **No Channel Association:** Footage is not bound to any YouTube channel.
+*   **Storage-Only (No DB):** Footage assets are downloaded and saved directly to the local storage disk (`shared/assets/footage/`), but they are NOT registered in the database.
+*   **Trace Monitoring:** Execution of footage generation is tracked and monitored solely via Runtime Audit logs and Traces.

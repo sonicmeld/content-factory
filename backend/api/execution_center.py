@@ -397,21 +397,21 @@ def run_global_generation(
                 
                 if asset_type.lower() == "thumbnail":
                     output_path = generate_thumbnail(db, user_message, None, model_name)
+                    # Register in Asset table for thumbnail only
+                    asset = Asset(
+                        id=str(uuid.uuid4()),
+                        channel_id=None,
+                        asset_type=asset_type.lower(),
+                        filename=os.path.basename(output_path),
+                        file_path=output_path,
+                        file_size=os.path.getsize(output_path) if os.path.exists(output_path) else 0,
+                        mime_type="image/png"
+                    )
+                    db.add(asset)
+                    db.commit()
                 else:
+                    # Footage is only saved on disk and NOT registered in Asset table
                     output_path = generate_footage(db, user_message, None, model_name)
-                
-                # Register in Asset table
-                asset = Asset(
-                    id=str(uuid.uuid4()),
-                    channel_id=None,
-                    asset_type=asset_type.lower(),
-                    filename=os.path.basename(output_path),
-                    file_path=output_path,
-                    file_size=os.path.getsize(output_path) if os.path.exists(output_path) else 0,
-                    mime_type="image/jpeg"
-                )
-                db.add(asset)
-                db.commit()
 
         # Update Audit to success
         if audit:
