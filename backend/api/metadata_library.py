@@ -53,3 +53,10 @@ def clone_library_item(
     for a specific package generation.
     """
     return lib_service.clone_library_item_to_variant(db, package_generation_id, item_id)
+
+@router.delete("/{item_id}")
+def delete_library_item(item_id: str, db: Session = Depends(get_db)):
+    success = lib_repo.delete_library_item(db, item_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Library item not found")
+    return {"message": "Library item deleted successfully"}

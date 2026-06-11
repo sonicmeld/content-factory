@@ -60,3 +60,11 @@ def update_library_item(db: Session, item_id: str, item_data: MetadataLibraryUpd
     db.commit()
     db.refresh(db_item)
     return db_item
+
+def delete_library_item(db: Session, item_id: str) -> bool:
+    db_item = get_library_item(db, item_id)
+    if db_item:
+        db.delete(db_item)
+        db.commit()
+        return True
+    return False

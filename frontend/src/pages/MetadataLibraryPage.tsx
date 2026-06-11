@@ -1,11 +1,30 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { getMetadataLibrary } from '../services/api';
-import { BookMarked, Search, Loader2 } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getMetadataLibrary, deleteMetadataLibraryItem } from '../services/api';
+import { BookMarked, Search, Loader2, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function MetadataLibraryPage() {
+    const queryClient = useQueryClient();
     const [searchQuery, setSearchQuery] = useState('');
     const [category, setCategory] = useState('');
+
+    const deleteMutation = useMutation({
+        mutationFn: deleteMetadataLibraryItem,
+        onSuccess: () => {
+            toast.success("Metadata deleted from library");
+            queryClient.invalidateQueries({ queryKey: ['metadata-library'] });
+        },
+        onError: () => {
+            toast.error("Failed to delete metadata");
+        }
+    });
+
+    const handleDelete = (id: string) => {
+        if (confirm("Are you sure you want to delete this metadata item?")) {
+            deleteMutation.mutate(id);
+        }
+    };
 
     const { data: libraryItems, isLoading } = useQuery({
         queryKey: ['metadata-library', searchQuery, category],
@@ -75,11 +94,20 @@ export default function MetadataLibraryPage() {
                             <div>
                                 <div className="flex justify-between items-start gap-2">
                                     <h3 className="font-semibold text-sm line-clamp-2">{item.title}</h3>
-                                    {item.category && (
-                                        <span className="shrink-0 px-2 py-0.5 bg-primary/10 text-primary text-[10px] uppercase font-bold tracking-wider rounded-full">
-                                            {item.category}
-                                        </span>
-                                    )}
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                        {item.category && (
+                                            <span className="px-2 py-0.5 bg-primary/10 text-primary text-[10px] uppercase font-bold tracking-wider rounded-full">
+                                                {item.category}
+                                            </span>
+                                        )}
+                                        <button 
+                                            onClick={() => handleDelete(item.id)}
+                                            className="text-muted-foreground hover:text-destructive p-1 rounded hover:bg-secondary transition-colors"
+                                            title="Delete metadata"
+                                        >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                    </div>
                                 </div>
                                 <p className="text-xs text-muted-foreground mt-2 line-clamp-4 leading-relaxed">
                                     {item.description}
