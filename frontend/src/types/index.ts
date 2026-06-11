@@ -237,6 +237,7 @@ export interface ExecutionTask {
 export interface WorkboxPackage {
     package_generation_id: string;
     package_id: string;
+    channel_id: string;
     channel_name: string;
     channel_slug: string;
     package_number: string;

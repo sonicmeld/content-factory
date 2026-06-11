@@ -239,6 +239,7 @@ def get_workbox_packages(
         workbox_packages.append({
             "package_generation_id": pg.id,
             "package_id": cp.id,
+            "channel_id": ch.id,
             "channel_name": ch.name,
             "channel_slug": ch.slug,
             "package_number": cp.package_number,
