@@ -6,6 +6,7 @@ from googleapiclient.http import MediaFileUpload
 from database.models import UploadJob
 from repositories import packages as package_repository
 from services import oauth_service
+from services.upload_progress import update_progress, clear_progress
 from app.config import settings
 
 
@@ -90,10 +91,17 @@ def upload_video(db: Session, job: UploadJob) -> dict:
         )
 
         response = None
+        update_progress(job.id, 0, "uploading")
         while response is None:
-            _, response = request.next_chunk()
+            status, response = request.next_chunk()
+            if status:
+                progress_pct = int(status.progress() * 100)
+                update_progress(job.id, progress_pct, "uploading")
+
+        clear_progress(job.id)
 
     except Exception as e:
+        clear_progress(job.id)
         raise HTTPException(
             status_code=500,
             detail=f"YouTube upload failed: {str(e)}"

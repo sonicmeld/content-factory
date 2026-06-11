@@ -40,6 +40,7 @@ export interface UploadJob {
     status: string;
     retry_count: number;
     error_message?: string;
+    progress?: number;
     scheduled_at?: string;
     published_at?: string;
     created_at: string;

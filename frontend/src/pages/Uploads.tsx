@@ -8,11 +8,10 @@ export default function Uploads() {
     const queryClient = useQueryClient();
     const [isAddQueueOpen, setIsAddQueueOpen] = useState(false);
     
-    // Auto refresh every 10 seconds per requirements
     const { data: uploads = [], isFetching } = useQuery({ 
         queryKey: ['uploads'], 
         queryFn: () => getUploadJobs(),
-        refetchInterval: 10000 
+        refetchInterval: 3000 
     });
     
     const { data: channels = [] } = useQuery({ queryKey: ['channels'], queryFn: getChannels });
@@ -81,7 +80,19 @@ export default function Uploads() {
                     <tbody className="divide-y divide-border">
                         {uploads.map((job) => (
                             <tr key={job.id} className="hover:bg-secondary/20 transition-colors">
-                                <td className="px-6 py-4 font-medium truncate max-w-[200px]">{job.video_path.split('/').pop()}</td>
+                                <td className="px-6 py-4 font-medium truncate max-w-[200px]">
+                                    <div>
+                                        <p className="truncate">{job.video_path.split('/').pop()}</p>
+                                        {job.status === 'uploading' && job.progress !== undefined && job.progress !== null && (
+                                            <div className="w-full bg-secondary rounded-full h-1.5 mt-1.5">
+                                                <div 
+                                                    className="bg-blue-500 h-1.5 rounded-full transition-all duration-300" 
+                                                    style={{ width: `${job.progress}%` }}
+                                                ></div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </td>
                                 <td className="px-6 py-4">{channels.find(c => c.id === job.channel_id)?.name || job.channel_id}</td>
                                 <td className="px-6 py-4">
                                     <span className={`px-2.5 py-1 rounded-full text-xs font-semibold
@@ -89,7 +100,9 @@ export default function Uploads() {
                                           job.status === 'failed' ? 'bg-red-500/20 text-red-400' : 
                                           job.status === 'uploading' ? 'bg-blue-500/20 text-blue-400' :
                                           'bg-yellow-500/20 text-yellow-400'}`}>
-                                        {job.status.toUpperCase()}
+                                        {job.status === 'uploading' && job.progress !== undefined && job.progress !== null
+                                            ? `UPLOADING (${job.progress}%)`
+                                            : job.status.toUpperCase()}
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 text-muted-foreground">{job.retry_count} / 3</td>

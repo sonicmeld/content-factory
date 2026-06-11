@@ -5,7 +5,11 @@ import { MonitorPlay, Upload, CheckCircle, XCircle } from 'lucide-react';
 
 export default function Dashboard() {
     const { data: channels = [] } = useQuery({ queryKey: ['channels'], queryFn: getChannels });
-    const { data: uploads = [] } = useQuery({ queryKey: ['uploads'], queryFn: () => getUploadJobs() });
+    const { data: uploads = [] } = useQuery({ 
+        queryKey: ['uploads'], 
+        queryFn: () => getUploadJobs(),
+        refetchInterval: 3000
+    });
 
     const pendingUploads = uploads.filter(u => u.status === 'pending').length;
     const publishedUploads = uploads.filter(u => u.status === 'published').length;
@@ -60,14 +64,29 @@ export default function Dashboard() {
                     <tbody>
                         {uploads.slice(0, 5).map((job) => (
                             <tr key={job.id} className="border-b border-border hover:bg-secondary/20">
-                                <td className="px-6 py-4 font-medium">{job.title || job.video_path.split('/').pop()}</td>
+                                <td className="px-6 py-4 font-medium">
+                                    <div>
+                                        <span>{job.title || job.video_path.split('/').pop()}</span>
+                                        {job.status === 'uploading' && job.progress !== undefined && job.progress !== null && (
+                                            <div className="w-full bg-secondary rounded-full h-1.5 mt-1.5 max-w-[200px]">
+                                                <div 
+                                                    className="bg-blue-500 h-1.5 rounded-full transition-all duration-300" 
+                                                    style={{ width: `${job.progress}%` }}
+                                                ></div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </td>
                                 <td className="px-6 py-4">{channels.find(c => c.id === job.channel_id)?.name || job.channel_id}</td>
                                 <td className="px-6 py-4">
                                     <span className={`px-2 py-1 rounded text-xs font-semibold
                                         ${job.status === 'published' ? 'bg-green-500/20 text-green-400' : 
                                           job.status === 'failed' ? 'bg-red-500/20 text-red-400' : 
+                                          job.status === 'uploading' ? 'bg-blue-500/20 text-blue-400' :
                                           'bg-yellow-500/20 text-yellow-400'}`}>
-                                        {job.status.toUpperCase()}
+                                        {job.status === 'uploading' && job.progress !== undefined && job.progress !== null
+                                            ? `UPLOADING (${job.progress}%)`
+                                            : job.status.toUpperCase()}
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 text-muted-foreground">{job.scheduled_at ? formatToJakartaTime(job.scheduled_at) : 'Immediate'}</td>

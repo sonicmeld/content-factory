@@ -27,12 +27,20 @@ def create_upload_job(db: Session, job_in: UploadJobCreate) -> UploadJob:
     return upload_repository.create_job(db, db_job)
 
 def get_jobs(db: Session, channel_id: str = None, status: str = None, skip: int = 0, limit: int = 100):
-    return upload_repository.get_jobs(db, channel_id, status, skip, limit)
+    jobs = upload_repository.get_jobs(db, channel_id, status, skip, limit)
+    from services.upload_progress import get_progress
+    for job in jobs:
+        progress_info = get_progress(job.id)
+        job.progress = progress_info.get("progress")
+    return jobs
 
 def get_job(db: Session, job_id: str) -> UploadJob:
     job = upload_repository.get_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Upload job not found")
+    from services.upload_progress import get_progress
+    progress_info = get_progress(job.id)
+    job.progress = progress_info.get("progress")
     return job
 
 def update_status(db: Session, job_id: str, status: str) -> UploadJob:

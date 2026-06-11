@@ -9,6 +9,7 @@ from repositories import upload_repository, oauth_repository
 from services.oauth_service import decrypt_token, get_client_config
 from repositories.gcp_profile_repository import get_profile
 from repositories.channel_repository import get_channel
+from services.upload_progress import update_progress, clear_progress
 
 YOUTUBE_API_SERVICE_NAME = "youtube"
 YOUTUBE_API_VERSION = "v3"
@@ -64,15 +65,20 @@ def upload_to_youtube(db: Session, job_id: str):
         )
         
         response = None
+        update_progress(job_id, 0, "uploading")
         while response is None:
             status, response = request.next_chunk()
             if status:
-                upload_logger.info(f"Job {job_id}: Uploaded {int(status.progress() * 100)}%")
+                progress_pct = int(status.progress() * 100)
+                upload_logger.info(f"Job {job_id}: Uploaded {progress_pct}%")
+                update_progress(job_id, progress_pct, "uploading")
                 
         upload_logger.info(f"Job {job_id} successfully published to YouTube! Video ID: {response.get('id')}")
         upload_repository.update_job(db, job, {"status": "published"})
+        clear_progress(job_id)
 
     except Exception as e:
+        clear_progress(job_id)
         upload_logger.error(f"Job {job_id} failed: {str(e)}")
         new_retry_count = job.retry_count + 1
         new_status = "failed" if new_retry_count >= 3 else "pending"

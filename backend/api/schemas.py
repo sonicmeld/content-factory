@@ -113,6 +113,7 @@ class UploadJobResponse(BaseModel):
     status: str
     retry_count: int
     error_message: Optional[str] = None
+    progress: Optional[int] = None
     scheduled_at: Optional[datetime] = None
     published_at: Optional[datetime] = None
     created_at: datetime
