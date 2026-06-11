@@ -71,6 +71,8 @@ export const getPackages = (channelId?: string, status?: string) => {
 };
 export const getPackage = (id: string) => api.get<ContentPackage>(`/packages/${id}`).then(res => res.data);
 export const createPackage = (data: FormData) => api.post<ContentPackage>('/packages', data).then(res => res.data);
+export const createPackagesFromAssets = (assetIds: string[], channelId?: string) =>
+    api.post<ContentPackage[]>('/packages/create-from-assets', { asset_ids: assetIds, channel_id: channelId }).then(res => res.data);
 export const updatePackage = (id: string, data: Partial<ContentPackage>) => api.put<ContentPackage>(`/packages/${id}`, data).then(res => res.data);
 export const deletePackage = (id: string) => api.delete(`/packages/${id}`).then(res => res.data);
 export const updatePackageStatus = (id: string, status: string) => api.patch<ContentPackage>(`/packages/${id}/status`, { status }).then(res => res.data);

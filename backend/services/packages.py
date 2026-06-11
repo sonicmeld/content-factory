@@ -1,9 +1,11 @@
 import os
 import uuid
+import shutil
 from sqlalchemy.orm import Session
 from fastapi import UploadFile, HTTPException
+from typing import List, Optional
 from api.schemas import ContentPackageUpdate, ContentPackageCreate
-from database.models import ContentPackage
+from database.models import ContentPackage, Asset
 from repositories import packages as package_repo
 from services import channel_service
 from app.config import settings
@@ -185,3 +187,67 @@ def assemble_package(db: Session, package_id: str):
     logger.info(f"[AUDIT] package_assembled: Package {package_id}, Channel {existing_package.channel_id}")
     
     return updated_package
+
+async def create_packages_from_assets(
+    db: Session,
+    asset_ids: List[str],
+    channel_id: Optional[str] = None
+) -> List[ContentPackage]:
+    created_packages = []
+    for asset_id in asset_ids:
+        asset = db.query(Asset).filter(Asset.id == asset_id).first()
+        if not asset:
+            raise HTTPException(status_code=404, detail=f"Asset '{asset_id}' not found")
+        
+        if asset.asset_type != "video":
+            raise HTTPException(status_code=400, detail=f"Asset '{asset_id}' is not a video asset (type: {asset.asset_type})")
+            
+        target_channel_id = channel_id or asset.channel_id
+        if not target_channel_id:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Asset '{asset.filename}' is shared and no target channel was specified."
+            )
+            
+        channel = channel_service.get_channel(db, target_channel_id)
+        if not channel:
+            raise HTTPException(status_code=404, detail=f"Channel not found for ID '{target_channel_id}'")
+            
+        # Clean package number from filename
+        package_number = asset.filename.rsplit('.', 1)[0]
+        # Sanitize package_number to prevent path traversal
+        package_number = os.path.basename(package_number)
+        
+        # Avoid collisions
+        base_dir = os.path.join(settings.DATA_PATH, "channels", channel.slug, "packages", package_number)
+        orig_package_number = package_number
+        counter = 1
+        while os.path.exists(base_dir):
+            package_number = f"{orig_package_number}_{counter}"
+            base_dir = os.path.join(settings.DATA_PATH, "channels", channel.slug, "packages", package_number)
+            counter += 1
+            
+        os.makedirs(base_dir, exist_ok=True)
+        
+        # Copy video file
+        ext = asset.filename.split(".")[-1].lower()
+        video_filename = f"video.{ext}"
+        video_path = os.path.join(base_dir, video_filename)
+        
+        try:
+            shutil.copy2(asset.file_path, video_path)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to copy video file from asset: {str(e)}")
+            
+        package_data = ContentPackageCreate(
+            channel_id=target_channel_id,
+            package_number=package_number,
+            video_path=video_path,
+            timestamp_path=None,
+            status="draft"
+        )
+        
+        pkg = package_repo.create_package(db, package_data)
+        created_packages.append(pkg)
+        
+    return created_packages

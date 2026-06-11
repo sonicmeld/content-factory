@@ -74,3 +74,19 @@ def update_package_status(package_id: str, request: PackageStatusUpdate, db: Ses
 def assemble_package(package_id: str, db: Session = Depends(get_db)):
     """Validates that a package has all required components and transitions it to the 'ready' state."""
     return package_service.assemble_package(db, package_id)
+
+class CreatePackagesFromAssetsRequest(BaseModel):
+    asset_ids: List[str]
+    channel_id: Optional[str] = None
+
+@router.post("/create-from-assets", response_model=List[ContentPackageResponse])
+async def create_packages_from_assets(
+    request: CreatePackagesFromAssetsRequest,
+    db: Session = Depends(get_db)
+):
+    return await package_service.create_packages_from_assets(
+        db=db,
+        asset_ids=request.asset_ids,
+        channel_id=request.channel_id
+    )
+

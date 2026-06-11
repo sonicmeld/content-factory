@@ -49,6 +49,8 @@ def resolve_prompt_chain(db: Session, selected_context_id: Optional[str], channe
     selected_prompt = None
     if selected_context_id:
         selected_prompt = db.query(PromptContext).filter(PromptContext.id == selected_context_id).first()
+        if selected_prompt and selected_prompt.channel_id != channel_id:
+            raise ValueError("Prompt Context does not belong to Package Channel")
         
     assigned_prompts = resolve_assigned_prompts(db, channel_id, prompt_type)
     return selected_prompt, assigned_prompts

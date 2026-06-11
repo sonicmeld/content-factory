@@ -1,9 +1,9 @@
 import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getAssets, getChannels, uploadAsset, deleteAsset } from '../services/api';
-import { FileText, FileVideo, Download, UploadCloud, Trash2, X, Image as ImageIcon, Music, HardDrive } from 'lucide-react';
+import { getAssets, getChannels, uploadAsset, deleteAsset, createPackagesFromAssets } from '../services/api';
+import { FileText, FileVideo, Download, UploadCloud, Trash2, X, Image as ImageIcon, Music, HardDrive, Loader2, PackagePlus } from 'lucide-react';
 import { toast } from 'sonner';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 const TextPreviewSnippet = ({ url }: { url: string }) => {
     const { data: snippet, isLoading } = useQuery({
         queryKey: ['textPreview', url],
@@ -22,15 +22,20 @@ const TextPreviewSnippet = ({ url }: { url: string }) => {
 
 export default function Assets() {
     const { slug: workspaceSlug } = useParams();
+    const navigate = useNavigate();
     const queryClient = useQueryClient();
     const [activeTab, setActiveTab] = useState<string>('shared');
     const [filterType, setFilterType] = useState<string>('all');
     
+    // Selection state for workspace view
+    const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
+
     // Upload Modal State
     const [isUploadOpen, setIsUploadOpen] = useState(false);
     const [uploadChannelId, setUploadChannelId] = useState<string>('shared');
     const [uploadAssetType, setUploadAssetType] = useState<string>('footage');
-    const [uploadFile, setUploadFile] = useState<File | null>(null);
+    const [uploadFiles, setUploadFiles] = useState<File[]>([]);
+    const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number; filename: string } | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const { data: channels = [] } = useQuery({ queryKey: ['channels'], queryFn: getChannels });
@@ -53,18 +58,48 @@ export default function Assets() {
     });
 
     const uploadMutation = useMutation({
-        mutationFn: () => {
-            if (!uploadFile) throw new Error("No file selected");
-            return uploadAsset(uploadFile, workspaceSlug ? (workspaceChannel?.id || 'shared') : uploadChannelId, uploadAssetType);
+        mutationFn: async () => {
+            if (uploadFiles.length === 0) throw new Error("No files selected");
+            const targetChannel = workspaceSlug ? (workspaceChannel?.id || 'shared') : uploadChannelId;
+            
+            for (let i = 0; i < uploadFiles.length; i++) {
+                const file = uploadFiles[i];
+                setUploadProgress({ current: i + 1, total: uploadFiles.length, filename: file.name });
+                try {
+                    await uploadAsset(file, targetChannel, uploadAssetType);
+                } catch (err) {
+                    console.error(`Failed to upload ${file.name}`, err);
+                    toast.error(`Failed to upload ${file.name}`);
+                }
+            }
+            setUploadProgress(null);
         },
         onSuccess: () => {
-            toast.success("Asset uploaded successfully");
+            toast.success("Assets uploaded successfully");
             setIsUploadOpen(false);
-            setUploadFile(null);
+            setUploadFiles([]);
             if (fileInputRef.current) fileInputRef.current.value = '';
             queryClient.invalidateQueries({ queryKey: ['assets'] });
         },
-        onError: () => toast.error("Failed to upload asset")
+        onError: () => {
+            toast.error("Failed to complete asset upload");
+            setUploadProgress(null);
+        }
+    });
+
+    const bulkCreateMutation = useMutation({
+        mutationFn: () => {
+            return createPackagesFromAssets(selectedAssetIds, workspaceChannel?.id);
+        },
+        onSuccess: (data) => {
+            toast.success(`Successfully created ${data.length} packages`);
+            setSelectedAssetIds([]);
+            queryClient.invalidateQueries({ queryKey: ['packages'] });
+            navigate(`/workspace/${workspaceSlug}/packages`);
+        },
+        onError: (err: any) => {
+            toast.error(err.response?.data?.detail || err.message || 'Failed to create packages');
+        }
     });
 
     const handleDelete = (id: string) => {
@@ -96,7 +131,11 @@ export default function Assets() {
                     <p className="text-muted-foreground mt-1 text-sm">Manage reusable resources and content blocks.</p>
                 </div>
                 <button 
-                    onClick={() => setIsUploadOpen(true)}
+                    onClick={() => {
+                        setUploadChannelId(resolvedTab);
+                        setUploadAssetType(workspaceSlug ? 'video' : 'footage');
+                        setIsUploadOpen(true);
+                    }}
                     className="bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center shadow-sm"
                 >
                     <UploadCloud className="w-4 h-4 mr-2" />
@@ -132,18 +171,61 @@ export default function Assets() {
                     </div>
                 )}
                 
-                <div className="flex gap-2 w-full lg:w-auto">
+                <div className="flex flex-wrap gap-2 w-full lg:w-auto items-center">
                     <select 
                         className="bg-background border border-border text-sm rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-ring focus:border-primary w-full lg:w-auto shadow-sm"
                         value={filterType}
                         onChange={(e) => setFilterType(e.target.value)}
                     >
                         <option value="all">All Types</option>
+                        <option value="video">Raw Videos</option>
                         <option value="footage">Footage</option>
                         <option value="thumbnails">Thumbnails</option>
                         <option value="audio">Audio</option>
                         <option value="prompts">Prompts</option>
                     </select>
+                    
+                    {workspaceSlug && (
+                        (() => {
+                            const videoAssets = assets.filter(a => a.asset_type === 'video');
+                            if (videoAssets.length === 0) return null;
+                            return (
+                                <div className="flex items-center gap-3 pl-2 border-l border-border h-8">
+                                    <button
+                                        onClick={() => {
+                                            if (selectedAssetIds.length === videoAssets.length) {
+                                                setSelectedAssetIds([]);
+                                            } else {
+                                                setSelectedAssetIds(videoAssets.map(a => a.id));
+                                            }
+                                        }}
+                                        className="text-xs text-muted-foreground hover:text-foreground font-medium transition-colors"
+                                    >
+                                        {selectedAssetIds.length === videoAssets.length ? 'Deselect All' : 'Select All Videos'}
+                                    </button>
+                                    {selectedAssetIds.length > 0 && (
+                                        <button
+                                            onClick={() => bulkCreateMutation.mutate()}
+                                            disabled={bulkCreateMutation.isPending}
+                                            className="bg-primary hover:bg-primary/90 text-primary-foreground px-3 py-1 rounded-md text-xs font-semibold shadow-sm flex items-center gap-1 transition-colors disabled:opacity-50"
+                                        >
+                                            {bulkCreateMutation.isPending ? (
+                                                <>
+                                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                    Creating Packages...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <PackagePlus className="w-3.5 h-3.5" />
+                                                    Create Packages ({selectedAssetIds.length})
+                                                </>
+                                            )}
+                                        </button>
+                                    )}
+                                </div>
+                            );
+                        })()
+                    )}
                 </div>
             </div>
 
@@ -161,9 +243,41 @@ export default function Assets() {
                         ? `/data/channels/${slug}/${asset.asset_type}/${asset.id}${finalExt}`
                         : `/data/shared/${asset.asset_type}/${asset.id}${finalExt}`;
 
+                    const isVideo = asset.asset_type === 'video';
+                    const isSelected = selectedAssetIds.includes(asset.id);
+
                     return (
-                        <div key={asset.id} className="bg-card border border-border rounded-xl overflow-hidden group hover:border-primary/50 transition-colors flex flex-col shadow-sm">
+                        <div 
+                            key={asset.id} 
+                            onClick={() => {
+                                if (workspaceSlug && isVideo) {
+                                    setSelectedAssetIds(prev => 
+                                        prev.includes(asset.id) 
+                                            ? prev.filter(id => id !== asset.id) 
+                                            : [...prev, asset.id]
+                                    );
+                                }
+                            }}
+                            className={`bg-card border rounded-xl overflow-hidden group transition-all flex flex-col shadow-sm ${workspaceSlug && isVideo ? 'cursor-pointer select-none' : ''} ${isSelected ? 'border-primary ring-2 ring-primary/20' : 'border-border hover:border-primary/50'}`}
+                        >
                             <div className="h-40 bg-secondary flex items-center justify-center relative overflow-hidden">
+                                {workspaceSlug && isVideo && (
+                                    <div className="absolute top-3 left-3 z-20" onClick={(e) => e.stopPropagation()}>
+                                        <input 
+                                            type="checkbox"
+                                            checked={isSelected}
+                                            onChange={(e) => {
+                                                if (e.target.checked) {
+                                                    setSelectedAssetIds(prev => [...prev, asset.id]);
+                                                } else {
+                                                    setSelectedAssetIds(prev => prev.filter(id => id !== asset.id));
+                                                }
+                                            }}
+                                            className="w-4 h-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
+                                        />
+                                    </div>
+                                )}
+
                                 {isImage ? (
                                     <img src={downloadUrl} alt={asset.filename} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
                                 ) : isText ? (
@@ -172,7 +286,7 @@ export default function Assets() {
                                     getFileIcon(asset.mime_type)
                                 )}
                                  
-                                <div className="absolute inset-0 bg-background/80 flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="absolute inset-0 bg-background/80 flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
                                     <a href={downloadUrl} target="_blank" rel="noreferrer" download className="bg-primary hover:bg-primary/90 text-primary-foreground p-2.5 rounded-full transition-colors shadow-sm">
                                         <Download className="w-4 h-4" />
                                     </a>
@@ -246,8 +360,12 @@ export default function Assets() {
                                 <select 
                                     className="w-full bg-background border border-border text-sm rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-ring focus:border-primary shadow-sm"
                                     value={uploadAssetType}
-                                    onChange={(e) => setUploadAssetType(e.target.value)}
+                                    onChange={(e) => {
+                                        setUploadAssetType(e.target.value);
+                                        setUploadFiles([]);
+                                    }}
                                 >
+                                    <option value="video">Raw Videos</option>
                                     <option value="footage">Footage</option>
                                     <option value="thumbnails">Thumbnails</option>
                                     <option value="audio">Audio</option>
@@ -256,45 +374,82 @@ export default function Assets() {
                             </div>
 
                             <div className="space-y-2 pt-2">
-                                <label className="text-sm font-medium">Select File</label>
+                                <label className="text-sm font-medium">Select File(s)</label>
                                 <div className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:bg-secondary/50 hover:border-primary/50 transition-all relative group cursor-pointer">
                                     <input 
                                         type="file" 
                                         ref={fileInputRef}
-                                        onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                                        multiple
+                                        onChange={(e) => setUploadFiles(e.target.files ? Array.from(e.target.files) : [])}
+                                        accept={uploadAssetType === 'video' ? '.mp4' : undefined}
                                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                                     />
-                                    {uploadFile ? (
-                                        <div className="flex flex-col items-center">
-                                            <div className="bg-primary/10 p-3 rounded-full mb-3">
-                                                <FileText className="w-8 h-8 text-primary" />
+                                    {uploadFiles.length > 0 ? (
+                                        <div className="flex flex-col items-center w-full max-h-48 overflow-y-auto py-2">
+                                            <div className="bg-primary/10 p-3 rounded-full mb-2">
+                                                <FileText className="w-6 h-6 text-primary" />
                                             </div>
-                                            <p className="text-sm font-medium text-foreground truncate max-w-full px-4">{uploadFile.name}</p>
-                                            <p className="text-xs text-muted-foreground mt-1 font-medium">{formatBytes(uploadFile.size)}</p>
+                                            <p className="text-sm font-semibold text-foreground mb-2">
+                                                {uploadFiles.length === 1 ? '1 file selected' : `${uploadFiles.length} files selected`}
+                                            </p>
+                                            <div className="w-full text-left space-y-1 px-4 scrollbar-thin">
+                                                {uploadFiles.map((file, idx) => (
+                                                    <div key={idx} className="flex justify-between items-center text-xs border-b border-border/50 py-1 last:border-0">
+                                                        <span className="truncate max-w-[200px] text-muted-foreground" title={file.name}>{file.name}</span>
+                                                        <span className="font-mono text-[10px] text-muted-foreground/80">{formatBytes(file.size)}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <p className="text-xs text-muted-foreground mt-2 font-medium">
+                                                Total Size: {formatBytes(uploadFiles.reduce((acc, f) => acc + f.size, 0))}
+                                            </p>
                                         </div>
                                     ) : (
                                         <div className="flex flex-col items-center">
                                             <div className="bg-secondary p-3 rounded-full mb-3 group-hover:bg-primary/10 transition-colors">
                                                 <UploadCloud className="w-8 h-8 text-muted-foreground group-hover:text-primary transition-colors" />
                                             </div>
-                                            <p className="text-sm font-medium text-foreground">Click or drag file here</p>
-                                            <p className="text-xs text-muted-foreground mt-1">Supports up to 2GB limits</p>
+                                            <p className="text-sm font-medium text-foreground">Click or drag files here</p>
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                                {uploadAssetType === 'video' ? 'Supports multiple .mp4 files' : 'Supports multiple files'}
+                                            </p>
                                         </div>
                                     )}
                                 </div>
                             </div>
+                            
+                            {uploadProgress && (
+                                <div className="p-3 bg-secondary/55 border border-border/50 rounded-lg text-center mt-3">
+                                    <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                                        <span>Uploading files...</span>
+                                        <span>{uploadProgress.current} / {uploadProgress.total}</span>
+                                    </div>
+                                    <div className="w-full bg-border rounded-full h-1.5 overflow-hidden">
+                                        <div 
+                                            className="bg-primary h-1.5 transition-all duration-300" 
+                                            style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+                                        />
+                                    </div>
+                                    <p className="text-[10px] font-mono text-muted-foreground truncate mt-1">
+                                        {uploadProgress.filename}
+                                    </p>
+                                </div>
+                            )}
                         </div>
 
                         <div className="p-5 bg-muted/20 border-t border-border flex justify-end gap-3">
                             <button 
-                                onClick={() => setIsUploadOpen(false)}
+                                onClick={() => {
+                                    setIsUploadOpen(false);
+                                    setUploadFiles([]);
+                                }}
                                 className="px-4 py-2 rounded-md text-sm font-medium text-foreground bg-background border border-border hover:bg-secondary transition-colors shadow-sm"
                             >
                                 Cancel
                             </button>
                             <button 
                                 onClick={() => uploadMutation.mutate()}
-                                disabled={!uploadFile || uploadMutation.isPending}
+                                disabled={uploadFiles.length === 0 || uploadMutation.isPending}
                                 className="bg-primary text-primary-foreground hover:bg-primary/90 px-6 py-2 rounded-md text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center shadow-sm"
                             >
                                 {uploadMutation.isPending ? 'Uploading...' : 'Upload'}
