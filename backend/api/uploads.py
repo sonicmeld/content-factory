@@ -38,3 +38,16 @@ def retry_job(job_id: str, db: Session = Depends(get_db)):
 def delete_upload_job(job_id: str, db: Session = Depends(get_db)):
     upload_service.delete_job(db, job_id)
     return {"message": "Upload job deleted successfully"}
+
+@router.get("/logs", response_model=List[str])
+def get_upload_logs(limit: int = 50):
+    import os
+    log_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs", "upload.log")
+    if not os.path.exists(log_file):
+        return []
+    try:
+        with open(log_file, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+            return [line.strip() for line in lines[-limit:]]
+    except Exception:
+        return []

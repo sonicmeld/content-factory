@@ -54,6 +54,11 @@ export const getUploadJobs = (channelId?: string, status?: string) => {
 export const retryUploadJob = (id: string) => api.post<UploadJob>(`/uploads/${id}/retry`).then(res => res.data);
 export const createUploadJob = (data: Partial<UploadJob>) => api.post<UploadJob>('/uploads', data).then(res => res.data);
 export const deleteUploadJob = (id: string) => api.delete(`/uploads/${id}`).then(res => res.data);
+export const getUploadLogs = (limit?: number) => {
+    const params: any = {};
+    if (limit) params.limit = limit;
+    return api.get<string[]>('/uploads/logs', { params }).then(res => res.data);
+};
 
 // Prompts & Metadata
 export const generatePrompt = (data: { channel_id: string, theme: string, mood: string }) => 
