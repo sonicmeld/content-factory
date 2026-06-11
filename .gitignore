@@ -29,5 +29,4 @@ cloudflared-linux-amd64.deb
 .DS_Store
 Thumbs.db
 
-# Test artifacts
-backend/tests/
+# Test artifacts
