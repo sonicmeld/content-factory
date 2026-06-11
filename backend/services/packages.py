@@ -239,11 +239,29 @@ async def create_packages_from_assets(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to copy video file from asset: {str(e)}")
             
+        # Try to find a matching timestamp (.txt) asset
+        timestamp_path_db = None
+        base_name = asset.filename.rsplit('.', 1)[0]
+        timestamp_asset = db.query(Asset).filter(
+            Asset.channel_id == target_channel_id,
+            Asset.asset_type == "timestamp",
+            Asset.filename.like(f"{base_name}.txt")
+        ).first()
+        
+        if timestamp_asset and os.path.exists(timestamp_asset.file_path):
+            timestamp_filename = "timestamp.txt"
+            timestamp_path = os.path.join(base_dir, timestamp_filename)
+            try:
+                shutil.copy2(timestamp_asset.file_path, timestamp_path)
+                timestamp_path_db = timestamp_path
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Failed to copy timestamp file from asset: {str(e)}")
+
         package_data = ContentPackageCreate(
             channel_id=target_channel_id,
             package_number=package_number,
             video_path=video_path,
-            timestamp_path=None,
+            timestamp_path=timestamp_path_db,
             status="draft"
         )
         

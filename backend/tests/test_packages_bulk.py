@@ -80,3 +80,39 @@ class TestPackagesBulk(unittest.TestCase):
         expected_dir = os.path.join(settings.DATA_PATH, "channels", "testchan", "packages", "my_video")
         self.assertTrue(os.path.exists(expected_dir))
         self.assertTrue(os.path.exists(os.path.join(expected_dir, "video.mp4")))
+
+    def test_create_packages_from_assets_with_timestamp_success(self):
+        # Write a dummy timestamp asset file
+        os.makedirs(os.path.join(settings.DATA_PATH, "channels", "testchan", "timestamp"), exist_ok=True)
+        timestamp_file_path = os.path.join(settings.DATA_PATH, "channels", "testchan", "timestamp", "dummy.txt")
+        with open(timestamp_file_path, "wb") as f:
+            f.write(b"00:00:00 Intro")
+
+        timestamp_asset = Asset(
+            id="asset-txt",
+            channel_id="channel-1",
+            asset_type="timestamp",
+            filename="my_video.txt",
+            file_path=timestamp_file_path,
+            file_size=14,
+            mime_type="text/plain"
+        )
+        self.db.add(timestamp_asset)
+        self.db.commit()
+
+        import asyncio
+        packages = asyncio.run(
+            package_service.create_packages_from_assets(
+                db=self.db,
+                asset_ids=["asset-1"],
+                channel_id="channel-1"
+            )
+        )
+        
+        self.assertEqual(len(packages), 1)
+        pkg = packages[0]
+        self.assertEqual(pkg.package_number, "my_video")
+        self.assertIsNotNone(pkg.timestamp_path)
+        self.assertTrue(os.path.exists(pkg.timestamp_path))
+        self.assertTrue(pkg.timestamp_path.endswith("timestamp.txt"))
+

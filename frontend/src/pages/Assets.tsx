@@ -179,6 +179,7 @@ export default function Assets() {
                     >
                         <option value="all">All Types</option>
                         <option value="video">Raw Videos</option>
+                        <option value="timestamp">Timestamps (TXT)</option>
                         <option value="footage">Footage</option>
                         <option value="thumbnails">Thumbnails</option>
                     </select>
@@ -364,6 +365,7 @@ export default function Assets() {
                                     }}
                                 >
                                     <option value="video">Raw Videos</option>
+                                    <option value="timestamp">Timestamps (TXT)</option>
                                     <option value="footage">Footage</option>
                                     <option value="thumbnails">Thumbnails</option>
                                 </select>
@@ -377,7 +379,7 @@ export default function Assets() {
                                         ref={fileInputRef}
                                         multiple
                                         onChange={(e) => setUploadFiles(e.target.files ? Array.from(e.target.files) : [])}
-                                        accept={uploadAssetType === 'video' ? '.mp4' : undefined}
+                                        accept={uploadAssetType === 'video' ? '.mp4' : uploadAssetType === 'timestamp' ? '.txt' : undefined}
                                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                                     />
                                     {uploadFiles.length > 0 ? (
@@ -407,7 +409,7 @@ export default function Assets() {
                                             </div>
                                             <p className="text-sm font-medium text-foreground">Click or drag files here</p>
                                             <p className="text-xs text-muted-foreground mt-1">
-                                                {uploadAssetType === 'video' ? 'Supports multiple .mp4 files' : 'Supports multiple files'}
+                                                {uploadAssetType === 'video' ? 'Supports multiple .mp4 files' : uploadAssetType === 'timestamp' ? 'Supports multiple .txt files' : 'Supports multiple files'}
                                             </p>
                                         </div>
                                     )}
