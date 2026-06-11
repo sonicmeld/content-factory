@@ -3,7 +3,7 @@ import { Package, Image as ImageIcon, FileText, Loader2, PlayCircle, Settings2 }
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getWorkboxPackages, getGenerationCombos, getGlobalPromptContexts, updateChannel, generateMetadata, generateThumbnail } from '../../services/api';
 import { toast } from 'sonner';
-import type { WorkboxPackage } from '../../types';
+
 
 interface ProductionFormProps {
     assetType: 'Metadata' | 'Thumbnail' | 'Footage';
