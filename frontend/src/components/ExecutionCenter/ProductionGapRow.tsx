@@ -1,4 +1,4 @@
-import { PackageSearch, AlertCircle, FileText, Image as ImageIcon, CheckCircle2, PlayCircle, Loader2 } from 'lucide-react';
+import { PackageSearch, FileText, Image as ImageIcon, PlayCircle, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { WorkboxPackage } from '../../types';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
