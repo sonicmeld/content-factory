@@ -4,7 +4,7 @@ from sqlalchemy import desc
 from typing import List, Optional
 
 from database.database import get_db
-from database.models import PackageGeneration, ContentPackage, Channel, RuntimeAudit, MetadataVariant
+from database.models import PackageGeneration, ContentPackage, Channel, RuntimeAudit, MetadataVariant, GenerationAsset
 
 router = APIRouter(prefix="/api/execution-center", tags=["Execution Center"])
 
@@ -153,39 +153,70 @@ def get_workbox_packages(
     gen_ids = [pg.id for pg, cp, ch in records]
     
     variants = []
+    assets = []
     if gen_ids:
         variants = db.query(MetadataVariant).filter(MetadataVariant.package_generation_id.in_(gen_ids)).all()
+        assets = db.query(GenerationAsset).filter(GenerationAsset.package_generation_id.in_(gen_ids)).all()
         
     variant_map = {}
     for v in variants:
         if v.package_generation_id not in variant_map:
             variant_map[v.package_generation_id] = []
         variant_map[v.package_generation_id].append(v)
+        
+    asset_map = {}
+    for a in assets:
+        if a.package_generation_id not in asset_map:
+            asset_map[a.package_generation_id] = []
+        asset_map[a.package_generation_id].append(a)
 
     workbox_packages = []
     
+    # REQUIRED_ASSET_TYPES defines what mapped assets must exist for a package to be READY
+    REQUIRED_ASSET_TYPES = ['Metadata', 'Thumbnail']
+    
     for pg, cp, ch in records:
+        # Generation execution status (for legacy reporting / history)
         asset_statuses = {
             "Metadata": pg.metadata_status,
             "Thumbnail": pg.thumbnail_status
         }
         
-        # 1. Evaluate Assembly Readiness
-        # READY: All required production assets are available
-        # PARTIAL: One or more production assets exist (or are in progress)
-        # BLOCKED: Required production assets are missing
-        if all(s == "completed" for s in asset_statuses.values()):
+        # Mapped Status Evaluator (Opsi B)
+        # Check if there is an explicit mapping (is_selected=True)
+        vs = variant_map.get(pg.id, [])
+        ths = [a for a in asset_map.get(pg.id, []) if a.asset_type == 'thumbnail']
+        
+        has_mapped_metadata = any(v.is_selected for v in vs)
+        has_mapped_thumbnail = any(t.is_selected for t in ths)
+        
+        mapped_assets = {
+            "Metadata": has_mapped_metadata,
+            "Thumbnail": has_mapped_thumbnail
+        }
+        
+        # 1. Evaluate Assembly Readiness based on Mapped Assets
+        is_ready = True
+        has_partial = False
+        for req_asset in REQUIRED_ASSET_TYPES:
+            if not mapped_assets.get(req_asset):
+                is_ready = False
+            else:
+                has_partial = True
+                
+        if is_ready:
             assembly_readiness = "READY"
-        elif any(s in ["completed", "pending", "processing"] for s in asset_statuses.values()):
+        elif has_partial or any(s in ["completed", "pending", "processing"] for s in asset_statuses.values()):
             assembly_readiness = "PARTIAL"
         else:
             assembly_readiness = "BLOCKED"
             
-        # 2. Evaluate Production Gaps (Extensible)
+        # 2. Evaluate Production Gaps
+        # A gap exists if a REQUIRED asset is NOT mapped.
         production_gaps = []
-        for asset_type, status in asset_statuses.items():
-            if status != "completed":
-                production_gaps.append(asset_type)
+        for req_asset in REQUIRED_ASSET_TYPES:
+            if not mapped_assets.get(req_asset):
+                production_gaps.append(req_asset)
                 
         # 3. Evaluate Production Sources (with strict Unknown fallback)
         production_sources = {}
@@ -211,6 +242,7 @@ def get_workbox_packages(
             "channel_name": ch.name,
             "channel_slug": ch.slug,
             "package_number": cp.package_number,
+            "package_status": cp.status,
             "assembly_readiness": assembly_readiness,
             "production_gaps": production_gaps,
             "asset_statuses": asset_statuses,

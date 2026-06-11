@@ -240,6 +240,7 @@ export interface WorkboxPackage {
     channel_name: string;
     channel_slug: string;
     package_number: string;
+    package_status: string;
     assembly_readiness: 'READY' | 'PARTIAL' | 'BLOCKED';
     production_gaps: string[];
     asset_statuses: Record<string, string>;

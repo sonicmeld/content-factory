@@ -1,9 +1,10 @@
-import { PackageSearch, FileText, Image as ImageIcon, PlayCircle, Loader2 } from 'lucide-react';
+import { PackageSearch, FileText, Image as ImageIcon, PlayCircle, Loader2, CheckCircle2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { WorkboxPackage } from '../../types';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { generateMetadata, generateThumbnail } from '../../services/api';
+import { generateMetadata, generateThumbnail, assemblePackage } from '../../services/api';
 import { toast } from 'sonner';
+import { Package } from 'lucide-react';
 
 interface ProductionGapRowProps {
     pkg: WorkboxPackage;
@@ -33,6 +34,17 @@ export default function ProductionGapRow({ pkg }: ProductionGapRowProps) {
         },
         onError: (err: any) => {
             toast.error(err.response?.data?.detail || 'Failed to start thumbnail generation');
+        }
+    });
+
+    const assembleMutation = useMutation({
+        mutationFn: () => assemblePackage(pkg.package_id),
+        onSuccess: () => {
+            toast.success(`Assembly completed for ${pkg.package_number}`);
+            queryClient.invalidateQueries({ queryKey: ['workbox'] });
+        },
+        onError: (err: any) => {
+            toast.error(err.response?.data?.detail || 'Failed to assemble package');
         }
     });
 
@@ -101,6 +113,24 @@ export default function ProductionGapRow({ pkg }: ProductionGapRowProps) {
                     >
                         {generateThumbnailMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlayCircle className="w-4 h-4 text-primary" />}
                         Gen Thumbnail
+                    </button>
+                )}
+
+                {pkg.package_status === 'assembled' && (
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-green-500/10 text-green-500 border border-green-500/20 rounded font-semibold">
+                        <CheckCircle2 className="w-4 h-4" />
+                        ASSEMBLED
+                    </div>
+                )}
+
+                {pkg.assembly_readiness === 'READY' && pkg.package_status !== 'assembled' && (
+                    <button
+                        onClick={() => assembleMutation.mutate()}
+                        disabled={assembleMutation.isPending}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-primary text-primary-foreground hover:bg-primary/90 border border-primary rounded transition-colors disabled:opacity-50 font-medium"
+                    >
+                        {assembleMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Package className="w-4 h-4" />}
+                        Assemble
                     </button>
                 )}
 
