@@ -197,5 +197,20 @@ CREATE TABLE IF NOT EXISTS generation_models (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS prompt_expert_drafts (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL,
+    expert_type TEXT NOT NULL,
+    combo_id TEXT NOT NULL,
+    input_text TEXT NOT NULL,
+    topic TEXT NOT NULL,
+    keywords TEXT NOT NULL,
+    notes TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'draft',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+
 
 

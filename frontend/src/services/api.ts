@@ -319,5 +319,44 @@ export const createGenerationModel = (data: { name: string }) =>
 export const deleteGenerationModel = (id: string) =>
     api.delete<{ message: string }>(`/settings/models/${id}`).then(res => res.data);
 
+export interface PromptExpertDraft {
+    id: string;
+    workspace_id: string;
+    expert_type: string;
+    combo_id: string;
+    input_text: string;
+    topic: string;
+    keywords: string[];
+    notes: string;
+    status: 'draft' | 'approved' | 'discarded';
+    created_at: string;
+    updated_at: string;
+}
+
+export const generatePromptDraft = (data: {
+    workspace_id: string;
+    expert_type: string;
+    combo_id: string;
+    input_text: string;
+}) => api.post<PromptExpertDraft>('/prompt-experts/generate', data).then(res => res.data);
+
+export const getPromptDrafts = (workspaceId: string = 'default') =>
+    api.get<PromptExpertDraft[]>(`/prompt-experts/drafts?workspace_id=${workspaceId}`).then(res => res.data);
+
+export const getPromptDraftDetail = (id: string) =>
+    api.get<PromptExpertDraft>(`/prompt-experts/drafts/${id}`).then(res => res.data);
+
+export const approvePromptDraft = (id: string, data: {
+    channel_id: string;
+    title: string;
+    prompt_type: string;
+    topic: string;
+    keywords: string;
+    notes: string;
+}) => api.post<PromptContext>(`/prompt-experts/drafts/${id}/approve`, data).then(res => res.data);
+
+export const discardPromptDraft = (id: string) =>
+    api.post<{ message: string }>(`/prompt-experts/drafts/${id}/discard`).then(res => res.data);
+
 export default api;
 

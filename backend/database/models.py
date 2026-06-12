@@ -330,6 +330,23 @@ class AssetInbox(Base):
     created_at = Column(DateTime, default=func.now())
 
 
+class PromptExpertDraft(Base):
+    __tablename__ = "prompt_expert_drafts"
+
+    id = Column(String, primary_key=True)
+    workspace_id = Column(String, nullable=False)
+    expert_type = Column(String, nullable=False)
+    combo_id = Column(String, nullable=False)
+    input_text = Column(String, nullable=False)
+    topic = Column(Text, nullable=False)
+    keywords = Column(Text, nullable=False)
+    notes = Column(Text, nullable=False)
+    status = Column(String, nullable=False, default="draft") # draft, approved, discarded
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+
 class SystemSetting(Base):
     __tablename__ = "system_settings"
 

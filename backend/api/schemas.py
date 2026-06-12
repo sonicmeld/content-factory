@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
 class ChannelBase(BaseModel):
@@ -424,6 +424,37 @@ class GenerationModelResponse(BaseModel):
 
 class GenerationModelCreate(BaseModel):
     name: str
+
+class DraftGenerateRequest(BaseModel):
+    workspace_id: Optional[str] = "default"
+    expert_type: str
+    combo_id: str
+    input_text: str
+
+class DraftResponse(BaseModel):
+    id: str
+    workspace_id: str
+    expert_type: str
+    combo_id: str
+    input_text: str
+    topic: str
+    keywords: List[str]
+    notes: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class DraftApproveRequest(BaseModel):
+    channel_id: str
+    title: str
+    prompt_type: str
+    topic: str
+    keywords: str
+    notes: str
+
 
 
 
