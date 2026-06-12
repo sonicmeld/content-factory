@@ -249,3 +249,39 @@ export interface WorkboxPackage {
     production_sources: Record<string, string>;
 }
 
+// Flow Connector & Asset Inbox Types
+export interface ExternalAccount {
+    id: string;
+    workspace_id: string;
+    provider: string;
+    account_name: string;
+    profile_name?: string;
+    is_active: number;
+}
+
+export interface ConnectorJob {
+    id: string;
+    workspace_id: string;
+    project_id: string;
+    provider: string;
+    account_id?: string;
+    asset_type: string;
+    status: 'pending' | 'completed' | 'failed' | 'cancelled';
+    combo_id?: string;
+    prompt_id?: string;
+    prompt?: string;
+    created_at: string;
+}
+
+export interface AssetInbox {
+    id: string;
+    workspace_id: string;
+    project_id: string;
+    source: string;
+    asset_type: string;
+    status: 'pending' | 'approved' | 'rejected' | 'archived';
+    file_path: string;
+    created_at: string;
+}
+
+

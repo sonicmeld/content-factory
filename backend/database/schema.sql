@@ -151,3 +151,39 @@ CREATE TABLE IF NOT EXISTS prompt_contexts (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Flow Connector & Asset Inbox Tables
+CREATE TABLE IF NOT EXISTS external_accounts (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    account_name TEXT NOT NULL,
+    profile_name TEXT,
+    is_active INTEGER DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS connector_jobs (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL,
+    project_id TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    account_id TEXT,
+    asset_type TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    combo_id TEXT,
+    prompt_id TEXT,
+    prompt TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS asset_inbox (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL,
+    project_id TEXT NOT NULL,
+    source TEXT NOT NULL,
+    asset_type TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending', -- pending, approved, rejected, archived
+    file_path TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+

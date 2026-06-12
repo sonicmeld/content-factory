@@ -333,3 +333,64 @@ class RuntimeAuditResponse(BaseModel):
     executed_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# Flow Connector & Asset Inbox schemas
+class ExternalAccountCreate(BaseModel):
+    workspace_id: str
+    provider: str
+    account_name: str
+    profile_name: Optional[str] = None
+
+class ExternalAccountUpdate(BaseModel):
+    account_name: Optional[str] = None
+    profile_name: Optional[str] = None
+    is_active: Optional[int] = None
+
+class ExternalAccountResponse(BaseModel):
+    id: str
+    workspace_id: str
+    provider: str
+    account_name: str
+    profile_name: Optional[str] = None
+    is_active: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+class ConnectorJobCreate(BaseModel):
+    workspace_id: str
+    project_id: str
+    provider: str
+    account_id: Optional[str] = None
+    asset_type: str
+    combo_id: Optional[str] = None
+    prompt_id: Optional[str] = None
+    prompt: Optional[str] = None
+
+class ConnectorJobResponse(BaseModel):
+    id: str
+    workspace_id: str
+    project_id: str
+    provider: str
+    account_id: Optional[str] = None
+    asset_type: str
+    status: str
+    combo_id: Optional[str] = None
+    prompt_id: Optional[str] = None
+    prompt: Optional[str] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+class AssetInboxResponse(BaseModel):
+    id: str
+    workspace_id: str
+    project_id: str
+    source: str
+    asset_type: str
+    status: str
+    file_path: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+

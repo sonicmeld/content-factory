@@ -289,3 +289,44 @@ class RuntimeAudit(Base):
     error_message = Column(Text, nullable=True)
     
     executed_at = Column(DateTime, default=func.now())
+
+
+class ExternalAccount(Base):
+    __tablename__ = "external_accounts"
+
+    id = Column(String, primary_key=True)
+    workspace_id = Column(String, nullable=False)
+    provider = Column(String, nullable=False)
+    account_name = Column(String, nullable=False)
+    profile_name = Column(String, nullable=True)
+    is_active = Column(Integer, default=1)
+
+
+class ConnectorJob(Base):
+    __tablename__ = "connector_jobs"
+
+    id = Column(String, primary_key=True)
+    workspace_id = Column(String, nullable=False)
+    project_id = Column(String, nullable=False)
+    provider = Column(String, nullable=False)
+    account_id = Column(String, nullable=True)
+    asset_type = Column(String, nullable=False)
+    status = Column(String, nullable=False, default="pending")
+    combo_id = Column(String, nullable=True)
+    prompt_id = Column(String, nullable=True)
+    prompt = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+
+
+class AssetInbox(Base):
+    __tablename__ = "asset_inbox"
+
+    id = Column(String, primary_key=True)
+    workspace_id = Column(String, nullable=False)
+    project_id = Column(String, nullable=False)
+    source = Column(String, nullable=False)
+    asset_type = Column(String, nullable=False)
+    status = Column(String, nullable=False, default="pending") # pending, approved, rejected, archived
+    file_path = Column(String, nullable=False)
+    created_at = Column(DateTime, default=func.now())
+

@@ -1,7 +1,7 @@
 import { Info, PlaySquare, Plug, AlertTriangle, CheckCircle2, Loader2, Save } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getChannels, updateChannel, connectOAuth, disconnectOAuth } from '../../services/api';
+import { getChannels, updateChannel, connectOAuth, disconnectOAuth, getExternalAccounts, createExternalAccount, updateExternalAccount, deleteExternalAccount } from '../../services/api';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import PromptAssignmentManager from '../../components/PromptAssignmentManager';
@@ -22,6 +22,52 @@ export default function ChannelSettings() {
             setIsActive(currentChannel.is_active === 1);
         }
     }, [currentChannel]);
+
+    // External Accounts queries and state
+    const { data: externalAccounts = [], refetch: refetchAccounts } = useQuery({
+        queryKey: ['external-accounts', currentChannel?.slug],
+        queryFn: () => getExternalAccounts(currentChannel?.slug),
+        enabled: !!currentChannel?.slug
+    });
+
+    const [provider, setProvider] = useState('Google Flow');
+    const [accountName, setAccountName] = useState('');
+    const [profileName, setProfileName] = useState('');
+
+    const addAccountMutation = useMutation({
+        mutationFn: () => createExternalAccount({
+            workspace_id: currentChannel!.slug,
+            provider,
+            account_name: accountName,
+            profile_name: profileName || undefined
+        }),
+        onSuccess: () => {
+            toast.success('External account added');
+            setAccountName('');
+            setProfileName('');
+            refetchAccounts();
+        },
+        onError: () => toast.error('Failed to add external account')
+    });
+
+    const toggleAccountMutation = useMutation({
+        mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
+            updateExternalAccount(id, { is_active: isActive ? 1 : 0 }),
+        onSuccess: () => {
+            toast.success('Account status updated');
+            refetchAccounts();
+        },
+        onError: () => toast.error('Failed to update account status')
+    });
+
+    const deleteAccountMutation = useMutation({
+        mutationFn: (id: string) => deleteExternalAccount(id),
+        onSuccess: () => {
+            toast.success('External account deleted');
+            refetchAccounts();
+        },
+        onError: () => toast.error('Failed to delete external account')
+    });
 
     const updateMutation = useMutation({
         mutationFn: () => updateChannel(currentChannel!.id, { name, is_active: isActive ? 1 : 0 }),
@@ -177,6 +223,123 @@ export default function ChannelSettings() {
                                     {connectOAuthMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plug className="w-4 h-4" />}
                                     Connect YouTube
                                 </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* External Accounts Connection Manager */}
+            <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+                <div className="px-6 py-4 border-b border-border bg-secondary/30 flex items-center gap-2">
+                    <Plug className="w-5 h-5 text-indigo-500" />
+                    <h3 className="font-semibold text-lg">External Connector Accounts</h3>
+                </div>
+                <div className="p-6 space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Add Account Form */}
+                        <div className="space-y-4 border border-border/60 p-4 rounded-lg bg-muted/10">
+                            <h4 className="font-medium text-sm text-foreground/90">Add External Account</h4>
+                            <div className="space-y-3">
+                                <div className="space-y-1">
+                                    <label className="text-xs text-muted-foreground">Provider</label>
+                                    <select
+                                        value={provider}
+                                        onChange={e => setProvider(e.target.value)}
+                                        className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-sm focus:outline-none"
+                                    >
+                                        <option value="Google Flow">Google Flow</option>
+                                        <option value="Gemini">Gemini</option>
+                                        <option value="ChatGPT">ChatGPT</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs text-muted-foreground">Account Name / Email</label>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. Gmail A or My GPT"
+                                        value={accountName}
+                                        onChange={e => setAccountName(e.target.value)}
+                                        className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs text-muted-foreground">Profile Name (Optional)</label>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. Chrome Profile 1"
+                                        value={profileName}
+                                        onChange={e => setProfileName(e.target.value)}
+                                        className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                                    />
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (!accountName) {
+                                            toast.error("Account Name is required");
+                                            return;
+                                        }
+                                        addAccountMutation.mutate();
+                                    }}
+                                    disabled={addAccountMutation.isPending}
+                                    className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white py-1.5 px-3 rounded-md text-xs font-semibold disabled:opacity-50"
+                                >
+                                    {addAccountMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Add Account"}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Accounts List */}
+                        <div className="space-y-4">
+                            <h4 className="font-medium text-sm text-foreground/90">Linked Accounts ({externalAccounts.length})</h4>
+                            {externalAccounts.length === 0 ? (
+                                <p className="text-xs italic text-muted-foreground py-8 text-center border border-dashed border-border rounded-lg">
+                                    No external accounts linked to this channel. Add one to enable Flow/external asset source integrations.
+                                </p>
+                            ) : (
+                                <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
+                                    {externalAccounts.map((account) => (
+                                        <div key={account.id} className="flex items-center justify-between p-3 border border-border/80 rounded-lg hover:border-border transition-colors bg-secondary/15">
+                                            <div className="space-y-1 min-w-0 pr-2">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-sm font-semibold truncate text-foreground">{account.account_name}</span>
+                                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">{account.provider}</span>
+                                                </div>
+                                                {account.profile_name && (
+                                                    <p className="text-xs text-muted-foreground truncate">Profile: {account.profile_name}</p>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-2 shrink-0">
+                                                {/* Toggle is_active */}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => toggleAccountMutation.mutate({ id: account.id, isActive: account.is_active !== 1 })}
+                                                    className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
+                                                        account.is_active === 1
+                                                            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/25 hover:bg-emerald-500/20"
+                                                            : "bg-muted text-muted-foreground border-border hover:bg-muted/80"
+                                                    }`}
+                                                >
+                                                    {account.is_active === 1 ? "Active" : "Inactive"}
+                                                </button>
+                                                {/* Delete */}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        if (confirm("Delete this linked account?")) {
+                                                            deleteAccountMutation.mutate(account.id);
+                                                        }
+                                                    }}
+                                                    className="text-xs text-red-400 hover:text-red-300 transition-colors p-1"
+                                                    title="Remove connection"
+                                                >
+                                                    Remove
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             )}
                         </div>
                     </div>

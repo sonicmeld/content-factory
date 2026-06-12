@@ -8,7 +8,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getPackageGeneration, generateMetadata, getGlobalPromptContexts, getChannelPromptAssignments, generateThumbnail, getGenerationReadiness, assemblePackage, getMetadataLibrary, cloneLibraryItem } from '../services/api';
+import { getPackageGeneration, generateMetadata, getGlobalPromptContexts, getChannelPromptAssignments, generateThumbnail, getGenerationReadiness, assemblePackage, getMetadataLibrary, cloneLibraryItem, createConnectorJob } from '../services/api';
 import type { ContentPackage } from '../types';
 import { toast } from 'sonner';
 import {
@@ -72,8 +72,46 @@ export default function PackageGenerationPanel({ package_, channelSlug }: Props)
     const queryClient = useQueryClient();
     const [selectedMetadataContextId, setSelectedMetadataContextId] = useState<string>('');
     const [selectedThumbnailContextId, setSelectedThumbnailContextId] = useState<string>('');
+    const [selectedThumbnailProvider, setSelectedThumbnailProvider] = useState<string>('NanoBanana');
     const [sourceMode, setSourceMode] = useState<'generate' | 'library'>('generate');
     const [selectedLibraryItemId, setSelectedLibraryItemId] = useState<string>('');
+
+    const thumbnailProviders = [
+        { value: 'NanoBanana', label: 'NanoBanana', type: 'api' },
+        { value: 'Flux', label: 'Flux', type: 'api' },
+        { value: 'SDXL', label: 'SDXL', type: 'api' },
+        { value: 'Google Flow', label: 'Google Flow', type: 'connector' },
+        { value: 'Gemini', label: 'Gemini', type: 'connector' },
+        { value: 'ChatGPT', label: 'ChatGPT', type: 'connector' }
+    ];
+
+    const openConnectorMutation = useMutation({
+        mutationFn: (provider: string) => {
+            const targetPrompt = globalPrompts.find((p: any) => p.id === selectedThumbnailContextId);
+            const promptText = targetPrompt?.notes || targetPrompt?.description || 'Generate thumbnail';
+            return createConnectorJob({
+                workspace_id: channelSlug,
+                project_id: package_.channel_id,
+                provider: provider,
+                asset_type: 'thumbnail',
+                prompt_id: selectedThumbnailContextId || undefined,
+                prompt: promptText
+            });
+        },
+        onSuccess: (data) => {
+            toast.success(`Connector job registered: ${data.provider}`);
+            const urlMap: Record<string, string> = {
+                'Google Flow': 'https://flow.google.com',
+                'Gemini': 'https://gemini.google.com',
+                'ChatGPT': 'https://chatgpt.com',
+            };
+            const targetUrl = urlMap[data.provider] || 'https://flow.google.com';
+            window.open(targetUrl, '_blank');
+        },
+        onError: () => {
+            toast.error('Failed to register connector job');
+        }
+    });
 
     const { data: assignments = [] } = useQuery({
         queryKey: ['channel-prompt-assignments', package_.channel_id],
@@ -309,7 +347,7 @@ export default function PackageGenerationPanel({ package_, channelSlug }: Props)
                     </div>
 
                     {sourceMode === 'generate' ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Metadata Context</label>
                                 <select
@@ -338,6 +376,20 @@ export default function PackageGenerationPanel({ package_, channelSlug }: Props)
                                     {thumbnailPrompts.map((ctx: any) => (
                                         <option key={ctx.id} value={ctx.id}>
                                             {ctx.title}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Provider</label>
+                                <select
+                                    className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-xs focus:ring-1 focus:ring-primary focus:outline-none"
+                                    value={selectedThumbnailProvider}
+                                    onChange={(e) => setSelectedThumbnailProvider(e.target.value)}
+                                >
+                                    {thumbnailProviders.map((p) => (
+                                        <option key={p.value} value={p.value}>
+                                            {p.label}
                                         </option>
                                     ))}
                                 </select>
@@ -472,19 +524,34 @@ export default function PackageGenerationPanel({ package_, channelSlug }: Props)
                             Clone from Library
                         </button>
                     )}
-                    <button
-                        onClick={() => generateThumbnailMutation.mutate()}
-                        disabled={generateThumbnailMutation.isPending || isThumbnailProcessing || readiness?.thumbnail_ready === false}
-                        title={readiness?.thumbnail_ready === false ? "Thumbnail combo is missing or inactive" : undefined}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 active:bg-violet-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {generateThumbnailMutation.isPending || isThumbnailProcessing ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                            <ImageIcon className="w-3.5 h-3.5" />
-                        )}
-                        Generate Thumbnail
-                    </button>
+                    {thumbnailProviders.find(p => p.value === selectedThumbnailProvider)?.type === 'connector' ? (
+                        <button
+                            onClick={() => openConnectorMutation.mutate(selectedThumbnailProvider)}
+                            disabled={openConnectorMutation.isPending}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {openConnectorMutation.isPending ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                                <Sparkles className="w-3.5 h-3.5" />
+                            )}
+                            Open In {selectedThumbnailProvider.split(' ').pop()}
+                        </button>
+                    ) : (
+                        <button
+                            onClick={() => generateThumbnailMutation.mutate()}
+                            disabled={generateThumbnailMutation.isPending || isThumbnailProcessing || readiness?.thumbnail_ready === false}
+                            title={readiness?.thumbnail_ready === false ? "Thumbnail combo is missing or inactive" : undefined}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 active:bg-violet-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {generateThumbnailMutation.isPending || isThumbnailProcessing ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                                <ImageIcon className="w-3.5 h-3.5" />
+                            )}
+                            Generate Thumbnail
+                        </button>
+                    )}
                 </div>
 
                 {/* Sprint 7A-8: Package Assembly Section */}
@@ -534,6 +601,23 @@ export default function PackageGenerationPanel({ package_, channelSlug }: Props)
                     </div>
                 </div>
             </div>
+            {thumbnailProviders.find(p => p.value === selectedThumbnailProvider)?.type === 'connector' && (
+                <div
+                    id="content-factory-context"
+                    style={{ display: 'none' }}
+                    data-context={JSON.stringify({
+                        workspace_id: channelSlug,
+                        project_id: package_.channel_id,
+                        asset_type: 'thumbnail',
+                        combo_id: selectedThumbnailProvider,
+                        prompt_id: selectedThumbnailContextId || '',
+                        prompt: (() => {
+                            const target = globalPrompts.find((p: any) => p.id === selectedThumbnailContextId);
+                            return target?.notes || target?.description || 'Generate thumbnail';
+                        })()
+                    })}
+                />
+            )}
         </div>
     );
 }

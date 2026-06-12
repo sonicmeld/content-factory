@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Channel, GCPProfile, UploadJob, Asset, Prompt, ContentPackage, ChannelStorageStats, QueueItem, PackageGeneration, PromptContext, GenerationCombo, GenerationReadiness, MetadataVariant, GenerationAsset, MetadataLibraryItem } from '../types';
+import type { Channel, GCPProfile, UploadJob, Asset, Prompt, ContentPackage, ChannelStorageStats, QueueItem, PackageGeneration, PromptContext, GenerationCombo, GenerationReadiness, MetadataVariant, GenerationAsset, MetadataLibraryItem, ExternalAccount, ConnectorJob, AssetInbox } from '../types';
 
 const api = axios.create({
     baseURL: '/api',
@@ -231,4 +231,49 @@ export const getExecutionTraces = () =>
 export const generateGlobalAsset = (data: { asset_type: string; combo_id: string; prompt_ids: string[]; output_count: number }) =>
     api.post<{ message: string; execution_id: string }>('/execution-center/generate', data).then(res => res.data);
 
+// Flow Connector & Asset Inbox API helpers
+export const getExternalAccounts = (workspaceId?: string, provider?: string) => {
+    const params: any = {};
+    if (workspaceId) params.workspace_id = workspaceId;
+    if (provider) params.provider = provider;
+    return api.get<ExternalAccount[]>('/connectors/accounts', { params }).then(res => res.data);
+};
+
+export const createExternalAccount = (data: Partial<ExternalAccount>) =>
+    api.post<ExternalAccount>('/connectors/accounts', data).then(res => res.data);
+
+export const updateExternalAccount = (id: string, data: Partial<ExternalAccount>) =>
+    api.patch<ExternalAccount>(`/connectors/accounts/${id}`, data).then(res => res.data);
+
+export const deleteExternalAccount = (id: string) =>
+    api.delete<{ message: string }>(`/connectors/accounts/${id}`).then(res => res.data);
+
+export const createConnectorJob = (data: Partial<ConnectorJob>) =>
+    api.post<ConnectorJob>('/connectors/jobs', data).then(res => res.data);
+
+export const getActiveConnectorJob = (workspaceId?: string, projectId?: string) => {
+    const params: any = {};
+    if (workspaceId) params.workspace_id = workspaceId;
+    if (projectId) params.project_id = projectId;
+    return api.get<ConnectorJob | null>('/connectors/jobs/active', { params }).then(res => res.data);
+};
+
+export const getInboxAssets = (workspaceId?: string, projectId?: string, status?: string) => {
+    const params: any = {};
+    if (workspaceId) params.workspace_id = workspaceId;
+    if (projectId) params.project_id = projectId;
+    if (status) params.status = status;
+    return api.get<AssetInbox[]>('/connectors/inbox', { params }).then(res => res.data);
+};
+
+export const approveInboxAsset = (id: string) =>
+    api.post<AssetInbox>(`/connectors/inbox/${id}/approve`).then(res => res.data);
+
+export const rejectInboxAsset = (id: string) =>
+    api.post<AssetInbox>(`/connectors/inbox/${id}/reject`).then(res => res.data);
+
+export const archiveInboxAsset = (id: string) =>
+    api.post<AssetInbox>(`/connectors/inbox/${id}/archive`).then(res => res.data);
+
 export default api;
+

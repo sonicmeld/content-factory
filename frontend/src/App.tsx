@@ -19,6 +19,7 @@ import PackageDetail from './pages/workspace/PackageDetail';
 import UploadQueue from './pages/workspace/UploadQueue';
 import PublishedVideos from './pages/workspace/PublishedVideos';
 import ChannelSettings from './pages/workspace/ChannelSettings';
+import AssetInboxPage from './pages/workspace/AssetInboxPage';
 
 import { Toaster } from 'sonner';
 
@@ -49,6 +50,7 @@ function App() {
           <Route path="published" element={<PublishedVideos />} />
           <Route path="assets" element={<Assets />} />
           <Route path="prompts" element={<PromptLibraryPage />} />
+          <Route path="inbox" element={<AssetInboxPage />} />
           <Route path="settings" element={<ChannelSettings />} />
         </Route>
       </Routes>
