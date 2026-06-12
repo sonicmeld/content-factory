@@ -397,4 +397,15 @@ class AssetInboxResponse(BaseModel):
 class ApproveInboxAssetRequest(BaseModel):
     channel_id: Optional[str] = None
 
+class SingleModelGenerationRequest(BaseModel):
+    workspace_id: str
+    asset_type: str
+    model: str
+    endpoint: str
+    api_key: Optional[str] = None
+    prompt: str
+    size: str
+    output_format: str
+    output_count: int = 1
+
 

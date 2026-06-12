@@ -270,6 +270,7 @@ export interface ConnectorJob {
     prompt_id?: string;
     prompt?: string;
     channel_id?: string;
+    project_id?: string;
     created_at: string;
 }
 

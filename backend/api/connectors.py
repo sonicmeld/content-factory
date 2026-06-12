@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from database.database import get_db
-from database.models import ExternalAccount, ConnectorJob, AssetInbox, Channel, Asset, PromptContext
+from database.models import ExternalAccount, ConnectorJob, AssetInbox, Channel, Asset, PromptContext, RuntimeAudit
 from api.schemas import (
     ExternalAccountCreate,
     ExternalAccountUpdate,
@@ -15,9 +15,11 @@ from api.schemas import (
     ConnectorJobCreate,
     ConnectorJobResponse,
     AssetInboxResponse,
-    ApproveInboxAssetRequest
+    ApproveInboxAssetRequest,
+    SingleModelGenerationRequest
 )
 from app.config import settings
+from sqlalchemy import func
 
 router = APIRouter(prefix="/api/connectors", tags=["connectors"])
 
@@ -385,3 +387,113 @@ def archive_inbox_asset(
     db.commit()
     db.refresh(inbox_item)
     return to_inbox_response(inbox_item)
+
+
+import httpx
+import json
+import base64
+import datetime
+
+@router.post("/generate-single")
+async def generate_single_model(
+    req: SingleModelGenerationRequest,
+    db: Session = Depends(get_db)
+):
+    audit_id = str(uuid.uuid4())
+    execution_id = str(uuid.uuid4())
+    
+    response_format = "b64_json" if "base64" in req.output_format.lower() else "url"
+    payload = {
+        "model": req.model,
+        "prompt": req.prompt,
+        "n": req.output_count,
+        "size": req.size,
+        "response_format": response_format
+    }
+    
+    headers = {
+        "Content-Type": "application/json"
+    }
+    if req.api_key:
+        headers["Authorization"] = f"Bearer {req.api_key}"
+        
+    audit_status = "success"
+    error_msg = None
+    saved_files = []
+    
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(req.endpoint, json=payload, headers=headers)
+            
+        if response.status_code != 200:
+            raise Exception(f"API returned status {response.status_code}: {response.text}")
+            
+        data = response.json()
+        if "data" not in data or not data["data"]:
+            raise Exception(f"No image data returned in API response: {json.dumps(data)}")
+            
+        target_dir = os.path.join(settings.DATA_PATH, "shared", req.asset_type.lower())
+        os.makedirs(target_dir, exist_ok=True)
+        
+        for idx, item in enumerate(data["data"]):
+            asset_id = str(uuid.uuid4())
+            ext = "png"
+            safe_filename = f"{asset_id}.{ext}"
+            filepath = os.path.join(target_dir, safe_filename)
+            
+            if response_format == "b64_json" and "b64_json" in item:
+                img_data = base64.b64decode(item["b64_json"])
+                with open(filepath, "wb") as f:
+                    f.write(img_data)
+            elif "url" in item:
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    img_resp = await client.get(item["url"])
+                if img_resp.status_code == 200:
+                    with open(filepath, "wb") as f:
+                        f.write(img_resp.content)
+                else:
+                    raise Exception(f"Failed to download image from URL: {item['url']}")
+            else:
+                raise Exception("Neither b64_json nor url was found in response item")
+                
+            file_size = os.path.getsize(filepath)
+            mime_type = "image/png"
+            
+            db_asset = Asset(
+                id=asset_id,
+                channel_id=None,
+                asset_type=req.asset_type.lower(),
+                filename=f"single_{req.model.replace('/', '_')}_{asset_id[:8]}.{ext}",
+                file_path=filepath,
+                file_size=file_size,
+                mime_type=mime_type
+            )
+            db.add(db_asset)
+            saved_files.append(filepath)
+            
+    except Exception as e:
+        audit_status = "failed"
+        error_msg = str(e)
+        
+    db_audit = RuntimeAudit(
+        id=audit_id,
+        execution_id=execution_id,
+        package_id="GLOBAL_WORKBOX",
+        execution_type=req.asset_type,
+        selected_prompt_id=None,
+        selected_prompt_title=None,
+        assigned_prompt_ids=None,
+        assigned_prompt_titles=None,
+        prompt_preview=req.prompt[:1000],
+        combo_used=f"Single: {req.model}",
+        status=audit_status,
+        error_message=error_msg,
+        executed_at=datetime.datetime.now(datetime.UTC)
+    )
+    db.add(db_audit)
+    db.commit()
+    
+    if audit_status == "failed":
+        raise HTTPException(status_code=400, detail=error_msg)
+        
+    return {"message": "Generation successful", "execution_id": execution_id, "files": saved_files}

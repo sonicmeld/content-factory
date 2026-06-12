@@ -283,5 +283,17 @@ export const rejectInboxAsset = (id: string) =>
 export const archiveInboxAsset = (id: string) =>
     api.post<AssetInbox>(`/connectors/inbox/${id}/archive`).then(res => res.data);
 
+export const generateSingleModelAsset = (data: {
+    workspace_id: string;
+    asset_type: string;
+    model: string;
+    endpoint: string;
+    api_key?: string;
+    prompt: string;
+    size: string;
+    output_format: string;
+    output_count?: number;
+}) => api.post<{ message: string; execution_id: string; files: string[] }>('/connectors/generate-single', data).then(res => res.data);
+
 export default api;
 

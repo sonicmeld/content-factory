@@ -1,7 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Image as ImageIcon, FileText, Loader2, PlayCircle, Settings2, Sliders } from 'lucide-react';
+import { useParams } from 'react-router-dom';
+import { Image as ImageIcon, FileText, Loader2, PlayCircle, Settings2, Sliders, ExternalLink } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getGenerationCombos, getGlobalPromptContexts, generateGlobalAsset } from '../../services/api';
+import {
+    getGenerationCombos,
+    getGlobalPromptContexts,
+    generateGlobalAsset,
+    getExternalAccounts,
+    getProviders,
+    createConnectorJob,
+    generateSingleModelAsset
+} from '../../services/api';
 import { toast } from 'sonner';
 
 interface ProductionFormProps {
@@ -10,10 +19,29 @@ interface ProductionFormProps {
 }
 
 export default function ProductionForm({ assetType, disabled = false }: ProductionFormProps) {
+    const { slug } = useParams();
     const queryClient = useQueryClient();
+    
+    // Mode selection: combo (Standard 9Router), single (API direct call), external (Browser Connector)
+    const [genMode, setGenMode] = useState<'combo' | 'single' | 'external'>('combo');
+
+    // --- Path 1: Combo Mode States ---
     const [selectedComboId, setSelectedComboId] = useState<string>('');
     const [selectedPromptIds, setSelectedPromptIds] = useState<string[]>([]);
     const [outputCount, setOutputCount] = useState<number>(1);
+
+    // --- Path 2: Single Model Mode States ---
+    const [selectedModel, setSelectedModel] = useState<string>('FLUX.2 Klein 9B');
+    const [endpoint, setEndpoint] = useState<string>('http://192.168.5.100:20128/v1/images/generations');
+    const [apiKey, setApiKey] = useState<string>('');
+    const [customPrompt, setCustomPrompt] = useState<string>('');
+    const [selectedSize, setSelectedSize] = useState<string>('auto');
+    const [selectedFormat, setSelectedFormat] = useState<string>('JSON (Base64)');
+
+    // --- Path 3: External Connector Mode States ---
+    const [selectedExternalContextId, setSelectedExternalContextId] = useState<string>('');
+    const [selectedExternalProvider, setSelectedExternalProvider] = useState<string>('Google Flow');
+    const [selectedExternalAccount, setSelectedExternalAccount] = useState<string>('');
 
     // Fetch combos and prompt contexts specific to this asset type
     const { data: combos = [] } = useQuery({
@@ -26,6 +54,19 @@ export default function ProductionForm({ assetType, disabled = false }: Producti
         queryFn: () => getGlobalPromptContexts(assetType.toLowerCase(), false),
     });
 
+    // Fetch connector providers
+    const { data: providersList = [] } = useQuery({
+        queryKey: ['connector-providers'],
+        queryFn: () => getProviders()
+    });
+
+    // Fetch external accounts
+    const { data: externalAccounts = [] } = useQuery({
+        queryKey: ['external-accounts', slug],
+        queryFn: () => getExternalAccounts(slug),
+        enabled: !!slug
+    });
+
     // Auto-select first combo if none selected
     useEffect(() => {
         if (!selectedComboId && combos.length > 0) {
@@ -33,8 +74,8 @@ export default function ProductionForm({ assetType, disabled = false }: Producti
         }
     }, [combos, selectedComboId]);
 
-    // Mutation for package-less global asset generation
-    const generateMutation = useMutation({
+    // Mutation: Standard 9Router Combo Generation
+    const generateComboMutation = useMutation({
         mutationFn: async () => {
             return generateGlobalAsset({
                 asset_type: assetType,
@@ -53,17 +94,66 @@ export default function ProductionForm({ assetType, disabled = false }: Producti
                 destination = 'Production Output';
             }
             toast.success(`${assetType} Generated → Saved to ${destination}`);
-            
-            // Reset state
             setSelectedPromptIds([]);
             setOutputCount(1);
-            
-            // Invalidate queries to refresh traces/activity panels
             queryClient.invalidateQueries({ queryKey: ['global-execution-traces'] });
             queryClient.invalidateQueries({ queryKey: ['execution-tasks'] });
         },
         onError: (err: any) => {
             toast.error(`Failed to generate ${assetType}: ${err.response?.data?.detail || err.message}`);
+        }
+    });
+
+    // Mutation: Direct Single Model API Generation
+    const generateSingleModelMutation = useMutation({
+        mutationFn: async () => {
+            return generateSingleModelAsset({
+                workspace_id: slug || 'default',
+                asset_type: assetType,
+                model: selectedModel,
+                endpoint: endpoint,
+                api_key: apiKey || undefined,
+                prompt: customPrompt,
+                size: selectedSize,
+                output_format: selectedFormat,
+                output_count: outputCount
+            });
+        },
+        onSuccess: () => {
+            toast.success(`Direct Single Model generated & saved to Shared Library`);
+            setCustomPrompt('');
+            queryClient.invalidateQueries({ queryKey: ['global-execution-traces'] });
+            queryClient.invalidateQueries({ queryKey: ['assets'] });
+        },
+        onError: (err: any) => {
+            toast.error(`Direct Single Model Generation failed: ${err.response?.data?.detail || err.message}`);
+        }
+    });
+
+    // Mutation: Connector Job Trigger
+    const triggerConnectorMutation = useMutation({
+        mutationFn: async () => {
+            return createConnectorJob({
+                workspace_id: slug || 'default',
+                provider: selectedExternalProvider,
+                account_id: selectedExternalAccount || undefined,
+                asset_type: assetType.toLowerCase(),
+                prompt_id: selectedExternalContextId || undefined
+            });
+        },
+        onSuccess: (data) => {
+            toast.success(`External connector job logged: ${data.provider}`);
+            const urlMap: Record<string, string> = {
+                'Google Flow': 'https://labs.google/fx/tools/flow',
+                'Gemini': 'https://gemini.google.com',
+                'ChatGPT': 'https://chatgpt.com',
+            };
+            const targetUrl = urlMap[data.provider] || 'https://labs.google/fx/tools/flow';
+            window.open(targetUrl, '_blank');
+            queryClient.invalidateQueries({ queryKey: ['connector-jobs', slug] });
+        },
+        onError: (err: any) => {
+            toast.error(`Failed to register connector job: ${err.message}`);
         }
     });
 
@@ -77,124 +167,376 @@ export default function ProductionForm({ assetType, disabled = false }: Producti
         setSelectedPromptIds(selectedPromptIds.filter(pid => pid !== id));
     };
 
+    const handlePromptContextSelectForSingle = (id: string) => {
+        const found = prompts.find(p => p.id === id);
+        if (found) {
+            setCustomPrompt(found.notes || found.description || found.title);
+        }
+    };
+
     const handleGenerate = () => {
-        if (!selectedComboId) {
-            toast.error("Please select a Combo.");
-            return;
+        if (genMode === 'combo') {
+            if (!selectedComboId) {
+                toast.error("Please select a Combo.");
+                return;
+            }
+            if (selectedPromptIds.length === 0) {
+                toast.error("Please select at least one Prompt Context.");
+                return;
+            }
+            generateComboMutation.mutate();
+        } else if (genMode === 'single') {
+            if (!customPrompt) {
+                toast.error("Please specify a prompt context or write custom prompt.");
+                return;
+            }
+            if (!endpoint) {
+                toast.error("Endpoint API URL is required.");
+                return;
+            }
+            generateSingleModelMutation.mutate();
+        } else if (genMode === 'external') {
+            triggerConnectorMutation.mutate();
         }
-        if (selectedPromptIds.length === 0) {
-            toast.error("Please select at least one Prompt Context.");
-            return;
-        }
-        generateMutation.mutate();
+    };
+
+    const isConnectorProvider = (providerName: string) => {
+        const found = providersList.find(p => p.name === providerName);
+        return found?.type === 'connector';
     };
 
     const Icon = assetType === 'Metadata' ? FileText : ImageIcon;
 
+    // Direct Single Model List
+    const modelOptions = [
+        'FLUX.2 Klein 9B',
+        'FLUX.2 Klein 4B',
+        'FLUX.2 Dev',
+        'Lucid Origin',
+        'Phoenix 1.0',
+        'FLUX.1 Schnell',
+        'SDXL Lightning',
+        'DreamShaper 8 LCM',
+        'Stable Diffusion v1.5 Img2Img',
+        'Stable Diffusion v1.5 Inpainting',
+        'SDXL Base 1.0',
+        'NanoBanana Flash',
+        'NanoBanana Pro'
+    ];
+
+    const isProcessing = generateComboMutation.isPending || generateSingleModelMutation.isPending || triggerConnectorMutation.isPending;
+
     return (
-        <div className={`bg-card border border-border shadow-md rounded-lg flex flex-col overflow-hidden h-[500px] transition-all duration-200 hover:shadow-lg ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
-            <div className="bg-muted/30 border-b border-border p-4 flex items-center">
-                <div className="bg-primary/10 p-2 rounded-md mr-3 text-primary">
-                    <Icon className="w-5 h-5" />
-                </div>
-                <div>
-                    <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">{assetType} Workbox</h2>
-                    <p className="text-xs text-muted-foreground mt-0.5">Produce {assetType.toLowerCase()} assets</p>
+        <div className={`bg-card border border-border shadow-md rounded-2xl flex flex-col overflow-hidden h-[540px] transition-all duration-200 hover:shadow-lg ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
+            {/* Header */}
+            <div className="bg-muted/30 border-b border-border p-4 flex items-center justify-between">
+                <div className="flex items-center">
+                    <div className="bg-primary/10 p-2.5 rounded-xl mr-3 text-primary">
+                        <Icon className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">{assetType} Workbox</h2>
+                        <p className="text-xs text-muted-foreground mt-0.5">Produce global {assetType.toLowerCase()}s</p>
+                    </div>
                 </div>
             </div>
 
-            <div className="p-4 flex-1 overflow-y-auto space-y-6">
-                {/* Production Setup */}
-                <div className="space-y-4">
-                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center">
-                        <Settings2 className="w-3.5 h-3.5 mr-1.5" /> Production Setup
-                    </h3>
-                    
-                    <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-foreground">{assetType} Combo</label>
-                        <select 
-                            value={selectedComboId} 
-                            onChange={(e) => setSelectedComboId(e.target.value)}
-                            className="w-full text-sm bg-background border border-border rounded-md px-3 py-2 text-foreground focus:outline-none focus:ring-1 focus:ring-primary transition-all"
-                            disabled={disabled}
-                        >
-                            <option value="" disabled>Select combo...</option>
-                            {combos.map(combo => (
-                                <option key={combo.id} value={combo.id}>{combo.name}</option>
-                            ))}
-                        </select>
-                    </div>
+            {/* Mode selection tabs (only show for non-text assetTypes like Thumbnail and Footage) */}
+            {assetType !== 'Metadata' && (
+                <div className="flex bg-muted/20 border-b border-border/50 p-1.5 gap-1 shrink-0">
+                    <button
+                        type="button"
+                        onClick={() => setGenMode('combo')}
+                        className={`flex-1 text-xs font-bold py-1.5 rounded-lg transition-all ${genMode === 'combo' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                    >
+                        Combo
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setGenMode('single')}
+                        className={`flex-1 text-xs font-bold py-1.5 rounded-lg transition-all ${genMode === 'single' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                    >
+                        Single Model
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setGenMode('external')}
+                        className={`flex-1 text-xs font-bold py-1.5 rounded-lg transition-all ${genMode === 'external' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                    >
+                        External Connector
+                    </button>
+                </div>
+            )}
 
-                    <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-foreground">{assetType} Prompts</label>
-                        <select 
-                            value="" 
-                            onChange={(e) => handleAddPrompt(e.target.value)}
-                            className="w-full text-sm bg-background border border-border rounded-md px-3 py-2 text-foreground focus:outline-none focus:ring-1 focus:ring-primary transition-all"
-                            disabled={disabled || prompts.length === 0}
-                        >
-                            <option value="">{prompts.length === 0 ? 'No prompts available' : 'Add prompt context...'}</option>
-                            {prompts.filter(p => !selectedPromptIds.includes(p.id)).map(prompt => (
-                                <option key={prompt.id} value={prompt.id}>{prompt.title}</option>
-                            ))}
-                        </select>
-
-                        {/* Tag-Based Prompt List (YouTube Studio style interaction) */}
-                        {selectedPromptIds.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5 mt-2.5 p-2.5 bg-secondary/35 rounded-md border border-border/50 max-h-[120px] overflow-y-auto">
-                                {selectedPromptIds.map(id => {
-                                    const prompt = prompts.find(p => p.id === id);
-                                    if (!prompt) return null;
-                                    return (
-                                        <div key={id} className="flex items-center gap-1.5 bg-background border border-border text-foreground px-2 py-0.5 rounded text-xs shadow-sm">
-                                            <span>{prompt.title}</span>
-                                            <button 
-                                                type="button" 
-                                                onClick={() => handleRemovePrompt(id)}
-                                                className="text-muted-foreground hover:text-red-500 font-bold ml-1 transition-colors text-[14px]"
-                                            >
-                                                &times;
-                                            </button>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="space-y-1.5">
-                        <div className="flex justify-between items-center">
-                            <label className="text-xs font-medium text-foreground flex items-center">
-                                <Sliders className="w-3.5 h-3.5 mr-1.5" /> Output Count
-                            </label>
-                            <span className="text-xs text-muted-foreground font-mono">{outputCount} output(s)</span>
+            <div className="p-4 flex-1 overflow-y-auto space-y-4">
+                
+                {/* --- 1. COMBO MODE UI --- */}
+                {genMode === 'combo' && (
+                    <div className="space-y-4">
+                        <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center">
+                            <Settings2 className="w-3.5 h-3.5 mr-1.5" /> Combo Setup (9Router)
+                        </h3>
+                        
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-foreground">{assetType} Combo</label>
+                            <select 
+                                value={selectedComboId} 
+                                onChange={(e) => setSelectedComboId(e.target.value)}
+                                className="w-full text-xs bg-background border border-border rounded-xl px-3 py-2 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                disabled={disabled}
+                            >
+                                <option value="" disabled>Select combo...</option>
+                                {combos.map(combo => (
+                                    <option key={combo.id} value={combo.id}>{combo.name}</option>
+                                ))}
+                            </select>
                         </div>
-                        <input 
-                            type="number" 
-                            min="1"
-                            max="10"
-                            value={outputCount} 
-                            onChange={(e) => setOutputCount(Math.max(1, parseInt(e.target.value) || 1))}
-                            className="w-full text-sm bg-background border border-border rounded-md px-3 py-2 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                        />
-                        <p className="text-[10px] text-muted-foreground">Specify the exact quantity of final outputs to produce.</p>
+
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-foreground">{assetType} Prompt Contexts</label>
+                            <select 
+                                value="" 
+                                onChange={(e) => handleAddPrompt(e.target.value)}
+                                className="w-full text-xs bg-background border border-border rounded-xl px-3 py-2 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                disabled={disabled || prompts.length === 0}
+                            >
+                                <option value="">{prompts.length === 0 ? 'No prompts available' : 'Add prompt context...'}</option>
+                                {prompts.filter(p => !selectedPromptIds.includes(p.id)).map(prompt => (
+                                    <option key={prompt.id} value={prompt.id}>{prompt.title}</option>
+                                ))}
+                            </select>
+
+                            {selectedPromptIds.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 mt-2 p-2 bg-secondary/20 rounded-xl border border-border/40 max-h-[120px] overflow-y-auto">
+                                    {selectedPromptIds.map(id => {
+                                        const prompt = prompts.find(p => p.id === id);
+                                        if (!prompt) return null;
+                                        return (
+                                            <div key={id} className="flex items-center gap-1.5 bg-background border border-border text-foreground px-2.5 py-0.5 rounded-lg text-[11px] shadow-sm font-medium">
+                                                <span>{prompt.title}</span>
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => handleRemovePrompt(id)}
+                                                    className="text-muted-foreground hover:text-red-500 font-bold ml-1 transition-colors text-[13px]"
+                                                >
+                                                    &times;
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <div className="flex justify-between items-center">
+                                <label className="text-xs font-semibold text-foreground flex items-center">
+                                    <Sliders className="w-3.5 h-3.5 mr-1.5" /> Output Count
+                                </label>
+                                <span className="text-xs text-muted-foreground font-mono">{outputCount} output(s)</span>
+                            </div>
+                            <input 
+                                type="number" 
+                                min="1"
+                                max="10"
+                                value={outputCount} 
+                                onChange={(e) => setOutputCount(Math.max(1, parseInt(e.target.value) || 1))}
+                                className="w-full text-xs bg-background border border-border rounded-xl px-3 py-2 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                            />
+                        </div>
                     </div>
-                </div>
+                )}
+
+                {/* --- 2. SINGLE MODEL MODE UI --- */}
+                {genMode === 'single' && (
+                    <div className="space-y-3.5">
+                        <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center">
+                            <Settings2 className="w-3.5 h-3.5 mr-1.5" /> Direct Single Model API
+                        </h3>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                                <label className="text-[11px] font-semibold text-foreground">Model</label>
+                                <select 
+                                    value={selectedModel} 
+                                    onChange={(e) => setSelectedModel(e.target.value)}
+                                    className="w-full text-xs bg-background border border-border rounded-xl px-2 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                >
+                                    {modelOptions.map(opt => (
+                                        <option key={opt} value={opt}>{opt}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-[11px] font-semibold text-foreground">Resolution Size</label>
+                                <select 
+                                    value={selectedSize} 
+                                    onChange={(e) => setSelectedSize(e.target.value)}
+                                    className="w-full text-xs bg-background border border-border rounded-xl px-2 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                >
+                                    <option value="auto">auto</option>
+                                    <option value="1024x1024">1024x1024</option>
+                                    <option value="512x512">512x512</option>
+                                    <option value="768x512">768x512</option>
+                                    <option value="512x768">512x768</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="text-[11px] font-semibold text-foreground">API Endpoint</label>
+                            <input
+                                type="text"
+                                value={endpoint}
+                                onChange={(e) => setEndpoint(e.target.value)}
+                                className="w-full text-xs bg-background border border-border rounded-xl px-3 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                placeholder="http://ip:port/v1/images/generations"
+                            />
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="text-[11px] font-semibold text-foreground">API Authorization Key</label>
+                            <input
+                                type="password"
+                                value={apiKey}
+                                onChange={(e) => setApiKey(e.target.value)}
+                                className="w-full text-xs bg-background border border-border rounded-xl px-3 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                placeholder="sk-..."
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                                <label className="text-[11px] font-semibold text-foreground">Load Prompt Context</label>
+                                <select 
+                                    value=""
+                                    onChange={(e) => handlePromptContextSelectForSingle(e.target.value)}
+                                    className="w-full text-xs bg-background border border-border rounded-xl px-2 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                >
+                                    <option value="">Select context...</option>
+                                    {prompts.map(p => (
+                                        <option key={p.id} value={p.id}>{p.title}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[11px] font-semibold text-foreground">Output Format</label>
+                                <select 
+                                    value={selectedFormat} 
+                                    onChange={(e) => setSelectedFormat(e.target.value)}
+                                    className="w-full text-xs bg-background border border-border rounded-xl px-2 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                >
+                                    <option value="JSON (Base64)">JSON (Base64)</option>
+                                    <option value="URL">URL</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="text-[11px] font-semibold text-foreground">Custom Generation Prompt</label>
+                            <textarea
+                                value={customPrompt}
+                                onChange={(e) => setCustomPrompt(e.target.value)}
+                                rows={2}
+                                className="w-full text-xs bg-background border border-border rounded-xl px-3 py-2 text-foreground focus:outline-none focus:ring-1 focus:ring-primary leading-relaxed"
+                                placeholder="A cute cat wearing a hat..."
+                            />
+                        </div>
+                    </div>
+                )}
+
+                {/* --- 3. EXTERNAL CONNECTOR MODE UI --- */}
+                {genMode === 'external' && (
+                    <div className="space-y-4">
+                        <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center">
+                            <Settings2 className="w-3.5 h-3.5 mr-1.5" /> External Browser Connector
+                        </h3>
+
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-foreground">Prompt Context</label>
+                            <select 
+                                value={selectedExternalContextId} 
+                                onChange={(e) => setSelectedExternalContextId(e.target.value)}
+                                className="w-full text-xs bg-background border border-border rounded-xl px-3 py-2 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                            >
+                                <option value="">Select prompt context...</option>
+                                {prompts.map(prompt => (
+                                    <option key={prompt.id} value={prompt.id}>{prompt.title}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-foreground">External Provider</label>
+                            <select 
+                                value={selectedExternalProvider} 
+                                onChange={(e) => {
+                                    setSelectedExternalProvider(e.target.value);
+                                    setSelectedExternalAccount('');
+                                }}
+                                className="w-full text-xs bg-background border border-border rounded-xl px-3 py-2 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                            >
+                                {providersList.filter(p => p.type === 'connector').map(p => (
+                                    <option key={p.name} value={p.name}>{p.name}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-foreground">Linked Account</label>
+                            <select 
+                                value={selectedExternalAccount} 
+                                onChange={(e) => setSelectedExternalAccount(e.target.value)}
+                                className="w-full text-xs bg-background border border-border rounded-xl px-3 py-2 text-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-40"
+                                disabled={!isConnectorProvider(selectedExternalProvider)}
+                            >
+                                <option value="">Global/Workspace Account</option>
+                                {externalAccounts
+                                    .filter(a => a.provider === selectedExternalProvider && a.is_active === 1)
+                                    .map(a => (
+                                        <option key={a.id} value={a.id}>{a.account_name}</option>
+                                    ))}
+                            </select>
+                        </div>
+                    </div>
+                )}
             </div>
 
+            {/* Run Button Footer */}
             <div className="p-4 border-t border-border bg-muted/10">
-                <button
-                    onClick={handleGenerate}
-                    disabled={disabled || generateMutation.isPending || selectedPromptIds.length === 0}
-                    className="w-full flex items-center justify-center space-x-2 bg-primary text-primary-foreground hover:bg-primary/90 py-2.5 rounded-md font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                    {generateMutation.isPending ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                        <PlayCircle className="w-4 h-4" />
-                    )}
-                    <span>Generate {assetType}</span>
-                </button>
+                {genMode === 'external' ? (
+                    <button
+                        onClick={handleGenerate}
+                        disabled={disabled || isProcessing}
+                        className="w-full flex items-center justify-center space-x-2 bg-indigo-600 hover:bg-indigo-700 py-2.5 rounded-xl font-bold text-xs transition-all text-white disabled:opacity-50"
+                    >
+                        {isProcessing ? (
+                            <Loader2 className="w-4.5 h-4.5 animate-spin" />
+                        ) : (
+                            <ExternalLink className="w-4.5 h-4.5" />
+                        )}
+                        <span>Open in {selectedExternalProvider}</span>
+                    </button>
+                ) : (
+                    <button
+                        onClick={handleGenerate}
+                        disabled={
+                            disabled || 
+                            isProcessing || 
+                            (genMode === 'combo' && selectedPromptIds.length === 0) ||
+                            (genMode === 'single' && !customPrompt)
+                        }
+                        className="w-full flex items-center justify-center space-x-2 bg-primary text-primary-foreground hover:bg-primary/95 py-2.5 rounded-xl font-bold text-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {isProcessing ? (
+                            <Loader2 className="w-4.5 h-4.5 animate-spin" />
+                        ) : (
+                            <PlayCircle className="w-4.5 h-4.5" />
+                        )}
+                        <span>Generate {assetType}</span>
+                    </button>
+                )}
             </div>
         </div>
     );

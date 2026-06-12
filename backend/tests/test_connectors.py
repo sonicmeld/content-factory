@@ -2,6 +2,8 @@ import os
 import sys
 import unittest
 import tempfile
+import base64
+from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -231,3 +233,85 @@ class TestConnectors(unittest.TestCase):
         expected_shared_dir = os.path.join(settings.DATA_PATH, "shared", "thumbnail")
         self.assertTrue(os.path.exists(expected_shared_dir))
         self.assertEqual(len(os.listdir(expected_shared_dir)), 1)
+
+    @patch("httpx.AsyncClient.post")
+    def test_generate_single_model_b64(self, mock_post):
+        # Mock base64 image generation response
+        fake_b64 = base64.b64encode(b"fake image data").decode("utf-8")
+        
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "data": [
+                {"b64_json": fake_b64}
+            ]
+        }
+        
+        async def async_post(*args, **kwargs):
+            return mock_response
+        mock_post.side_effect = async_post
+        
+        response = self.client.post(
+            "/api/connectors/generate-single",
+            json={
+                "workspace_id": "default",
+                "asset_type": "thumbnail",
+                "model": "flux",
+                "endpoint": "https://api.openai.com/v1/images/generations",
+                "prompt": "sunset",
+                "size": "1024x1024",
+                "output_format": "base64",
+                "output_count": 1
+            }
+        )
+        
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["message"], "Generation successful")
+        self.assertEqual(len(data["files"]), 1)
+        
+        # Verify database record exists
+        from database.models import Asset, RuntimeAudit
+        assets = self.db.query(Asset).all()
+        self.assertEqual(len(assets), 1)
+        self.assertIsNone(assets[0].channel_id)
+        self.assertEqual(assets[0].asset_type, "thumbnail")
+        
+        audits = self.db.query(RuntimeAudit).all()
+        self.assertEqual(len(audits), 1)
+        self.assertEqual(audits[0].status, "success")
+        self.assertEqual(audits[0].package_id, "GLOBAL_WORKBOX")
+
+    @patch("httpx.AsyncClient.post")
+    def test_generate_single_model_failure(self, mock_post):
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "Internal Server Error"
+        
+        async def async_post(*args, **kwargs):
+            return mock_response
+        mock_post.side_effect = async_post
+        
+        response = self.client.post(
+            "/api/connectors/generate-single",
+            json={
+                "workspace_id": "default",
+                "asset_type": "thumbnail",
+                "model": "flux",
+                "endpoint": "https://api.openai.com/v1/images/generations",
+                "prompt": "sunset",
+                "size": "1024x1024",
+                "output_format": "base64",
+                "output_count": 1
+            }
+        )
+        
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("API returned status 500", response.json()["detail"])
+        
+        # Verify RuntimeAudit was logged as failed
+        from database.models import RuntimeAudit
+        audits = self.db.query(RuntimeAudit).all()
+        self.assertEqual(len(audits), 1)
+        self.assertEqual(audits[0].status, "failed")
+        self.assertIn("API returned status 500", audits[0].error_message)
