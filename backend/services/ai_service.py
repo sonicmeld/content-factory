@@ -39,7 +39,12 @@ def generate_prompt(db: Session, channel_id: str, theme: str, mood: str) -> Prom
         api_url = f"{base_url}/chat/completions"
         response = requests.post(api_url, json=payload, headers=headers, timeout=timeout_sec)
         response.raise_for_status()
-        data = response.json()
+        try:
+            data = response.json()
+        except Exception as json_err:
+            content_type = response.headers.get("content-type", "unknown")
+            snippet = response.text[:500]
+            raise ValueError(f"Expecting JSON response from 9Router, but got Content-Type: '{content_type}' and body snippet: '{snippet}' (parsing error: {json_err})")
         generated_text = data.get("choices", [{}])[0].get("message", {}).get("content", "Failed to generate text")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI generation failed: {str(e)}")
@@ -100,7 +105,12 @@ def generate_metadata(db: Session, channel_id: str, theme: str, content_type: st
         api_url = f"{base_url}/chat/completions"
         response = requests.post(api_url, json=payload, headers=headers, timeout=timeout_sec)
         response.raise_for_status()
-        data = response.json()
+        try:
+            data = response.json()
+        except Exception as json_err:
+            content_type = response.headers.get("content-type", "unknown")
+            snippet = response.text[:500]
+            raise ValueError(f"Expecting JSON response from 9Router, but got Content-Type: '{content_type}' and body snippet: '{snippet}' (parsing error: {json_err})")
         generated_text = data.get("choices", [{}])[0].get("message", {}).get("content", "")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI generation failed: {str(e)}")

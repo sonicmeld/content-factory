@@ -434,7 +434,13 @@ async def generate_single_model(
         if response.status_code != 200:
             raise Exception(f"API returned status {response.status_code}: {response.text}")
             
-        data = response.json()
+        try:
+            data = response.json()
+        except Exception as json_err:
+            content_type = response.headers.get("content-type", "unknown")
+            snippet = response.text[:500]
+            raise ValueError(f"Expecting JSON response from API, but got Content-Type: '{content_type}' and body snippet: '{snippet}' (parsing error: {json_err})")
+            
         if "data" not in data or not data["data"]:
             raise Exception(f"No image data returned in API response: {json.dumps(data)}")
             

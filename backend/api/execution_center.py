@@ -365,7 +365,13 @@ def run_global_generation(
                 api_url = f"{settings.NINE_ROUTER_URL.rstrip('/')}/v1/chat/completions"
                 response = requests.post(api_url, json=payload, headers=headers, timeout=timeout_sec)
                 response.raise_for_status()
-                data = response.json()
+                
+                try:
+                    data = response.json()
+                except Exception as json_err:
+                    content_type = response.headers.get("content-type", "unknown")
+                    snippet = response.text[:500]
+                    raise ValueError(f"Expecting JSON response from 9Router, but got Content-Type: '{content_type}' and body snippet: '{snippet}' (parsing error: {json_err})")
 
                 raw_text = (
                     data.get("choices", [{}])[0]

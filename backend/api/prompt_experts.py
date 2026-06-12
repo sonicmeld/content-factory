@@ -166,7 +166,13 @@ async def generate_draft(req: DraftGenerateRequest, db: Session = Depends(get_db
         if response.status_code != 200:
             raise Exception(f"AI returned status {response.status_code}: {response.text}")
             
-        data = response.json()
+        try:
+            data = response.json()
+        except Exception as json_err:
+            content_type = response.headers.get("content-type", "unknown")
+            snippet = response.text[:500]
+            raise ValueError(f"Expecting JSON response from 9Router, but got Content-Type: '{content_type}' and body snippet: '{snippet}' (parsing error: {json_err})")
+            
         generated_content = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
         
         parsed_data = parse_json_from_response(generated_content)
