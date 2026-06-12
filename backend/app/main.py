@@ -77,6 +77,7 @@ from api.metadata_variants import router as metadata_variants_router
 from api.generation_assets import router as generation_assets_package_router
 from api.generation_assets import asset_router as generation_assets_router
 from api.connectors import router as connectors_router
+from api.settings import router as settings_router
 
 app.include_router(channels_router)
 app.include_router(gcp_profiles_router)
@@ -99,6 +100,7 @@ app.include_router(generation_assets_router)
 app.include_router(channel_prompt_assignments_router)
 app.include_router(execution_center_router)
 app.include_router(connectors_router)
+app.include_router(settings_router)
 app.include_router(health.router)
 
 

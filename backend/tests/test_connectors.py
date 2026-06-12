@@ -62,6 +62,13 @@ class TestConnectors(unittest.TestCase):
             notes="Please generate a nice woodwork thumbnail."
         )
         self.db.add(self.prompt_ctx)
+        
+        # Seed system settings and generation models
+        from database.models import SystemSetting, GenerationModel
+        self.db.add(SystemSetting(key="single_model_endpoint", value="https://api.openai.com/v1/images/generations"))
+        self.db.add(SystemSetting(key="single_model_api_key", value="sk-test-key"))
+        self.db.add(GenerationModel(id="flux", name="flux", is_active=1))
+        
         self.db.commit()
 
     def tearDown(self):
@@ -257,9 +264,8 @@ class TestConnectors(unittest.TestCase):
                 "workspace_id": "default",
                 "asset_type": "thumbnail",
                 "model": "flux",
-                "endpoint": "https://api.openai.com/v1/images/generations",
                 "prompt": "sunset",
-                "size": "1024x1024",
+                "size": "1280x720",
                 "output_format": "base64",
                 "output_count": 1
             }
@@ -298,9 +304,8 @@ class TestConnectors(unittest.TestCase):
                 "workspace_id": "default",
                 "asset_type": "thumbnail",
                 "model": "flux",
-                "endpoint": "https://api.openai.com/v1/images/generations",
                 "prompt": "sunset",
-                "size": "1024x1024",
+                "size": "1280x720",
                 "output_format": "base64",
                 "output_count": 1
             }
@@ -315,3 +320,60 @@ class TestConnectors(unittest.TestCase):
         self.assertEqual(len(audits), 1)
         self.assertEqual(audits[0].status, "failed")
         self.assertIn("API returned status 500", audits[0].error_message)
+
+    def test_settings_endpoints(self):
+        # 1. Get initial settings
+        response = self.client.get("/api/settings")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["single_model_endpoint"], "https://api.openai.com/v1/images/generations")
+        self.assertEqual(data["single_model_api_key"], "sk-test-key")
+
+        # 2. Update settings
+        response = self.client.post(
+            "/api/settings",
+            json={
+                "single_model_endpoint": "https://api.anthropic.com/v1/images",
+                "single_model_api_key": "sk-new-key"
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["single_model_endpoint"], "https://api.anthropic.com/v1/images")
+        self.assertEqual(data["single_model_api_key"], "sk-new-key")
+
+        # 3. Get models
+        response = self.client.get("/api/settings/models")
+        self.assertEqual(response.status_code, 200)
+        models = response.json()
+        self.assertEqual(len(models), 1)
+        self.assertEqual(models[0]["name"], "flux")
+        model_id = models[0]["id"]
+
+        # 4. Create new model
+        response = self.client.post(
+            "/api/settings/models",
+            json={"name": "flux-schnell"}
+        )
+        self.assertEqual(response.status_code, 200)
+        new_model = response.json()
+        self.assertEqual(new_model["name"], "flux-schnell")
+        self.assertIsNotNone(new_model["id"])
+
+        # Try creating duplicate
+        response = self.client.post(
+            "/api/settings/models",
+            json={"name": "flux-schnell"}
+        )
+        self.assertEqual(response.status_code, 400)
+
+        # 5. Delete model
+        response = self.client.delete(f"/api/settings/models/{model_id}")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["message"], "Model deleted successfully")
+
+        # Verify it is no longer returned in get models
+        response = self.client.get("/api/settings/models")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()), 1) # only flux-schnell remains
+        self.assertEqual(response.json()[0]["name"], "flux-schnell")

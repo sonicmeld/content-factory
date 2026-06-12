@@ -9,7 +9,8 @@ import {
     getExternalAccounts,
     getProviders,
     createConnectorJob,
-    generateSingleModelAsset
+    generateSingleModelAsset,
+    getGenerationModels
 } from '../../services/api';
 import { toast } from 'sonner';
 
@@ -31,11 +32,8 @@ export default function ProductionForm({ assetType, disabled = false }: Producti
     const [outputCount, setOutputCount] = useState<number>(1);
 
     // --- Path 2: Single Model Mode States ---
-    const [selectedModel, setSelectedModel] = useState<string>('FLUX.2 Klein 9B');
-    const [endpoint, setEndpoint] = useState<string>('http://192.168.5.100:20128/v1/images/generations');
-    const [apiKey, setApiKey] = useState<string>('');
+    const [selectedModel, setSelectedModel] = useState<string>('');
     const [customPrompt, setCustomPrompt] = useState<string>('');
-    const [selectedSize, setSelectedSize] = useState<string>('auto');
     const [selectedFormat, setSelectedFormat] = useState<string>('JSON (Base64)');
 
     // --- Path 3: External Connector Mode States ---
@@ -66,6 +64,20 @@ export default function ProductionForm({ assetType, disabled = false }: Producti
         queryFn: () => getExternalAccounts(slug),
         enabled: !!slug
     });
+
+    // Fetch active generation models for Single Model Mode
+    const { data: dbModels = [] } = useQuery({
+        queryKey: ['generation-models'],
+        queryFn: getGenerationModels,
+        enabled: genMode === 'single'
+    });
+
+    // Auto-select first model if none selected
+    useEffect(() => {
+        if (dbModels.length > 0 && !selectedModel) {
+            setSelectedModel(dbModels[0].name);
+        }
+    }, [dbModels, selectedModel]);
 
     // Auto-select first combo if none selected
     useEffect(() => {
@@ -111,10 +123,8 @@ export default function ProductionForm({ assetType, disabled = false }: Producti
                 workspace_id: slug || 'default',
                 asset_type: assetType,
                 model: selectedModel,
-                endpoint: endpoint,
-                api_key: apiKey || undefined,
                 prompt: customPrompt,
-                size: selectedSize,
+                size: '1280x720', // standard YouTube 16:9 aspect ratio
                 output_format: selectedFormat,
                 output_count: outputCount
             });
@@ -190,8 +200,8 @@ export default function ProductionForm({ assetType, disabled = false }: Producti
                 toast.error("Please specify a prompt context or write custom prompt.");
                 return;
             }
-            if (!endpoint) {
-                toast.error("Endpoint API URL is required.");
+            if (!selectedModel) {
+                toast.error("Please select a model.");
                 return;
             }
             generateSingleModelMutation.mutate();
@@ -207,22 +217,7 @@ export default function ProductionForm({ assetType, disabled = false }: Producti
 
     const Icon = assetType === 'Metadata' ? FileText : ImageIcon;
 
-    // Direct Single Model List
-    const modelOptions = [
-        'FLUX.2 Klein 9B',
-        'FLUX.2 Klein 4B',
-        'FLUX.2 Dev',
-        'Lucid Origin',
-        'Phoenix 1.0',
-        'FLUX.1 Schnell',
-        'SDXL Lightning',
-        'DreamShaper 8 LCM',
-        'Stable Diffusion v1.5 Img2Img',
-        'Stable Diffusion v1.5 Inpainting',
-        'SDXL Base 1.0',
-        'NanoBanana Flash',
-        'NanoBanana Pro'
-    ];
+    // Direct Single Model List loaded dynamically from database
 
     const isProcessing = generateComboMutation.isPending || generateSingleModelMutation.isPending || triggerConnectorMutation.isPending;
 
@@ -362,48 +357,21 @@ export default function ProductionForm({ assetType, disabled = false }: Producti
                                     onChange={(e) => setSelectedModel(e.target.value)}
                                     className="w-full text-xs bg-background border border-border rounded-xl px-2 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                                 >
-                                    {modelOptions.map(opt => (
-                                        <option key={opt} value={opt}>{opt}</option>
+                                    {dbModels.map(model => (
+                                        <option key={model.id} value={model.name}>{model.name}</option>
                                     ))}
+                                    {dbModels.length === 0 && (
+                                        <option value="">No models configured</option>
+                                    )}
                                 </select>
                             </div>
 
                             <div className="space-y-1">
-                                <label className="text-[11px] font-semibold text-foreground">Resolution Size</label>
-                                <select 
-                                    value={selectedSize} 
-                                    onChange={(e) => setSelectedSize(e.target.value)}
-                                    className="w-full text-xs bg-background border border-border rounded-xl px-2 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                                >
-                                    <option value="auto">auto</option>
-                                    <option value="1024x1024">1024x1024</option>
-                                    <option value="512x512">512x512</option>
-                                    <option value="768x512">768x512</option>
-                                    <option value="512x768">512x768</option>
-                                </select>
+                                <label className="text-[11px] font-semibold text-foreground">Aspect Ratio Size</label>
+                                <div className="w-full text-xs bg-muted/30 border border-border rounded-xl px-3 py-2 text-muted-foreground font-semibold">
+                                    1280x720 (16:9 HD)
+                                </div>
                             </div>
-                        </div>
-
-                        <div className="space-y-1">
-                            <label className="text-[11px] font-semibold text-foreground">API Endpoint</label>
-                            <input
-                                type="text"
-                                value={endpoint}
-                                onChange={(e) => setEndpoint(e.target.value)}
-                                className="w-full text-xs bg-background border border-border rounded-xl px-3 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                                placeholder="http://ip:port/v1/images/generations"
-                            />
-                        </div>
-
-                        <div className="space-y-1">
-                            <label className="text-[11px] font-semibold text-foreground">API Authorization Key</label>
-                            <input
-                                type="password"
-                                value={apiKey}
-                                onChange={(e) => setApiKey(e.target.value)}
-                                className="w-full text-xs bg-background border border-border rounded-xl px-3 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                                placeholder="sk-..."
-                            />
                         </div>
 
                         <div className="grid grid-cols-2 gap-3">

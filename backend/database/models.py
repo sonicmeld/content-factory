@@ -329,3 +329,20 @@ class AssetInbox(Base):
     inbox_metadata = Column("metadata", Text, nullable=True)
     created_at = Column(DateTime, default=func.now())
 
+
+class SystemSetting(Base):
+    __tablename__ = "system_settings"
+
+    key = Column(String, primary_key=True)
+    value = Column(String, nullable=False)
+
+
+class GenerationModel(Base):
+    __tablename__ = "generation_models"
+
+    id = Column(String, primary_key=True)
+    name = Column(String, nullable=False)
+    is_active = Column(Integer, default=1)
+    created_at = Column(DateTime, default=func.now())
+
+

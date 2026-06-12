@@ -1,7 +1,17 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getGCPProfiles, getConfig, createGCPProfile } from '../services/api';
-import { Server, Cloud, FolderTree, KeyRound, Loader2, X } from 'lucide-react';
+import { 
+    getGCPProfiles, 
+    getConfig, 
+    createGCPProfile, 
+    getSystemSettings, 
+    updateSystemSettings, 
+    getGenerationModels, 
+    createGenerationModel, 
+    deleteGenerationModel 
+} from '../services/api';
+import { Server, Cloud, FolderTree, KeyRound, Loader2, X, Sliders, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function Settings() {
     const queryClient = useQueryClient();
@@ -30,6 +40,62 @@ export default function Settings() {
         createMutation.mutate({ name, client_id: clientId, client_secret: clientSecret });
     };
 
+    // Direct Single Model states
+    const [singleModelEndpoint, setSingleModelEndpoint] = useState('');
+    const [singleModelApiKey, setSingleModelApiKey] = useState('');
+    const [newModelName, setNewModelName] = useState('');
+
+    const { data: systemSettings } = useQuery({
+        queryKey: ['system-settings'],
+        queryFn: getSystemSettings
+    });
+
+    const { data: dbModels = [] } = useQuery({
+        queryKey: ['generation-models'],
+        queryFn: getGenerationModels
+    });
+
+    useEffect(() => {
+        if (systemSettings) {
+            setSingleModelEndpoint(systemSettings.single_model_endpoint);
+            setSingleModelApiKey(systemSettings.single_model_api_key);
+        }
+    }, [systemSettings]);
+
+    const updateSettingsMutation = useMutation({
+        mutationFn: updateSystemSettings,
+        onSuccess: () => {
+            toast.success("Single Model API settings updated successfully");
+            queryClient.invalidateQueries({ queryKey: ['system-settings'] });
+        },
+        onError: (err: any) => {
+            toast.error(`Failed to update settings: ${err.message}`);
+        }
+    });
+
+    const addModelMutation = useMutation({
+        mutationFn: createGenerationModel,
+        onSuccess: () => {
+            toast.success("Model added successfully");
+            setNewModelName('');
+            queryClient.invalidateQueries({ queryKey: ['generation-models'] });
+        },
+        onError: (err: any) => {
+            toast.error(`Failed to add model: ${err.response?.data?.detail || err.message}`);
+        }
+    });
+
+    const deleteModelMutation = useMutation({
+        mutationFn: deleteGenerationModel,
+        onSuccess: () => {
+            toast.success("Model removed successfully");
+            queryClient.invalidateQueries({ queryKey: ['generation-models'] });
+        },
+        onError: (err: any) => {
+            toast.error(`Failed to remove model: ${err.message}`);
+        }
+    });
+
     return (
         <div className="max-w-4xl space-y-8">
             <div>
@@ -55,6 +121,91 @@ export default function Settings() {
                             <p className="font-medium bg-secondary px-3 py-2 rounded flex items-center h-9">
                                 {isConfigLoading ? <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /> : (config?.nine_router_model || 'Not configured')}
                             </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-card border border-border rounded-lg p-6 space-y-4">
+                    <div className="flex items-center gap-2 font-semibold text-lg pb-2 border-b border-border">
+                        <Sliders className="w-5 h-5 text-indigo-500" /> Direct Single Model API Settings
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+                        <div className="space-y-4">
+                            <div>
+                                <label className="text-muted-foreground block mb-1 font-medium">Single Model API Endpoint</label>
+                                <input 
+                                    type="text"
+                                    value={singleModelEndpoint}
+                                    onChange={(e) => setSingleModelEndpoint(e.target.value)}
+                                    className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary h-9"
+                                    placeholder="http://ip:port/v1/images/generations"
+                                />
+                                <p className="text-xs text-muted-foreground mt-1">URL endpoint target untuk generasi gambar model tunggal.</p>
+                            </div>
+                            <div>
+                                <label className="text-muted-foreground block mb-1 font-medium">API Authorization Key (Key)</label>
+                                <input 
+                                    type="password"
+                                    value={singleModelApiKey}
+                                    onChange={(e) => setSingleModelApiKey(e.target.value)}
+                                    className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary h-9"
+                                    placeholder="sk-..."
+                                />
+                                <p className="text-xs text-muted-foreground mt-1">Token otorisasi jika API memerlukan autentikasi Bearer.</p>
+                            </div>
+                            <button
+                                onClick={() => updateSettingsMutation.mutate({
+                                    single_model_endpoint: singleModelEndpoint,
+                                    single_model_api_key: singleModelApiKey
+                                })}
+                                disabled={updateSettingsMutation.isPending}
+                                className="bg-indigo-600 text-white font-medium px-4 py-2 rounded-md text-xs hover:bg-indigo-700 transition disabled:opacity-50"
+                            >
+                                {updateSettingsMutation.isPending ? "Saving Settings..." : "Save Settings"}
+                            </button>
+                        </div>
+
+                        <div className="space-y-4 border-t md:border-t-0 md:border-l border-border pt-4 md:pt-0 md:pl-6">
+                            <h3 className="font-semibold text-sm text-foreground">Manage Available Models</h3>
+                            
+                            <div className="flex gap-2">
+                                <input 
+                                    type="text"
+                                    value={newModelName}
+                                    onChange={(e) => setNewModelName(e.target.value)}
+                                    placeholder="Model Name (e.g. Flux.1)"
+                                    className="flex-1 bg-secondary border border-border rounded-md px-3 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                />
+                                <button
+                                    onClick={() => {
+                                        if (newModelName.trim()) {
+                                            addModelMutation.mutate({ name: newModelName.trim() });
+                                        }
+                                    }}
+                                    disabled={addModelMutation.isPending || !newModelName.trim()}
+                                    className="bg-primary text-primary-foreground font-medium px-3 py-1.5 rounded-md text-xs hover:opacity-90 transition disabled:opacity-50 shrink-0"
+                                >
+                                    Add Model
+                                </button>
+                            </div>
+
+                            <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1">
+                                {dbModels.map(m => (
+                                    <div key={m.id} className="flex items-center justify-between bg-secondary/50 px-3 py-2 rounded border border-border/60 hover:border-border transition text-xs">
+                                        <span className="font-medium text-foreground">{m.name}</span>
+                                        <button 
+                                            onClick={() => deleteModelMutation.mutate(m.id)}
+                                            className="text-muted-foreground hover:text-red-500 transition-colors p-1"
+                                            title="Delete Model"
+                                        >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                    </div>
+                                ))}
+                                {dbModels.length === 0 && (
+                                    <p className="text-xs text-muted-foreground italic py-1">No custom models configured.</p>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>

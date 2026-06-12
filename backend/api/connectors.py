@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from database.database import get_db
-from database.models import ExternalAccount, ConnectorJob, AssetInbox, Channel, Asset, PromptContext, RuntimeAudit
+from database.models import ExternalAccount, ConnectorJob, AssetInbox, Channel, Asset, PromptContext, RuntimeAudit, SystemSetting
 from api.schemas import (
     ExternalAccountCreate,
     ExternalAccountUpdate,
@@ -402,20 +402,26 @@ async def generate_single_model(
     audit_id = str(uuid.uuid4())
     execution_id = str(uuid.uuid4())
     
+    endpoint_setting = db.query(SystemSetting).filter(SystemSetting.key == "single_model_endpoint").first()
+    api_key_setting = db.query(SystemSetting).filter(SystemSetting.key == "single_model_api_key").first()
+    
+    endpoint = endpoint_setting.value if endpoint_setting else "http://localhost:20128/v1/images/generations"
+    api_key = api_key_setting.value if api_key_setting else ""
+    
     response_format = "b64_json" if "base64" in req.output_format.lower() else "url"
     payload = {
         "model": req.model,
         "prompt": req.prompt,
         "n": req.output_count,
-        "size": req.size,
+        "size": req.size or "1280x720",
         "response_format": response_format
     }
     
     headers = {
         "Content-Type": "application/json"
     }
-    if req.api_key:
-        headers["Authorization"] = f"Bearer {req.api_key}"
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
         
     audit_status = "success"
     error_msg = None
@@ -423,7 +429,7 @@ async def generate_single_model(
     
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(req.endpoint, json=payload, headers=headers)
+            response = await client.post(endpoint, json=payload, headers=headers)
             
         if response.status_code != 200:
             raise Exception(f"API returned status {response.status_code}: {response.text}")

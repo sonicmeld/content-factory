@@ -287,13 +287,37 @@ export const generateSingleModelAsset = (data: {
     workspace_id: string;
     asset_type: string;
     model: string;
-    endpoint: string;
-    api_key?: string;
     prompt: string;
-    size: string;
+    size?: string;
     output_format: string;
     output_count?: number;
 }) => api.post<{ message: string; execution_id: string; files: string[] }>('/connectors/generate-single', data).then(res => res.data);
+
+export interface SystemSettings {
+    single_model_endpoint: string;
+    single_model_api_key: string;
+}
+
+export interface GenerationModel {
+    id: string;
+    name: string;
+    is_active: number;
+}
+
+export const getSystemSettings = () =>
+    api.get<SystemSettings>('/settings').then(res => res.data);
+
+export const updateSystemSettings = (data: SystemSettings) =>
+    api.post<SystemSettings>('/settings', data).then(res => res.data);
+
+export const getGenerationModels = () =>
+    api.get<GenerationModel[]>('/settings/models').then(res => res.data);
+
+export const createGenerationModel = (data: { name: string }) =>
+    api.post<GenerationModel>('/settings/models', data).then(res => res.data);
+
+export const deleteGenerationModel = (id: string) =>
+    api.delete<{ message: string }>(`/settings/models/${id}`).then(res => res.data);
 
 export default api;
 

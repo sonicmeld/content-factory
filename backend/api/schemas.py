@@ -401,11 +401,29 @@ class SingleModelGenerationRequest(BaseModel):
     workspace_id: str
     asset_type: str
     model: str
-    endpoint: str
-    api_key: Optional[str] = None
     prompt: str
-    size: str
+    size: Optional[str] = "1280x720"
     output_format: str
     output_count: int = 1
+
+class SystemSettingsResponse(BaseModel):
+    single_model_endpoint: str
+    single_model_api_key: str
+
+class SystemSettingsUpdate(BaseModel):
+    single_model_endpoint: str
+    single_model_api_key: str
+
+class GenerationModelResponse(BaseModel):
+    id: str
+    name: str
+    is_active: int
+
+    class Config:
+        from_attributes = True
+
+class GenerationModelCreate(BaseModel):
+    name: str
+
 
 
