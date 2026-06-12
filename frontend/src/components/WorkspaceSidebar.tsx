@@ -1,5 +1,5 @@
 import { NavLink, useParams } from 'react-router-dom';
-import { LayoutDashboard, Package, UploadCloud, PlaySquare, ImageIcon, Sparkles, Settings, ArrowLeft, CheckCircle2, Inbox } from 'lucide-react';
+import { LayoutDashboard, Package, UploadCloud, PlaySquare, ImageIcon, Sparkles, Settings, ArrowLeft, CheckCircle2, Cpu } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { getChannels, getPackages } from '../services/api';
@@ -25,7 +25,7 @@ export default function WorkspaceSidebar() {
     const supportItems = [
         { label: 'Assets', icon: ImageIcon, path: `/workspace/${slug}/assets` },
         { label: 'Prompt Contexts', icon: Sparkles, path: `/workspace/${slug}/prompts` },
-        { label: 'Inbox', icon: Inbox, path: `/workspace/${slug}/inbox` },
+        { label: 'Production', icon: Cpu, path: `/workspace/${slug}/production` },
     ];
 
     const adminItems = [

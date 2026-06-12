@@ -7,18 +7,33 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from database.database import get_db
-from database.models import ExternalAccount, ConnectorJob, AssetInbox, Channel, Asset
+from database.models import ExternalAccount, ConnectorJob, AssetInbox, Channel, Asset, PromptContext
 from api.schemas import (
     ExternalAccountCreate,
     ExternalAccountUpdate,
     ExternalAccountResponse,
     ConnectorJobCreate,
     ConnectorJobResponse,
-    AssetInboxResponse
+    AssetInboxResponse,
+    ApproveInboxAssetRequest
 )
 from app.config import settings
 
 router = APIRouter(prefix="/api/connectors", tags=["connectors"])
+
+# --- Static Providers Registry ---
+PROVIDERS = [
+    {"name": "NanoBanana", "type": "api"},
+    {"name": "Flux", "type": "api"},
+    {"name": "SDXL", "type": "api"},
+    {"name": "Google Flow", "type": "connector"},
+    {"name": "Gemini", "type": "connector"},
+    {"name": "ChatGPT", "type": "connector"}
+]
+
+@router.get("/providers")
+def get_providers():
+    return PROVIDERS
 
 # --- External Accounts ---
 
@@ -87,6 +102,40 @@ def delete_external_account(
 
 # --- Connector Jobs ---
 
+def to_job_response(job: ConnectorJob, db: Session) -> ConnectorJobResponse:
+    channel_id = None
+    prompt_text = None
+    if job.prompt_id:
+        context = db.query(PromptContext).filter(PromptContext.id == job.prompt_id).first()
+        if context:
+            channel_id = context.channel_id
+            prompt_text = context.notes or context.description or context.title
+            
+    return ConnectorJobResponse(
+        id=job.id,
+        workspace_id=job.workspace_id,
+        provider=job.provider,
+        account_id=job.account_id,
+        asset_type=job.asset_type,
+        status=job.status,
+        combo_id=job.combo_id,
+        prompt_id=job.prompt_id,
+        created_at=job.created_at,
+        channel_id=channel_id,
+        prompt=prompt_text
+    )
+
+@router.get("/jobs", response_model=List[ConnectorJobResponse])
+def get_connector_jobs(
+    workspace_id: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    query = db.query(ConnectorJob)
+    if workspace_id:
+        query = query.filter(ConnectorJob.workspace_id == workspace_id)
+    jobs = query.order_by(ConnectorJob.created_at.desc()).all()
+    return [to_job_response(job, db) for job in jobs]
+
 @router.post("/jobs", response_model=ConnectorJobResponse)
 def create_connector_job(
     job: ConnectorJobCreate,
@@ -95,34 +144,52 @@ def create_connector_job(
     db_job = ConnectorJob(
         id=str(uuid.uuid4()),
         workspace_id=job.workspace_id,
-        project_id=job.project_id,
         provider=job.provider,
         account_id=job.account_id,
         asset_type=job.asset_type,
         status="pending",
         combo_id=job.combo_id,
-        prompt_id=job.prompt_id,
-        prompt=job.prompt
+        prompt_id=job.prompt_id
     )
     db.add(db_job)
     db.commit()
     db.refresh(db_job)
-    return db_job
+    return to_job_response(db_job, db)
 
 @router.get("/jobs/active", response_model=Optional[ConnectorJobResponse])
 def get_active_connector_job(
     workspace_id: Optional[str] = None,
-    project_id: Optional[str] = None,
+    channel_id: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     query = db.query(ConnectorJob).filter(ConnectorJob.status == "pending")
     if workspace_id:
         query = query.filter(ConnectorJob.workspace_id == workspace_id)
-    if project_id:
-        query = query.filter(ConnectorJob.project_id == project_id)
+    if channel_id:
+        query = query.join(PromptContext, ConnectorJob.prompt_id == PromptContext.id).filter(PromptContext.channel_id == channel_id)
     
     # Return the latest pending job
-    return query.order_by(ConnectorJob.created_at.desc()).first()
+    job = query.order_by(ConnectorJob.created_at.desc()).first()
+    if job:
+        return to_job_response(job, db)
+    return None
+
+@router.get("/jobs/{job_id}", response_model=ConnectorJobResponse)
+def get_connector_job(
+    job_id: str,
+    db: Session = Depends(get_db)
+):
+    job = db.query(ConnectorJob).filter(ConnectorJob.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Connector job not found")
+        
+    # Open the job if it is pending
+    if job.status == "pending":
+        job.status = "opened"
+        db.commit()
+        db.refresh(job)
+        
+    return to_job_response(job, db)
 
 
 # --- Asset Inbox ---
@@ -135,12 +202,26 @@ def validate_extension(filename: str):
         raise HTTPException(status_code=400, detail=f"File extension '{ext}' not allowed")
     return ext
 
+def to_inbox_response(item: AssetInbox) -> AssetInboxResponse:
+    return AssetInboxResponse(
+        id=item.id,
+        workspace_id=item.workspace_id,
+        source=item.source,
+        source_id=item.source_id,
+        asset_type=item.asset_type,
+        status=item.status,
+        file_path=item.file_path,
+        metadata=item.inbox_metadata,
+        created_at=item.created_at
+    )
+
 @router.post("/inbox/upload", response_model=AssetInboxResponse)
 async def upload_inbox_asset(
     workspace_id: str = Form(...),
-    project_id: str = Form(...),
     source: str = Form(...),
+    source_id: Optional[str] = Form(None),
     asset_type: str = Form(...),
+    metadata: Optional[str] = Form(None),
     file: UploadFile = File(...),
     db: Session = Depends(get_db)
 ):
@@ -163,37 +244,37 @@ async def upload_inbox_asset(
     db_inbox = AssetInbox(
         id=file_id,
         workspace_id=workspace_id,
-        project_id=project_id,
         source=source,
+        source_id=source_id,
         asset_type=asset_type,
         status="pending",
-        file_path=filepath
+        file_path=filepath,
+        inbox_metadata=metadata
     )
     
     db.add(db_inbox)
     db.commit()
     db.refresh(db_inbox)
-    return db_inbox
+    return to_inbox_response(db_inbox)
 
 @router.get("/inbox", response_model=List[AssetInboxResponse])
 def get_inbox_assets(
     workspace_id: Optional[str] = None,
-    project_id: Optional[str] = None,
     status: Optional[str] = "pending",
     db: Session = Depends(get_db)
 ):
     query = db.query(AssetInbox)
     if workspace_id:
         query = query.filter(AssetInbox.workspace_id == workspace_id)
-    if project_id:
-        query = query.filter(AssetInbox.project_id == project_id)
     if status:
         query = query.filter(AssetInbox.status == status)
-    return query.order_by(AssetInbox.created_at.desc()).all()
+    items = query.order_by(AssetInbox.created_at.desc()).all()
+    return [to_inbox_response(item) for item in items]
 
 @router.post("/inbox/{inbox_id}/approve", response_model=AssetInboxResponse)
 def approve_inbox_asset(
     inbox_id: str,
+    req: ApproveInboxAssetRequest,
     db: Session = Depends(get_db)
 ):
     inbox_item = db.query(AssetInbox).filter(AssetInbox.id == inbox_id).first()
@@ -203,28 +284,34 @@ def approve_inbox_asset(
     if inbox_item.status != "pending":
         raise HTTPException(status_code=400, detail=f"Cannot approve item in status: {inbox_item.status}")
         
-    # Find corresponding Channel/Project
-    channel = db.query(Channel).filter(Channel.id == inbox_item.project_id).first()
-    if not channel:
-        raise HTTPException(status_code=404, detail="Corresponding Channel/Project not found")
+    # Find corresponding Channel if channel_id is provided
+    channel = None
+    if req.channel_id:
+        channel = db.query(Channel).filter(Channel.id == req.channel_id).first()
+        if not channel:
+            raise HTTPException(status_code=404, detail="Target channel not found")
         
     # Check if the source file exists
     if not os.path.exists(inbox_item.file_path):
         raise HTTPException(status_code=404, detail="Source file missing from inbox storage")
         
-    # Define target path under channel assets
+    # Define target path under assets
     ext = inbox_item.file_path.split(".")[-1]
-    target_dir = os.path.join(settings.DATA_PATH, "channels", channel.slug, inbox_item.asset_type)
-    os.makedirs(target_dir, exist_ok=True)
-    
     asset_id = str(uuid.uuid4())
     safe_filename = f"{asset_id}.{ext}"
+    
+    if channel:
+        target_dir = os.path.join(settings.DATA_PATH, "channels", channel.slug, inbox_item.asset_type)
+    else:
+        target_dir = os.path.join(settings.DATA_PATH, "shared", inbox_item.asset_type)
+        
+    os.makedirs(target_dir, exist_ok=True)
     target_path = os.path.join(target_dir, safe_filename)
     
     try:
         shutil.move(inbox_item.file_path, target_path)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to move file to channel library: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to move file to destination library: {str(e)}")
         
     file_size = os.path.getsize(target_path)
     mime_type = mimetypes.guess_type(target_path)[0] or "application/octet-stream"
@@ -232,7 +319,7 @@ def approve_inbox_asset(
     # Create main library Asset record
     db_asset = Asset(
         id=asset_id,
-        channel_id=inbox_item.project_id,
+        channel_id=channel.id if channel else None,
         asset_type=inbox_item.asset_type,
         filename=f"imported_{inbox_item.source}_{inbox_item.asset_type}_{asset_id[:8]}.{ext}",
         file_path=target_path,
@@ -242,13 +329,10 @@ def approve_inbox_asset(
     db.add(db_asset)
     
     # Update active jobs matching this context to completed
-    active_jobs = db.query(ConnectorJob).filter(
-        ConnectorJob.project_id == inbox_item.project_id,
-        ConnectorJob.asset_type == inbox_item.asset_type,
-        ConnectorJob.status == "pending"
-    ).all()
-    for job in active_jobs:
-        job.status = "completed"
+    if inbox_item.source_id:
+        job = db.query(ConnectorJob).filter(ConnectorJob.id == inbox_item.source_id).first()
+        if job:
+            job.status = "completed"
         
     # Mark inbox item as approved
     inbox_item.status = "approved"
@@ -256,7 +340,7 @@ def approve_inbox_asset(
     
     db.commit()
     db.refresh(inbox_item)
-    return inbox_item
+    return to_inbox_response(inbox_item)
 
 @router.post("/inbox/{inbox_id}/reject", response_model=AssetInboxResponse)
 def reject_inbox_asset(
@@ -277,19 +361,16 @@ def reject_inbox_asset(
         except Exception:
             pass
             
-    # Update active jobs matching this context to failed/cancelled
-    active_jobs = db.query(ConnectorJob).filter(
-        ConnectorJob.project_id == inbox_item.project_id,
-        ConnectorJob.asset_type == inbox_item.asset_type,
-        ConnectorJob.status == "pending"
-    ).all()
-    for job in active_jobs:
-        job.status = "failed"
+    # Update corresponding job status to failed
+    if inbox_item.source_id:
+        job = db.query(ConnectorJob).filter(ConnectorJob.id == inbox_item.source_id).first()
+        if job:
+            job.status = "failed"
         
     inbox_item.status = "rejected"
     db.commit()
     db.refresh(inbox_item)
-    return inbox_item
+    return to_inbox_response(inbox_item)
 
 @router.post("/inbox/{inbox_id}/archive", response_model=AssetInboxResponse)
 def archive_inbox_asset(
@@ -303,4 +384,4 @@ def archive_inbox_asset(
     inbox_item.status = "archived"
     db.commit()
     db.refresh(inbox_item)
-    return inbox_item
+    return to_inbox_response(inbox_item)

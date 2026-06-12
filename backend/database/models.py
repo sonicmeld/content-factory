@@ -307,14 +307,12 @@ class ConnectorJob(Base):
 
     id = Column(String, primary_key=True)
     workspace_id = Column(String, nullable=False)
-    project_id = Column(String, nullable=False)
     provider = Column(String, nullable=False)
     account_id = Column(String, nullable=True)
     asset_type = Column(String, nullable=False)
     status = Column(String, nullable=False, default="pending")
     combo_id = Column(String, nullable=True)
     prompt_id = Column(String, nullable=True)
-    prompt = Column(Text, nullable=True)
     created_at = Column(DateTime, default=func.now())
 
 
@@ -323,10 +321,11 @@ class AssetInbox(Base):
 
     id = Column(String, primary_key=True)
     workspace_id = Column(String, nullable=False)
-    project_id = Column(String, nullable=False)
     source = Column(String, nullable=False)
+    source_id = Column(String, nullable=True)
     asset_type = Column(String, nullable=False)
     status = Column(String, nullable=False, default="pending") # pending, approved, rejected, archived
     file_path = Column(String, nullable=False)
+    inbox_metadata = Column("metadata", Text, nullable=True)
     created_at = Column(DateTime, default=func.now())
 

@@ -164,25 +164,24 @@ CREATE TABLE IF NOT EXISTS external_accounts (
 CREATE TABLE IF NOT EXISTS connector_jobs (
     id TEXT PRIMARY KEY,
     workspace_id TEXT NOT NULL,
-    project_id TEXT NOT NULL,
     provider TEXT NOT NULL,
     account_id TEXT,
     asset_type TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'pending',
+    status TEXT NOT NULL DEFAULT 'pending', -- pending, opened, completed, failed, expired
     combo_id TEXT,
     prompt_id TEXT,
-    prompt TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS asset_inbox (
     id TEXT PRIMARY KEY,
     workspace_id TEXT NOT NULL,
-    project_id TEXT NOT NULL,
     source TEXT NOT NULL,
+    source_id TEXT, -- e.g., connector_job_id or null
     asset_type TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending', -- pending, approved, rejected, archived
     file_path TEXT NOT NULL,
+    metadata TEXT, -- JSON string containing extensible metadata details
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

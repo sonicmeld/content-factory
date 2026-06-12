@@ -262,25 +262,26 @@ export interface ExternalAccount {
 export interface ConnectorJob {
     id: string;
     workspace_id: string;
-    project_id: string;
     provider: string;
     account_id?: string;
     asset_type: string;
-    status: 'pending' | 'completed' | 'failed' | 'cancelled';
+    status: 'pending' | 'opened' | 'completed' | 'failed' | 'expired';
     combo_id?: string;
     prompt_id?: string;
     prompt?: string;
+    channel_id?: string;
     created_at: string;
 }
 
 export interface AssetInbox {
     id: string;
     workspace_id: string;
-    project_id: string;
     source: string;
+    source_id?: string;
     asset_type: string;
     status: 'pending' | 'approved' | 'rejected' | 'archived';
     file_path: string;
+    metadata?: string;
     created_at: string;
 }
 

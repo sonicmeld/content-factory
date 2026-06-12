@@ -248,26 +248,34 @@ export const updateExternalAccount = (id: string, data: Partial<ExternalAccount>
 export const deleteExternalAccount = (id: string) =>
     api.delete<{ message: string }>(`/connectors/accounts/${id}`).then(res => res.data);
 
+export const getProviders = () =>
+    api.get<any[]>('/connectors/providers').then(res => res.data);
+
 export const createConnectorJob = (data: Partial<ConnectorJob>) =>
     api.post<ConnectorJob>('/connectors/jobs', data).then(res => res.data);
 
-export const getActiveConnectorJob = (workspaceId?: string, projectId?: string) => {
+export const getConnectorJobs = (workspaceId?: string) => {
     const params: any = {};
     if (workspaceId) params.workspace_id = workspaceId;
-    if (projectId) params.project_id = projectId;
+    return api.get<ConnectorJob[]>('/connectors/jobs', { params }).then(res => res.data);
+};
+
+export const getActiveConnectorJob = (workspaceId?: string, channelId?: string) => {
+    const params: any = {};
+    if (workspaceId) params.workspace_id = workspaceId;
+    if (channelId) params.channel_id = channelId;
     return api.get<ConnectorJob | null>('/connectors/jobs/active', { params }).then(res => res.data);
 };
 
-export const getInboxAssets = (workspaceId?: string, projectId?: string, status?: string) => {
+export const getInboxAssets = (workspaceId?: string, status?: string) => {
     const params: any = {};
     if (workspaceId) params.workspace_id = workspaceId;
-    if (projectId) params.project_id = projectId;
     if (status) params.status = status;
     return api.get<AssetInbox[]>('/connectors/inbox', { params }).then(res => res.data);
 };
 
-export const approveInboxAsset = (id: string) =>
-    api.post<AssetInbox>(`/connectors/inbox/${id}/approve`).then(res => res.data);
+export const approveInboxAsset = (id: string, channelId: string | null) =>
+    api.post<AssetInbox>(`/connectors/inbox/${id}/approve`, { channel_id: channelId }).then(res => res.data);
 
 export const rejectInboxAsset = (id: string) =>
     api.post<AssetInbox>(`/connectors/inbox/${id}/reject`).then(res => res.data);

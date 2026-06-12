@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.main import app
 from database.database import get_db
-from database.models import Base, Channel, ExternalAccount, ConnectorJob, AssetInbox
+from database.models import Base, Channel, ExternalAccount, ConnectorJob, AssetInbox, PromptContext
 from app.config import settings
 
 from sqlalchemy.pool import StaticPool
@@ -43,13 +43,23 @@ class TestConnectors(unittest.TestCase):
         app.dependency_overrides[get_db] = override_get_db
         self.client = TestClient(app)
 
-        # Seed data
+        # Seed channel data
         self.channel = Channel(
             id="channel-1",
             name="Test Channel",
             slug="testchan"
         )
         self.db.add(self.channel)
+        self.db.commit()
+
+        # Seed prompt context data
+        self.prompt_ctx = PromptContext(
+            id="prompt-123",
+            channel_id="channel-1",
+            title="Cool Woodworking Wood",
+            notes="Please generate a nice woodwork thumbnail."
+        )
+        self.db.add(self.prompt_ctx)
         self.db.commit()
 
     def tearDown(self):
@@ -101,22 +111,32 @@ class TestConnectors(unittest.TestCase):
             "/api/connectors/jobs",
             json={
                 "workspace_id": "default",
-                "project_id": "channel-1",
                 "provider": "Google Flow",
                 "asset_type": "thumbnail",
-                "prompt": "Test prompt woodworking"
+                "prompt_id": "prompt-123"
             }
         )
         self.assertEqual(response.status_code, 200)
         data = response.json()
+        job_id = data["id"]
         self.assertEqual(data["status"], "pending")
-        self.assertEqual(data["prompt"], "Test prompt woodworking")
+        # Dynamic resolution checks
+        self.assertEqual(data["channel_id"], "channel-1")
+        self.assertEqual(data["prompt"], "Please generate a nice woodwork thumbnail.")
 
-        # Get active job
-        response = self.client.get("/api/connectors/jobs/active?project_id=channel-1")
+        # Get active job filtered by channel_id
+        response = self.client.get("/api/connectors/jobs/active?channel_id=channel-1")
         self.assertEqual(response.status_code, 200)
-        self.assertIsNotNone(response.json())
-        self.assertEqual(response.json()["project_id"], "channel-1")
+        active_job = response.json()
+        self.assertIsNotNone(active_job)
+        self.assertEqual(active_job["id"], job_id)
+        self.assertEqual(active_job["channel_id"], "channel-1")
+
+        # Get details by ID which transitions status to 'opened'
+        response = self.client.get(f"/api/connectors/jobs/{job_id}")
+        self.assertEqual(response.status_code, 200)
+        details = response.json()
+        self.assertEqual(details["status"], "opened")
 
     def test_inbox_operations(self):
         # Create dummy file to upload
@@ -124,14 +144,28 @@ class TestConnectors(unittest.TestCase):
         with open(dummy_file_path, "wb") as f:
             f.write(b"dummy image content")
 
+        # Create a job first to link source_id
+        job_response = self.client.post(
+            "/api/connectors/jobs",
+            json={
+                "workspace_id": "default",
+                "provider": "Google Flow",
+                "asset_type": "thumbnail",
+                "prompt_id": "prompt-123"
+            }
+        )
+        self.assertEqual(job_response.status_code, 200)
+        job_id = job_response.json()["id"]
+
         with open(dummy_file_path, "rb") as f:
             response = self.client.post(
                 "/api/connectors/inbox/upload",
                 data={
                     "workspace_id": "default",
-                    "project_id": "channel-1",
                     "source": "Flow",
-                    "asset_type": "thumbnail"
+                    "source_id": job_id,
+                    "asset_type": "thumbnail",
+                    "metadata": '{"generation_time": 12.5}'
                 },
                 files={"file": ("dummy.png", f, "image/png")}
             )
@@ -140,14 +174,19 @@ class TestConnectors(unittest.TestCase):
         inbox_id = inbox_data["id"]
         self.assertEqual(inbox_data["status"], "pending")
         self.assertEqual(inbox_data["source"], "Flow")
+        self.assertEqual(inbox_data["source_id"], job_id)
+        self.assertEqual(inbox_data["metadata"], '{"generation_time": 12.5}')
 
         # Fetch inbox list
-        response = self.client.get("/api/connectors/inbox?project_id=channel-1")
+        response = self.client.get("/api/connectors/inbox?workspace_id=default")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.json()), 1)
 
-        # Approve item
-        response = self.client.post(f"/api/connectors/inbox/{inbox_id}/approve")
+        # Approve item routing to a channel
+        response = self.client.post(
+            f"/api/connectors/inbox/{inbox_id}/approve",
+            json={"channel_id": "channel-1"}
+        )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["status"], "approved")
 
@@ -155,3 +194,40 @@ class TestConnectors(unittest.TestCase):
         expected_channel_dir = os.path.join(settings.DATA_PATH, "channels", "testchan", "thumbnail")
         self.assertTrue(os.path.exists(expected_channel_dir))
         self.assertEqual(len(os.listdir(expected_channel_dir)), 1)
+
+        # Verify job status was marked completed
+        job_status_response = self.client.get(f"/api/connectors/jobs/{job_id}")
+        self.assertEqual(job_status_response.status_code, 200)
+        self.assertEqual(job_status_response.json()["status"], "completed")
+
+    def test_inbox_approve_to_shared_library(self):
+        # Create dummy file to upload
+        dummy_file_path = os.path.join(settings.DATA_PATH, "dummy_shared.png")
+        with open(dummy_file_path, "wb") as f:
+            f.write(b"dummy image shared content")
+
+        with open(dummy_file_path, "rb") as f:
+            response = self.client.post(
+                "/api/connectors/inbox/upload",
+                data={
+                    "workspace_id": "default",
+                    "source": "Flow",
+                    "asset_type": "thumbnail"
+                },
+                files={"file": ("dummy_shared.png", f, "image/png")}
+            )
+        self.assertEqual(response.status_code, 200)
+        inbox_id = response.json()["id"]
+
+        # Approve item routing to global shared library (channel_id=None)
+        response = self.client.post(
+            f"/api/connectors/inbox/{inbox_id}/approve",
+            json={"channel_id": None}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "approved")
+
+        # Verify that file has been moved to global shared assets
+        expected_shared_dir = os.path.join(settings.DATA_PATH, "shared", "thumbnail")
+        self.assertTrue(os.path.exists(expected_shared_dir))
+        self.assertEqual(len(os.listdir(expected_shared_dir)), 1)

@@ -359,38 +359,42 @@ class ExternalAccountResponse(BaseModel):
 
 class ConnectorJobCreate(BaseModel):
     workspace_id: str
-    project_id: str
     provider: str
     account_id: Optional[str] = None
     asset_type: str
     combo_id: Optional[str] = None
     prompt_id: Optional[str] = None
-    prompt: Optional[str] = None
 
 class ConnectorJobResponse(BaseModel):
     id: str
     workspace_id: str
-    project_id: str
     provider: str
     account_id: Optional[str] = None
     asset_type: str
     status: str
     combo_id: Optional[str] = None
     prompt_id: Optional[str] = None
-    prompt: Optional[str] = None
     created_at: datetime
+    # Dynamically resolved context
+    channel_id: Optional[str] = None
+    prompt: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
 class AssetInboxResponse(BaseModel):
     id: str
     workspace_id: str
-    project_id: str
     source: str
+    source_id: Optional[str] = None
     asset_type: str
     status: str
     file_path: str
+    metadata: Optional[str] = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+class ApproveInboxAssetRequest(BaseModel):
+    channel_id: Optional[str] = None
+
 
