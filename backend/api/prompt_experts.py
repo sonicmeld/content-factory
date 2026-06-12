@@ -156,8 +156,11 @@ async def generate_draft(req: DraftGenerateRequest, db: Session = Depends(get_db
         except Exception:
             pass
             
+    from services.runtime_core_service import sanitize_9router_payload
+    payload, timeout_sec = sanitize_9router_payload(db, payload)
+
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=float(timeout_sec)) as client:
             response = await client.post(api_url, json=payload, headers=headers)
             
         if response.status_code != 200:

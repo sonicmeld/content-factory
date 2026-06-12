@@ -45,6 +45,13 @@ export default function Settings() {
     const [singleModelApiKey, setSingleModelApiKey] = useState('');
     const [newModelName, setNewModelName] = useState('');
 
+    // 9Router Safeguard states
+    const [nineRouterTimeout, setNineRouterTimeout] = useState(60);
+    const [nineRouterMaxTokens, setNineRouterMaxTokens] = useState(4000);
+    const [nineRouterStripJsonMode, setNineRouterStripJsonMode] = useState(true);
+    const [nineRouterStripPenalties, setNineRouterStripPenalties] = useState(true);
+    const [nineRouterConvertSystemToUser, setNineRouterConvertSystemToUser] = useState(false);
+
     const { data: systemSettings } = useQuery({
         queryKey: ['system-settings'],
         queryFn: getSystemSettings
@@ -59,13 +66,18 @@ export default function Settings() {
         if (systemSettings) {
             setSingleModelEndpoint(systemSettings.single_model_endpoint);
             setSingleModelApiKey(systemSettings.single_model_api_key);
+            setNineRouterTimeout(systemSettings.nine_router_timeout ?? 60);
+            setNineRouterMaxTokens(systemSettings.nine_router_max_tokens ?? 4000);
+            setNineRouterStripJsonMode(systemSettings.nine_router_strip_json_mode ?? true);
+            setNineRouterStripPenalties(systemSettings.nine_router_strip_penalties ?? true);
+            setNineRouterConvertSystemToUser(systemSettings.nine_router_convert_system_to_user ?? false);
         }
     }, [systemSettings]);
 
     const updateSettingsMutation = useMutation({
         mutationFn: updateSystemSettings,
         onSuccess: () => {
-            toast.success("Single Model API settings updated successfully");
+            toast.success("System settings updated successfully");
             queryClient.invalidateQueries({ queryKey: ['system-settings'] });
         },
         onError: (err: any) => {
@@ -156,7 +168,12 @@ export default function Settings() {
                             <button
                                 onClick={() => updateSettingsMutation.mutate({
                                     single_model_endpoint: singleModelEndpoint,
-                                    single_model_api_key: singleModelApiKey
+                                    single_model_api_key: singleModelApiKey,
+                                    nine_router_timeout: nineRouterTimeout,
+                                    nine_router_max_tokens: nineRouterMaxTokens,
+                                    nine_router_strip_json_mode: nineRouterStripJsonMode,
+                                    nine_router_strip_penalties: nineRouterStripPenalties,
+                                    nine_router_convert_system_to_user: nineRouterConvertSystemToUser
                                 })}
                                 disabled={updateSettingsMutation.isPending}
                                 className="bg-indigo-600 text-white font-medium px-4 py-2 rounded-md text-xs hover:bg-indigo-700 transition disabled:opacity-50"
@@ -207,6 +224,107 @@ export default function Settings() {
                                 )}
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                <div className="bg-card border border-border rounded-lg p-6 space-y-4">
+                    <div className="flex items-center gap-2 font-semibold text-lg pb-2 border-b border-border">
+                        <Sliders className="w-5 h-5 text-indigo-500" /> 9Router Adapter & Safe-guard Settings
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+                        <div className="space-y-4">
+                            <div>
+                                <label className="text-muted-foreground block mb-1 font-medium">9Router Default Timeout (Seconds)</label>
+                                <input 
+                                    type="number"
+                                    value={nineRouterTimeout}
+                                    onChange={(e) => setNineRouterTimeout(parseInt(e.target.value) || 60)}
+                                    className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary h-9"
+                                    placeholder="60"
+                                />
+                                <p className="text-xs text-muted-foreground mt-1">Batas waktu (timeout) dalam detik untuk request ke 9Router.</p>
+                            </div>
+                            <div>
+                                <label className="text-muted-foreground block mb-1 font-medium">9Router Max Tokens Cap</label>
+                                <input 
+                                    type="number"
+                                    value={nineRouterMaxTokens}
+                                    onChange={(e) => setNineRouterMaxTokens(parseInt(e.target.value) || 4000)}
+                                    className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary h-9"
+                                    placeholder="4000"
+                                />
+                                <p className="text-xs text-muted-foreground mt-1">Batas maksimum token output yang diizinkan untuk dikirim ke model target.</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4 md:border-l border-border md:pl-6">
+                            <h3 className="font-semibold text-sm text-foreground">Compatibility Adapters</h3>
+                            
+                            <div className="flex items-center gap-2.5">
+                                <input 
+                                    type="checkbox" 
+                                    id="stripJsonMode"
+                                    checked={nineRouterStripJsonMode}
+                                    onChange={(e) => setNineRouterStripJsonMode(e.target.checked)}
+                                    className="rounded border-border bg-background cursor-pointer"
+                                />
+                                <label htmlFor="stripJsonMode" className="text-xs font-medium text-foreground cursor-pointer">
+                                    Strip JSON Mode for non-GPT models
+                                </label>
+                            </div>
+                            <p className="text-xs text-muted-foreground leading-relaxed -mt-2.5">
+                                Menghapus parameter <code>response_format</code> secara otomatis pada model target non-OpenAI untuk mencegah Error 400.
+                            </p>
+
+                            <div className="flex items-center gap-2.5">
+                                <input 
+                                    type="checkbox" 
+                                    id="stripPenalties"
+                                    checked={nineRouterStripPenalties}
+                                    onChange={(e) => setNineRouterStripPenalties(e.target.checked)}
+                                    className="rounded border-border bg-background cursor-pointer"
+                                />
+                                <label htmlFor="stripPenalties" className="text-xs font-medium text-foreground cursor-pointer">
+                                    Strip penalty parameters for non-GPT models
+                                </label>
+                            </div>
+                            <p className="text-xs text-muted-foreground leading-relaxed -mt-2.5">
+                                Menghapus parameter <code>presence_penalty</code> dan <code>frequency_penalty</code> pada model target non-OpenAI.
+                            </p>
+
+                            <div className="flex items-center gap-2.5">
+                                <input 
+                                    type="checkbox" 
+                                    id="convertSystem"
+                                    checked={nineRouterConvertSystemToUser}
+                                    onChange={(e) => setNineRouterConvertSystemToUser(e.target.checked)}
+                                    className="rounded border-border bg-background cursor-pointer"
+                                />
+                                <label htmlFor="convertSystem" className="text-xs font-medium text-foreground cursor-pointer">
+                                    Convert system role to user role
+                                </label>
+                            </div>
+                            <p className="text-xs text-muted-foreground leading-relaxed -mt-2.5">
+                                Mengonversi pesan ber-role system ke pesan user biasa secara otomatis untuk model yang tidak mendukung role system.
+                            </p>
+                        </div>
+                    </div>
+                    <div className="pt-2 border-t border-border flex justify-end">
+                        <button
+                            onClick={() => updateSettingsMutation.mutate({
+                                single_model_endpoint: singleModelEndpoint,
+                                single_model_api_key: singleModelApiKey,
+                                nine_router_timeout: nineRouterTimeout,
+                                nine_router_max_tokens: nineRouterMaxTokens,
+                                nine_router_strip_json_mode: nineRouterStripJsonMode,
+                                nine_router_strip_penalties: nineRouterStripPenalties,
+                                nine_router_convert_system_to_user: nineRouterConvertSystemToUser
+                            })}
+                            disabled={updateSettingsMutation.isPending}
+                            className="bg-primary text-primary-foreground font-semibold px-4 py-2 rounded-md text-xs hover:opacity-90 transition disabled:opacity-50"
+                        >
+                            {updateSettingsMutation.isPending ? "Saving Settings..." : "Save Settings"}
+                        </button>
                     </div>
                 </div>
 

@@ -174,3 +174,77 @@ def finalize_runtime_audit(db: Session, execution_id: str, success: bool, error_
             # Sanitize by just storing the message text, no stack traces
             audit.error_message = error_message[:1000] # Cap just in case
         db.commit()
+
+
+# ---------------------------------------------------------
+# 6. Global 9Router Payload Sanitizer & Safeguards
+# ---------------------------------------------------------
+def sanitize_9router_payload(db: Session, payload: dict) -> Tuple[dict, int]:
+    """
+    Sanitize 9Router payload dynamically based on System Settings:
+    - Strips response_format if nine_router_strip_json_mode is enabled and it is a non-gpt model.
+    - Strips presence/frequency penalties if nine_router_strip_penalties is enabled and it is a non-gpt model.
+    - Limits max_tokens to nine_router_max_tokens.
+    - Converts system messages to user messages if nine_router_convert_system_to_user is enabled.
+    Returns: (sanitized_payload, timeout_seconds)
+    """
+    from database.models import SystemSetting
+
+    model_name = payload.get("model", "").lower()
+    is_gpt = "gpt-" in model_name or "text-davinci" in model_name
+    
+    # Load settings from database
+    strip_json = db.query(SystemSetting).filter(SystemSetting.key == "nine_router_strip_json_mode").first()
+    strip_penalties = db.query(SystemSetting).filter(SystemSetting.key == "nine_router_strip_penalties").first()
+    convert_system = db.query(SystemSetting).filter(SystemSetting.key == "nine_router_convert_system_to_user").first()
+    max_tokens_val = db.query(SystemSetting).filter(SystemSetting.key == "nine_router_max_tokens").first()
+    timeout_val = db.query(SystemSetting).filter(SystemSetting.key == "nine_router_timeout").first()
+
+    # Parse settings with defaults
+    should_strip_json = (strip_json.value == "1") if strip_json else True
+    should_strip_penalties = (strip_penalties.value == "1") if strip_penalties else True
+    should_convert_system = (convert_system.value == "1") if convert_system else False
+    max_tokens_cap = int(max_tokens_val.value) if (max_tokens_val and max_tokens_val.value.isdigit()) else 4000
+    timeout_sec = int(timeout_val.value) if (timeout_val and timeout_val.value.isdigit()) else 60
+
+    # 1. Clean JSON Mode
+    if should_strip_json and not is_gpt:
+        payload.pop("response_format", None)
+
+    # 2. Clean Penalties
+    if should_strip_penalties and not is_gpt:
+        payload.pop("presence_penalty", None)
+        payload.pop("frequency_penalty", None)
+
+    # 3. Cap max_tokens if present in payload or add a fallback
+    if "max_tokens" in payload:
+        if payload["max_tokens"] > max_tokens_cap:
+            payload["max_tokens"] = max_tokens_cap
+    else:
+        payload["max_tokens"] = max_tokens_cap
+
+    # 4. Convert System to User message if requested
+    if should_convert_system and "messages" in payload:
+        messages = payload["messages"]
+        new_messages = []
+        system_content = []
+        for msg in messages:
+            if msg.get("role") == "system":
+                system_content.append(msg.get("content", ""))
+            else:
+                new_messages.append(msg)
+        
+        if system_content and new_messages:
+            system_prefix = "\n".join(system_content)
+            # Prepend system content to the first user message
+            user_found = False
+            for msg in new_messages:
+                if msg.get("role") == "user":
+                    msg["content"] = f"[System Instructions]\n{system_prefix}\n\n[User Input]\n{msg.get('content', '')}"
+                    user_found = True
+                    break
+            if not user_found:
+                new_messages.insert(0, {"role": "user", "content": system_prefix})
+            payload["messages"] = new_messages
+
+    return payload, timeout_sec

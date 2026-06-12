@@ -296,6 +296,11 @@ export const generateSingleModelAsset = (data: {
 export interface SystemSettings {
     single_model_endpoint: string;
     single_model_api_key: string;
+    nine_router_timeout: number;
+    nine_router_max_tokens: number;
+    nine_router_strip_json_mode: boolean;
+    nine_router_strip_penalties: boolean;
+    nine_router_convert_system_to_user: boolean;
 }
 
 export interface GenerationModel {

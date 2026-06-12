@@ -286,11 +286,14 @@ def generate_metadata(db: Session, package_id: str, context_id: Optional[str] = 
             "Content-Type": "application/json",
         }
 
+        from services.runtime_core_service import sanitize_9router_payload
+        payload, timeout_sec = sanitize_9router_payload(db, payload)
+
         response = requests.post(
             _build_9router_url(),
             json=payload,
             headers=headers,
-            timeout=60,
+            timeout=timeout_sec,
         )
         response.raise_for_status()
 

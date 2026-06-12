@@ -30,11 +30,14 @@ def generate_prompt(db: Session, channel_id: str, theme: str, mood: str) -> Prom
     }
     
     try:
+        from services.runtime_core_service import sanitize_9router_payload
+        payload, timeout_sec = sanitize_9router_payload(db, payload)
+
         base_url = settings.NINE_ROUTER_URL.rstrip('/')
         if not base_url.endswith('/v1'):
             base_url = f"{base_url}/v1"
         api_url = f"{base_url}/chat/completions"
-        response = requests.post(api_url, json=payload, headers=headers)
+        response = requests.post(api_url, json=payload, headers=headers, timeout=timeout_sec)
         response.raise_for_status()
         data = response.json()
         generated_text = data.get("choices", [{}])[0].get("message", {}).get("content", "Failed to generate text")
@@ -88,11 +91,14 @@ def generate_metadata(db: Session, channel_id: str, theme: str, content_type: st
     }
     
     try:
+        from services.runtime_core_service import sanitize_9router_payload
+        payload, timeout_sec = sanitize_9router_payload(db, payload)
+
         base_url = settings.NINE_ROUTER_URL.rstrip('/')
         if not base_url.endswith('/v1'):
             base_url = f"{base_url}/v1"
         api_url = f"{base_url}/chat/completions"
-        response = requests.post(api_url, json=payload, headers=headers)
+        response = requests.post(api_url, json=payload, headers=headers, timeout=timeout_sec)
         response.raise_for_status()
         data = response.json()
         generated_text = data.get("choices", [{}])[0].get("message", {}).get("content", "")

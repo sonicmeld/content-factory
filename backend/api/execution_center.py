@@ -359,8 +359,11 @@ def run_global_generation(
                     "Content-Type": "application/json",
                 }
 
+                from services.runtime_core_service import sanitize_9router_payload
+                payload, timeout_sec = sanitize_9router_payload(db, payload)
+
                 api_url = f"{settings.NINE_ROUTER_URL.rstrip('/')}/v1/chat/completions"
-                response = requests.post(api_url, json=payload, headers=headers, timeout=60)
+                response = requests.post(api_url, json=payload, headers=headers, timeout=timeout_sec)
                 response.raise_for_status()
                 data = response.json()
 

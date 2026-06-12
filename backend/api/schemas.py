@@ -409,10 +409,20 @@ class SingleModelGenerationRequest(BaseModel):
 class SystemSettingsResponse(BaseModel):
     single_model_endpoint: str
     single_model_api_key: str
+    nine_router_timeout: int
+    nine_router_max_tokens: int
+    nine_router_strip_json_mode: bool
+    nine_router_strip_penalties: bool
+    nine_router_convert_system_to_user: bool
 
 class SystemSettingsUpdate(BaseModel):
     single_model_endpoint: str
     single_model_api_key: str
+    nine_router_timeout: int = 60
+    nine_router_max_tokens: int = 4000
+    nine_router_strip_json_mode: bool = True
+    nine_router_strip_penalties: bool = True
+    nine_router_convert_system_to_user: bool = False
 
 class GenerationModelResponse(BaseModel):
     id: str
