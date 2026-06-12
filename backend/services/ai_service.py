@@ -18,6 +18,7 @@ def generate_prompt(db: Session, channel_id: str, theme: str, mood: str) -> Prom
     
     payload = {
         "model": settings.NINE_ROUTER_MODEL or "YT_Research",
+        "stream": False,
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": "Generate a creative prompt for the channel."}
@@ -84,6 +85,7 @@ def generate_metadata(db: Session, channel_id: str, theme: str, content_type: st
     
     payload = {
         "model": settings.NINE_ROUTER_MODEL or "YT_Research",
+        "stream": False,
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": "Generate metadata."}

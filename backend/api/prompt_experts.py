@@ -140,6 +140,7 @@ async def generate_draft(req: DraftGenerateRequest, db: Session = Depends(get_db
     
     payload = {
         "model": combo.name,
+        "stream": False,
         "messages": [
             {"role": "system", "content": rules},
             {"role": "user", "content": f"User Input: \"{req.input_text}\""}
