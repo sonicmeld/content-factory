@@ -52,7 +52,7 @@ export default function ConnectorsPage() {
     const [targetChannelId, setTargetChannelId] = useState<string | 'shared'>('shared');
 
     // Form states for adding account
-    const [provider, setProvider] = useState('Google Flow');
+    const [selectedProviders, setSelectedProviders] = useState<string[]>(['Google Flow']);
     const [accountName, setAccountName] = useState('');
     const [profileName, setProfileName] = useState('');
     const [targetWorkspaceId, setTargetWorkspaceId] = useState<string>('default');
@@ -148,19 +148,28 @@ export default function ConnectorsPage() {
     });
 
     const addAccountMutation = useMutation({
-        mutationFn: () => createExternalAccount({
-            workspace_id: targetWorkspaceId,
-            provider,
-            account_name: accountName,
-            profile_name: profileName || undefined
-        }),
+        mutationFn: async () => {
+            if (selectedProviders.length === 0) {
+                throw new Error("At least one provider must be selected");
+            }
+            const promises = selectedProviders.map(prov => 
+                createExternalAccount({
+                    workspace_id: targetWorkspaceId,
+                    provider: prov,
+                    account_name: accountName,
+                    profile_name: profileName || undefined
+                })
+            );
+            return Promise.all(promises);
+        },
         onSuccess: () => {
-            toast.success('External account added');
+            toast.success('External account(s) added successfully');
             setAccountName('');
             setProfileName('');
+            setSelectedProviders(['Google Flow']);
             refetchAccounts();
         },
-        onError: () => toast.error('Failed to add external account')
+        onError: (err: any) => toast.error(err.message || 'Failed to add external account(s)')
     });
 
     const toggleAccountMutation = useMutation({
@@ -505,17 +514,30 @@ export default function ConnectorsPage() {
                             <div className="space-y-4 border border-border/60 p-5 rounded-2xl bg-muted/15">
                                 <h4 className="font-bold text-sm text-foreground/90">Add Workspace Connection</h4>
                                 <div className="space-y-4">
-                                    <div className="space-y-1">
-                                        <label className="text-xs font-semibold text-muted-foreground">Provider</label>
-                                        <select
-                                            value={provider}
-                                            onChange={e => setProvider(e.target.value)}
-                                            className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm focus:outline-none"
-                                        >
-                                            <option value="Google Flow">Google Flow</option>
-                                            <option value="Gemini">Gemini</option>
-                                            <option value="ChatGPT">ChatGPT</option>
-                                        </select>
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-semibold text-muted-foreground block">Providers (Select multiple)</label>
+                                        <div className="flex flex-wrap gap-4 pt-1">
+                                            {['Google Flow', 'Gemini', 'ChatGPT'].map(prov => {
+                                                const checked = selectedProviders.includes(prov);
+                                                return (
+                                                    <label key={prov} className="flex items-center gap-2 text-xs text-foreground cursor-pointer select-none">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={checked}
+                                                            onChange={() => {
+                                                                if (checked) {
+                                                                    setSelectedProviders(selectedProviders.filter(p => p !== prov));
+                                                                } else {
+                                                                    setSelectedProviders([...selectedProviders, prov]);
+                                                                }
+                                                            }}
+                                                            className="w-4 h-4 rounded border-border text-indigo-600 focus:ring-indigo-500 bg-background"
+                                                        />
+                                                        <span>{prov}</span>
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-xs font-semibold text-muted-foreground">Target Workspace</label>
@@ -557,6 +579,10 @@ export default function ConnectorsPage() {
                                         onClick={() => {
                                             if (!accountName) {
                                                 toast.error("Account Name is required");
+                                                return;
+                                            }
+                                            if (selectedProviders.length === 0) {
+                                                toast.error("Please select at least one Provider");
                                                 return;
                                             }
                                             addAccountMutation.mutate();
