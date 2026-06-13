@@ -33,6 +33,8 @@ import {
     updateExternalAccount,
     deleteExternalAccount,
     getConnectorJobs,
+    clearConnectorJobs,
+    deleteConnectorJob,
     getProviders,
     getCompanionRuntimes,
     revokeCompanionRuntime
