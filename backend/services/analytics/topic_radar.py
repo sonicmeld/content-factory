@@ -8,22 +8,52 @@ from database.models import AnalyticsTopic, AnalyticsKeyword, AnalyticsMarketTre
 def clean_fingerprint(text: str) -> str:
     """
     Computes a simplified fingerprint key for matching keywords.
-    E.g. 'AI Agents' -> 'aiagent', 'Building AI Agents' -> 'aiagent'
+    E.g. 'n8n tutorial' -> 'n8n', 'AI Agents' -> 'aiagent'
     """
-    text = text.lower()
-    # Remove common filler words
-    fillers = ["building", "tutorial", "workflow", "workflows", "integration", "server", "how to", "create", "using", "guide"]
+    text = text.lower().strip()
+    
+    # Remove filler words
+    fillers = [
+        "building", "tutorial", "how to", "how", "to", "using", "guide", 
+        "workflow", "workflows", "integration", "server", "template", 
+        "indonesia", "telegram", "automation", "framework", "explained"
+    ]
     for f in fillers:
         text = text.replace(f, "")
     
-    # Strip non-alphanumeric and spaces
-    text = re.sub(r'[^a-z0-9]', '', text)
+    # Clean up double spaces
+    text = re.sub(r'\s+', ' ', text).strip()
     
-    # Singularize common endings
-    if text.endswith('s') and not text.endswith('ss'):
-        text = text[:-1]
+    # Strip non-alphanumeric and spaces
+    text = re.sub(r'[^a-z0-9\s]', '', text)
+    
+    words = text.split()
+    if not words:
+        return ""
         
-    return text.strip()
+    def clean_plural(w: str) -> str:
+        if w.endswith('s') and not w.endswith('ss'):
+            return w[:-1]
+        return w
+
+    # Direct overrides for known niches
+    overrides = {
+        "modelcontext": "mcp",
+        "modelcontextprotocol": "mcp",
+        "openso": "opensource",
+        "opensou": "opensource",
+        "opensourc": "opensource",
+        "opensource": "opensource",
+        "langch": "langchain"
+    }
+
+    # If first word is modifier, combine with second
+    if words[0] in ["ai", "local", "open", "mcp", "free", "model"] and len(words) > 1:
+        key = clean_plural(f"{words[0]}{words[1]}")
+    else:
+        key = clean_plural(words[0])
+
+    return overrides.get(key, key)
 
 def levenshtein_distance(s1: str, s2: str) -> int:
     if len(s1) < len(s2):
@@ -58,17 +88,18 @@ def find_best_topic_match(db: Session, fingerprint: str, keyword: str) -> Analyt
     if existing:
         return existing
         
-    # 2. Substring match or Levenshtein distance match
-    all_topics = db.query(AnalyticsTopic).all()
-    for t in all_topics:
-        # If one fingerprint is a subset of the other
-        if fingerprint in t.fingerprint or t.fingerprint in fingerprint:
-            return t
-            
-        # Or close Levenshtein distance (e.g. <= 2 character difference for short keys)
-        dist = levenshtein_distance(fingerprint, t.fingerprint)
-        if dist <= 2:
-            return t
+    # 2. Substring match or Levenshtein distance match (minimum length 3 to prevent over-broad matching like 'ai')
+    if len(fingerprint) >= 3:
+        all_topics = db.query(AnalyticsTopic).all()
+        for t in all_topics:
+            if len(t.fingerprint) >= 3:
+                # If one fingerprint is a subset of the other
+                if fingerprint in t.fingerprint or t.fingerprint in fingerprint:
+                    return t
+                    
+                dist = levenshtein_distance(fingerprint, t.fingerprint)
+                if dist <= 2:
+                    return t
             
     return None
 
