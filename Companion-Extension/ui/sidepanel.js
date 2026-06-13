@@ -4,7 +4,6 @@
 import { SettingsManager } from './settings.js';
 import { JobPoller } from '../core/job-poller.js';
 import { getProvider } from '../providers/provider-registry.js';
-import { parsePrompts } from '../content/flow-content.js'; // Wait, let's keep parsePrompts local to avoid importing from content scripts
 
 document.addEventListener('DOMContentLoaded', () => {
   // 1. Tab Switching
