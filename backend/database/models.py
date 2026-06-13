@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, DateTime, Text, Index, Boolean, UniqueConstraint, JSON
+from sqlalchemy import Column, String, Integer, DateTime, Text, Index, Boolean, UniqueConstraint, JSON, Float
 from sqlalchemy.sql import func
 from sqlalchemy.orm import declarative_base
 
@@ -361,5 +361,101 @@ class GenerationModel(Base):
     name = Column(String, nullable=False)
     is_active = Column(Integer, default=1)
     created_at = Column(DateTime, default=func.now())
+
+
+class AnalyticsChannel(Base):
+    __tablename__ = "analytics_channels"
+
+    id = Column(String, primary_key=True)
+    external_channel_id = Column(String, unique=True, nullable=False)
+    channel_name = Column(String, nullable=False)
+    channel_handle = Column(String, nullable=True)
+    is_own = Column(Boolean, default=True)
+    sync_status = Column(String, default="pending")
+    last_error = Column(String, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    last_sync_at = Column(DateTime, nullable=True)
+
+
+class AnalyticsChannelIdentity(Base):
+    __tablename__ = "analytics_channel_identities"
+
+    id = Column(String, primary_key=True)
+    analytics_channel_id = Column(String, nullable=False)
+    identity_reference_id = Column(String, nullable=False)
+    created_at = Column(DateTime, default=func.now())
+
+
+class AnalyticsWorkspaceLink(Base):
+    __tablename__ = "analytics_workspace_links"
+
+    id = Column(String, primary_key=True)
+    workspace_id = Column(String, nullable=False)
+    analytics_channel_id = Column(String, nullable=False)
+    created_at = Column(DateTime, default=func.now())
+
+
+class AnalyticsVideo(Base):
+    __tablename__ = "analytics_videos"
+
+    id = Column(String, primary_key=True)
+    external_video_id = Column(String, nullable=False)
+    analytics_channel_id = Column(String, nullable=False)
+    title = Column(String, nullable=False)
+    published_at = Column(DateTime, nullable=False)
+    duration_seconds = Column(Integer, nullable=True)
+    thumbnail_url = Column(String, nullable=True)
+    category = Column(String, nullable=True)
+
+
+class AnalyticsSnapshot(Base):
+    __tablename__ = "analytics_snapshots"
+
+    id = Column(String, primary_key=True)
+    target_id = Column(String, nullable=False)
+    target_type = Column(String, nullable=False)  # 'channel' or 'video'
+    metric_source = Column(String, nullable=False)  # 'youtube_analytics' or 'youtube_data_api'
+    snapshot_date = Column(DateTime, nullable=False)
+    views = Column(Integer, default=0)
+    watch_time = Column(Float, default=0.0)
+    subscribers = Column(Integer, default=0)
+    impressions = Column(Integer, default=0)
+    ctr = Column(Float, default=0.0)
+    likes = Column(Integer, default=0)
+    comments = Column(Integer, default=0)
+    retention_json = Column(Text, nullable=True)
+
+
+class GoogleTrendsSnapshot(Base):
+    __tablename__ = "google_trends_snapshots"
+
+    id = Column(String, primary_key=True)
+    query_term = Column(String, nullable=False)
+    geo = Column(String, nullable=False)
+    category = Column(String, nullable=True)
+    source = Column(String, nullable=False)  # 'google_trends' or 'youtube_search'
+    snapshot_date = Column(DateTime, nullable=False)
+    interest_value = Column(Integer, default=0)
+    related_queries_json = Column(Text, nullable=True)
+    related_topics_json = Column(Text, nullable=True)
+
+
+class AnalyticsInsight(Base):
+    __tablename__ = "analytics_insights"
+
+    id = Column(String, primary_key=True)
+    analytics_channel_id = Column(String, nullable=True)
+    scope = Column(String, nullable=False)  # 'channel', 'market', 'competitor', 'global'
+    insight_type = Column(String, nullable=False)  # 'descriptive', 'predictive'
+    insight_version = Column(Integer, default=1)
+    payload_version = Column(Integer, default=1)
+    confidence_score = Column(Float, default=1.0)
+    title = Column(String, nullable=False)
+    summary = Column(String, nullable=False)
+    payload_json = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=func.now())
+    generated_at = Column(DateTime, default=func.now())
+    expires_at = Column(DateTime, nullable=False)
+
 
 

@@ -211,6 +211,87 @@ CREATE TABLE IF NOT EXISTS prompt_expert_drafts (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS analytics_channels (
+    id TEXT PRIMARY KEY,
+    external_channel_id TEXT UNIQUE NOT NULL,
+    channel_name TEXT NOT NULL,
+    channel_handle TEXT,
+    is_own INTEGER DEFAULT 1,
+    sync_status TEXT DEFAULT 'pending',
+    last_error TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    last_sync_at DATETIME
+);
+
+CREATE TABLE IF NOT EXISTS analytics_channel_identities (
+    id TEXT PRIMARY KEY,
+    analytics_channel_id TEXT NOT NULL,
+    identity_reference_id TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS analytics_workspace_links (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL,
+    analytics_channel_id TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS analytics_videos (
+    id TEXT PRIMARY KEY,
+    external_video_id TEXT NOT NULL,
+    analytics_channel_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    published_at DATETIME NOT NULL,
+    duration_seconds INTEGER,
+    thumbnail_url TEXT,
+    category TEXT
+);
+
+CREATE TABLE IF NOT EXISTS analytics_snapshots (
+    id TEXT PRIMARY KEY,
+    target_id TEXT NOT NULL,
+    target_type TEXT NOT NULL,
+    metric_source TEXT NOT NULL,
+    snapshot_date DATETIME NOT NULL,
+    views INTEGER DEFAULT 0,
+    watch_time REAL DEFAULT 0.0,
+    subscribers INTEGER DEFAULT 0,
+    impressions INTEGER DEFAULT 0,
+    ctr REAL DEFAULT 0.0,
+    likes INTEGER DEFAULT 0,
+    comments INTEGER DEFAULT 0,
+    retention_json TEXT
+);
+
+CREATE TABLE IF NOT EXISTS google_trends_snapshots (
+    id TEXT PRIMARY KEY,
+    query_term TEXT NOT NULL,
+    geo TEXT NOT NULL,
+    category TEXT,
+    source TEXT NOT NULL,
+    snapshot_date DATETIME NOT NULL,
+    interest_value INTEGER DEFAULT 0,
+    related_queries_json TEXT,
+    related_topics_json TEXT
+);
+
+CREATE TABLE IF NOT EXISTS analytics_insights (
+    id TEXT PRIMARY KEY,
+    analytics_channel_id TEXT,
+    scope TEXT NOT NULL,
+    insight_type TEXT NOT NULL,
+    insight_version INTEGER DEFAULT 1,
+    payload_version INTEGER DEFAULT 1,
+    confidence_score REAL DEFAULT 1.0,
+    title TEXT NOT NULL,
+    summary TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    generated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    expires_at DATETIME NOT NULL
+);
+
 
 
 

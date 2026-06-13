@@ -466,5 +466,87 @@ class DraftApproveRequest(BaseModel):
     notes: str
 
 
+# Sprint A: Analytics schemas
+class ObserveChannelRequest(BaseModel):
+    external_channel_id: str
+    is_own: bool = True
+    workspace_id: Optional[str] = None
+
+
+class LinkChannelIdentityRequest(BaseModel):
+    identity_reference_id: str
+
+
+class AnalyticsChannelResponse(BaseModel):
+    id: str
+    external_channel_id: str
+    channel_name: str
+    channel_handle: Optional[str] = None
+    is_own: bool
+    sync_status: str
+    last_error: Optional[str] = None
+    created_at: datetime
+    last_sync_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AnalyticsOverviewResponse(BaseModel):
+    channel_id: str
+    views: int
+    watch_time: float
+    subscribers: int
+    impressions: int
+    ctr: float
+    likes: int
+    comments: int
+    last_sync_at: Optional[datetime] = None
+
+
+class AnalyticsVideoResponse(BaseModel):
+    id: str
+    external_video_id: str
+    analytics_channel_id: str
+    title: str
+    published_at: datetime
+    duration_seconds: Optional[int] = None
+    thumbnail_url: Optional[str] = None
+    category: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AnalyticsInsightResponse(BaseModel):
+    id: str
+    analytics_channel_id: Optional[str] = None
+    scope: str
+    insight_type: str
+    insight_version: int
+    payload_version: int
+    confidence_score: float
+    title: str
+    summary: str
+    payload_json: str
+    created_at: datetime
+    generated_at: datetime
+    expires_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class GoogleTrendsSnapshotResponse(BaseModel):
+    id: str
+    query_term: str
+    geo: str
+    category: Optional[str] = None
+    source: str
+    snapshot_date: datetime
+    interest_value: int
+    related_queries_json: Optional[str] = None
+    related_topics_json: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 
 
