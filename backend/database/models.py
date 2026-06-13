@@ -371,6 +371,7 @@ class AnalyticsChannel(Base):
     channel_name = Column(String, nullable=False)
     channel_handle = Column(String, nullable=True)
     is_own = Column(Boolean, default=True)
+    analytics_type = Column(String, default="observed", nullable=False)
     sync_status = Column(String, default="pending")
     last_error = Column(String, nullable=True)
     is_archived = Column(Boolean, default=False, nullable=False)
@@ -392,7 +393,7 @@ class AnalyticsWorkspaceLink(Base):
     __tablename__ = "analytics_workspace_links"
 
     id = Column(String, primary_key=True)
-    workspace_id = Column(String, nullable=False)
+    channel_id = Column(String, nullable=False)
     analytics_channel_id = Column(String, nullable=False)
     created_at = Column(DateTime, default=func.now())
 

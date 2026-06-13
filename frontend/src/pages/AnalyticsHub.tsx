@@ -11,6 +11,7 @@ import {
     getAnalyticsIdentities, 
     assignWorkspaceChannel, 
     linkChannelIdentity,
+    getAnalyticsHealth,
     getChannels 
 } from '../services/api';
 import { 
@@ -87,6 +88,12 @@ export default function AnalyticsHub() {
         enabled: !!selectedChannel
     });
 
+    const { data: healthData } = useQuery({
+        queryKey: ['analyticsHealth'],
+        queryFn: getAnalyticsHealth,
+        refetchInterval: 10000 // Refetch health data every 10 seconds
+    });
+
     // Mutations
     const observeMutation = useMutation({
         mutationFn: observeAnalyticsChannel,
@@ -94,6 +101,7 @@ export default function AnalyticsHub() {
             queryClient.invalidateQueries({ queryKey: ['analyticsChannels'] });
             queryClient.invalidateQueries({ queryKey: ['workspaceLinks'] });
             queryClient.invalidateQueries({ queryKey: ['syncLogs'] });
+            queryClient.invalidateQueries({ queryKey: ['analyticsHealth'] });
             toast.success('Channel is now being observed');
             setIsObserveOpen(false);
             setExternalChannelId('');
@@ -111,6 +119,7 @@ export default function AnalyticsHub() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['analyticsChannels'] });
             queryClient.invalidateQueries({ queryKey: ['syncLogs'] });
+            queryClient.invalidateQueries({ queryKey: ['analyticsHealth'] });
             toast.success('Sync request queued');
         },
         onError: () => {
@@ -122,6 +131,7 @@ export default function AnalyticsHub() {
         mutationFn: archiveAnalyticsChannel,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['analyticsChannels'] });
+            queryClient.invalidateQueries({ queryKey: ['analyticsHealth'] });
             toast.success('Channel archived logically');
         },
         onError: () => {
@@ -134,7 +144,7 @@ export default function AnalyticsHub() {
             assignWorkspaceChannel(channelId, workspaceChannelId),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['workspaceLinks'] });
-            toast.success('Workspace channel assignment updated');
+            toast.success('Workspace sub-channel assignment updated');
         },
         onError: () => {
             toast.error('Failed to update workspace assignment');
@@ -147,6 +157,7 @@ export default function AnalyticsHub() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['identities'] });
             queryClient.invalidateQueries({ queryKey: ['analyticsChannels'] });
+            queryClient.invalidateQueries({ queryKey: ['analyticsHealth'] });
             toast.success('OAuth identity linked successfully');
         },
         onError: () => {
@@ -154,11 +165,13 @@ export default function AnalyticsHub() {
         }
     });
 
-    // Health Stats Calculations
-    const totalCount = channels.length;
-    const healthyCount = channels.filter(c => c.sync_status === 'SUCCESS').length;
-    const pendingCount = channels.filter(c => c.sync_status === 'PENDING' || c.sync_status === 'SYNCING').length;
-    const errorCount = channels.filter(c => c.sync_status === 'FAILED').length;
+    // Health Stats Calculations from Endpoint with local fallback
+    const totalCount = healthData?.active_channels ?? channels.length;
+    const healthyCount = healthData 
+        ? Math.max(0, healthData.active_channels - healthData.failed_sync - healthData.pending_sync) 
+        : channels.filter(c => c.sync_status === 'SUCCESS').length;
+    const pendingCount = healthData?.pending_sync ?? channels.filter(c => c.sync_status === 'PENDING' || c.sync_status === 'SYNCING').length;
+    const errorCount = healthData?.failed_sync ?? channels.filter(c => c.sync_status === 'FAILED').length;
     
     // Stale: last_sync_at > 7 days ago
     const staleCount = channels.filter(c => {
@@ -188,9 +201,14 @@ export default function AnalyticsHub() {
                     <h1 className="text-2xl font-bold flex items-center gap-2 text-primary">
                         <TrendingUp className="w-6 h-6 text-red-500" />
                         Analytics Hub
+                        {healthData && (
+                            <span className={`w-2.5 h-2.5 rounded-full inline-block ${
+                                healthData.collector_status === 'healthy' ? 'bg-green-500' : 'bg-red-500'
+                            }`} title={`Collector status: ${healthData.collector_status}`} />
+                        )}
                     </h1>
                     <p className="text-sm text-muted-foreground mt-1">
-                        Sprint A — Monitor and observe metrics across owned, competitor, and observed YouTube channels.
+                        Sprint A Review — Monitor and observe metrics across owned, competitor, and observed YouTube channels.
                     </p>
                 </div>
                 <button 
@@ -322,21 +340,34 @@ export default function AnalyticsHub() {
                                     <th className="p-4 font-semibold">Status</th>
                                     <th className="p-4 font-semibold text-right">Actions</th>
                                 </tr>
-                            </table>
+                            </thead>
                             
                             {isChannelsLoading ? (
-                                <div className="p-8 text-center text-muted-foreground">Loading observed channels...</div>
+                                <tbody>
+                                    <tr>
+                                        <td colSpan={7} className="p-8 text-center text-muted-foreground">Loading observed channels...</td>
+                                    </tr>
+                                </tbody>
                             ) : channels.length === 0 ? (
-                                <div className="p-12 text-center text-muted-foreground">
-                                    No observed channels yet. Click "Observe Channel" to start monitoring.
-                                </div>
+                                <tbody>
+                                    <tr>
+                                        <td colSpan={7} className="p-12 text-center text-muted-foreground">
+                                            No observed channels yet. Click "Observe Channel" to start monitoring.
+                                        </td>
+                                    </tr>
+                                </tbody>
                             ) : (
-                                <div className="divide-y divide-border">
+                                <tbody className="divide-y divide-border">
                                     {channels.map((channel) => {
                                         const typeColor = 
-                                            channel.is_own ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' : 
-                                            channel.sync_status === 'competitor' ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' : 
+                                            channel.analytics_type === 'owned' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' : 
+                                            channel.analytics_type === 'competitor' ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' : 
                                             'bg-teal-500/10 text-teal-400 border border-teal-500/20';
+
+                                        const typeLabel = 
+                                            channel.analytics_type === 'owned' ? 'Owned' : 
+                                            channel.analytics_type === 'competitor' ? 'Competitor' : 
+                                            'Observed';
                                             
                                         const statusBadge = 
                                             channel.sync_status === 'SUCCESS' ? 'bg-green-500/10 text-green-500 border border-green-500/20' :
@@ -346,47 +377,49 @@ export default function AnalyticsHub() {
                                             'bg-red-500/10 text-red-500 border border-red-500/20';
 
                                         return (
-                                            <div key={channel.id} className="flex flex-row items-center border-b border-border/50 hover:bg-secondary/20 transition-all p-4">
-                                                <div className="w-[25%] flex flex-col pr-4">
-                                                    <span className="font-semibold text-foreground text-sm flex items-center gap-1.5 truncate">
-                                                        {channel.channel_name}
-                                                    </span>
-                                                    <span className="text-xs font-mono text-muted-foreground/80 truncate">
-                                                        {channel.channel_handle || channel.external_channel_id}
-                                                    </span>
-                                                </div>
+                                            <tr key={channel.id} className="hover:bg-secondary/20 transition-all">
+                                                <td className="p-4">
+                                                    <div className="flex flex-col">
+                                                        <span className="font-semibold text-foreground text-sm flex items-center gap-1.5 truncate">
+                                                            {channel.channel_name}
+                                                        </span>
+                                                        <span className="text-xs font-mono text-muted-foreground/80 truncate">
+                                                            {channel.channel_handle || channel.external_channel_id}
+                                                        </span>
+                                                    </div>
+                                                </td>
 
-                                                <div className="w-[12%] text-xs font-medium uppercase pr-4">
+                                                <td className="p-4 text-xs font-medium uppercase">
                                                     <span className={`px-2.5 py-1 rounded-full text-[10px] tracking-wide ${typeColor}`}>
-                                                        {channel.is_own ? 'owned' : 'competitor'}
+                                                        {typeLabel}
                                                     </span>
-                                                </div>
+                                                </td>
 
-                                                <div className="w-[13%] text-sm pr-4">
+                                                <td className="p-4 text-sm font-mono">
                                                     {channel.sync_status === 'PENDING' ? (
-                                                        <span className="text-xs text-muted-foreground italic">Pending Initial Sync</span>
+                                                        <span className="text-xs text-muted-foreground italic font-sans">Pending Initial Sync</span>
                                                     ) : (
-                                                        <span className="font-mono font-medium">—</span>
+                                                        <span className="font-medium">—</span>
                                                     )}
-                                                </div>
+                                                </td>
 
-                                                <div className="w-[18%] text-xs text-muted-foreground pr-4 font-mono">
+                                                <td className="p-4 text-xs text-muted-foreground font-mono">
                                                     {channel.last_sync_at ? new Date(channel.last_sync_at).toLocaleString() : 'Never'}
-                                                </div>
+                                                </td>
 
-                                                <div className="w-[12%] text-xs font-mono text-muted-foreground pr-4">
+                                                <td className="p-4 text-xs font-mono text-muted-foreground">
                                                     {channel.last_sync_duration_seconds !== null && channel.last_sync_duration_seconds !== undefined
                                                         ? `${channel.last_sync_duration_seconds}s` 
                                                         : '—'}
-                                                </div>
+                                                </td>
 
-                                                <div className="w-[12%] pr-4">
+                                                <td className="p-4">
                                                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wider border ${statusBadge}`}>
                                                         {channel.sync_status}
                                                     </span>
-                                                </div>
+                                                </td>
 
-                                                <div className="w-[8%] flex items-center justify-end gap-2.5">
+                                                <td className="p-4 flex items-center justify-end gap-2.5">
                                                     <button 
                                                         onClick={() => setSelectedChannel(channel)}
                                                         title="View Details"
@@ -409,11 +442,11 @@ export default function AnalyticsHub() {
                                                     >
                                                         <Archive className="w-4 h-4" />
                                                     </button>
-                                                </div>
-                                            </div>
+                                                </td>
+                                            </tr>
                                         );
                                     })}
-                                </div>
+                                </tbody>
                             )}
                         </table>
                     </div>
@@ -431,13 +464,13 @@ export default function AnalyticsHub() {
                     </div>
 
                     <div className="p-6 space-y-6">
-                        {channels.filter(c => c.is_own).length === 0 ? (
+                        {channels.filter(c => c.is_own || c.analytics_type === 'owned').length === 0 ? (
                             <div className="p-8 text-center text-muted-foreground border border-dashed border-border rounded-lg">
                                 No owned observed channels registered. Register an owned observed channel first.
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 gap-6">
-                                {channels.filter(c => c.is_own).map(channel => {
+                                {channels.filter(c => c.is_own || c.analytics_type === 'owned').map(channel => {
                                     const linkedIdentity = identities.find(i => i.analytics_channel_id === channel.id);
                                     const linkedLocalChannel = localChannels.find(lc => lc.id === linkedIdentity?.identity_reference_id);
                                     const hasOauthConnected = linkedLocalChannel?.oauth_status === 'OAuth Connected';
@@ -517,15 +550,19 @@ export default function AnalyticsHub() {
                             <div className="space-y-4">
                                 {channels.map(channel => {
                                     const linkedLink = workspaceLinks.find(wl => wl.analytics_channel_id === channel.id);
-                                    const linkedLocalChannel = localChannels.find(lc => lc.id === linkedLink?.workspace_id);
+                                    const linkedLocalChannel = localChannels.find(lc => lc.id === linkedLink?.channel_id);
 
                                     return (
                                         <div key={channel.id} className="bg-secondary/20 border border-border p-4 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-border transition-all">
                                             <div>
                                                 <div className="flex items-center gap-2">
                                                     <h4 className="font-semibold text-sm">{channel.channel_name}</h4>
-                                                    <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${channel.is_own ? 'bg-indigo-500/10 text-indigo-400' : 'bg-teal-500/10 text-teal-400'}`}>
-                                                        {channel.is_own ? 'owned' : 'observed'}
+                                                    <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
+                                                        channel.analytics_type === 'owned' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' : 
+                                                        channel.analytics_type === 'competitor' ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' : 
+                                                        'bg-teal-500/10 text-teal-400 border border-teal-500/20'
+                                                    }`}>
+                                                        {channel.analytics_type}
                                                     </span>
                                                 </div>
                                                 <p className="text-xs text-muted-foreground font-mono mt-1">{channel.channel_handle || channel.external_channel_id}</p>
@@ -533,7 +570,7 @@ export default function AnalyticsHub() {
 
                                             <div className="flex items-center gap-3">
                                                 <select
-                                                    value={linkedLink?.workspace_id || ''}
+                                                    value={linkedLink?.channel_id || ''}
                                                     onChange={(e) => {
                                                         assignWorkspaceMutation.mutate({
                                                             channelId: channel.id,
@@ -724,7 +761,7 @@ export default function AnalyticsHub() {
                                         <div className="bg-secondary/30 p-4 border border-border rounded-lg">
                                             <p className="text-xs text-muted-foreground uppercase font-semibold">Subscribers</p>
                                             <p className="text-xl font-bold font-mono mt-1">
-                                                {overview.subscribers ? overview.subscribers.toLocaleString() : 'Pending Initial Sync'}
+                                                {overview.subscribers ? overview.subscribers.toLocaleString() : 'Pending Sync'}
                                             </p>
                                         </div>
                                         <div className="bg-secondary/30 p-4 border border-border rounded-lg">

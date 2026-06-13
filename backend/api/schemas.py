@@ -492,6 +492,7 @@ class AnalyticsChannelResponse(BaseModel):
     channel_name: str
     channel_handle: Optional[str] = None
     is_own: bool
+    analytics_type: str
     sync_status: str
     last_error: Optional[str] = None
     is_archived: bool

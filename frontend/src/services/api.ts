@@ -385,7 +385,7 @@ export const revokeCompanionRuntime = (id: string) =>
 // Analytics API helpers
 export const getAnalyticsChannels = (channelId?: string) => {
     const params: any = {};
-    if (channelId) params.workspace_id = channelId;
+    if (channelId) params.channel_id = channelId;
     return api.get<AnalyticsChannel[]>('/analytics/channels', { params }).then(res => res.data);
 };
 
@@ -419,6 +419,9 @@ export const getAnalyticsIdentities = () =>
 
 export const assignWorkspaceChannel = (channelId: string, workspaceChannelId: string | null) =>
     api.post<{ message: string }>(`/analytics/channels/${channelId}/assign-workspace`, { channel_id: workspaceChannelId }).then(res => res.data);
+
+export const getAnalyticsHealth = () =>
+    api.get<any>('/analytics/health').then(res => res.data);
 
 export default api;
 

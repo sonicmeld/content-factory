@@ -217,6 +217,7 @@ CREATE TABLE IF NOT EXISTS analytics_channels (
     channel_name TEXT NOT NULL,
     channel_handle TEXT,
     is_own INTEGER DEFAULT 1,
+    analytics_type TEXT DEFAULT 'observed' NOT NULL,
     sync_status TEXT DEFAULT 'pending',
     last_error TEXT,
     is_archived INTEGER DEFAULT 0 NOT NULL,
@@ -234,7 +235,7 @@ CREATE TABLE IF NOT EXISTS analytics_channel_identities (
 
 CREATE TABLE IF NOT EXISTS analytics_workspace_links (
     id TEXT PRIMARY KEY,
-    workspace_id TEXT NOT NULL,
+    channel_id TEXT NOT NULL,
     analytics_channel_id TEXT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );

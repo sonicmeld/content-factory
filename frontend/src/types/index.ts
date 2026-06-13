@@ -310,6 +310,7 @@ export interface AnalyticsChannel {
     channel_name: string;
     channel_handle?: string;
     is_own: boolean;
+    analytics_type: 'owned' | 'competitor' | 'observed';
     sync_status: AnalyticsSyncStatus | string;
     last_error?: string;
     is_archived: boolean;
@@ -348,7 +349,7 @@ export interface AnalyticsChannelIdentity {
 
 export interface AnalyticsWorkspaceLink {
     id: string;
-    workspace_id: string;
+    channel_id: string;
     analytics_channel_id: string;
     created_at: string;
 }

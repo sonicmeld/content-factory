@@ -185,10 +185,10 @@ def cleanup_sync_logs_retention(db: Session):
         db.rollback()
 
 @router.get("/channels", response_model=List[AnalyticsChannelResponse])
-def list_observed_channels(workspace_id: Optional[str] = None, db: Session = Depends(get_db)):
+def list_observed_channels(channel_id: Optional[str] = None, db: Session = Depends(get_db)):
     query = db.query(AnalyticsChannel).filter(AnalyticsChannel.is_archived == False)
-    if workspace_id:
-        links = db.query(AnalyticsWorkspaceLink).filter(AnalyticsWorkspaceLink.workspace_id == workspace_id).all()
+    if channel_id:
+        links = db.query(AnalyticsWorkspaceLink).filter(AnalyticsWorkspaceLink.channel_id == channel_id).all()
         channel_ids = [link.analytics_channel_id for link in links]
         return query.filter(AnalyticsChannel.id.in_(channel_ids)).all()
     return query.all()
@@ -203,11 +203,13 @@ def observe_channel(request: ObserveChannelRequest, db: Session = Depends(get_db
     ).first()
 
     is_own = (request.analytics_type == "owned")
+    analytics_type = request.analytics_type
 
     if channel:
         if channel.is_archived:
             channel.is_archived = False
         channel.is_own = is_own
+        channel.analytics_type = analytics_type
         # Reset sync status if it was disabled or archived
         if channel.sync_status == AnalyticsSyncStatus.DISABLED.value:
             channel.sync_status = AnalyticsSyncStatus.PENDING.value
@@ -236,6 +238,7 @@ def observe_channel(request: ObserveChannelRequest, db: Session = Depends(get_db
             channel_name=channel_name,
             channel_handle=channel_handle,
             is_own=is_own,
+            analytics_type=analytics_type,
             sync_status=AnalyticsSyncStatus.PENDING.value,
             is_archived=False
         )
@@ -246,13 +249,13 @@ def observe_channel(request: ObserveChannelRequest, db: Session = Depends(get_db
     # Associate with workspace channel if provided
     if request.channel_id:
         link = db.query(AnalyticsWorkspaceLink).filter(
-            AnalyticsWorkspaceLink.workspace_id == request.channel_id,
+            AnalyticsWorkspaceLink.channel_id == request.channel_id,
             AnalyticsWorkspaceLink.analytics_channel_id == channel.id
         ).first()
         if not link:
             link = AnalyticsWorkspaceLink(
                 id=str(uuid.uuid4()),
-                workspace_id=request.channel_id,
+                channel_id=request.channel_id,
                 analytics_channel_id=channel.id
             )
             db.add(link)
@@ -289,6 +292,7 @@ def link_channel_identity(channel_id: str, request: LinkChannelIdentityRequest, 
 
     # Marking the channel as owned
     channel.is_own = True
+    channel.analytics_type = "owned"
     db.commit()
 
     # Trigger sync synchronously (so returned value has correct status)
@@ -404,7 +408,7 @@ def assign_workspace_channel(channel_id: str, request: AssignWorkspaceRequest, d
     if request.channel_id:
         link = AnalyticsWorkspaceLink(
             id=str(uuid.uuid4()),
-            workspace_id=request.channel_id,
+            channel_id=request.channel_id,
             analytics_channel_id=channel_id
         )
         db.add(link)
@@ -414,9 +418,41 @@ def assign_workspace_channel(channel_id: str, request: AssignWorkspaceRequest, d
 @router.get("/workspace-links")
 def list_workspace_links(db: Session = Depends(get_db)):
     links = db.query(AnalyticsWorkspaceLink).all()
-    return [{"id": l.id, "workspace_id": l.workspace_id, "analytics_channel_id": l.analytics_channel_id} for l in links]
+    return [{"id": l.id, "channel_id": l.channel_id, "analytics_channel_id": l.analytics_channel_id} for l in links]
 
 @router.get("/identities")
 def list_identities(db: Session = Depends(get_db)):
     identities = db.query(AnalyticsChannelIdentity).all()
     return [{"id": i.id, "analytics_channel_id": i.analytics_channel_id, "identity_reference_id": i.identity_reference_id} for i in identities]
+
+@router.get("/health")
+def get_analytics_health(db: Session = Depends(get_db)):
+    # count active observed channels
+    active_count = db.query(AnalyticsChannel).filter(AnalyticsChannel.is_archived == False).count()
+    
+    # Count pending and failed syncs
+    pending_count = db.query(AnalyticsChannel).filter(
+        AnalyticsChannel.is_archived == False,
+        AnalyticsChannel.sync_status.in_([AnalyticsSyncStatus.PENDING.value, AnalyticsSyncStatus.SYNCING.value])
+    ).count()
+    
+    failed_count = db.query(AnalyticsChannel).filter(
+        AnalyticsChannel.is_archived == False,
+        AnalyticsChannel.sync_status == AnalyticsSyncStatus.FAILED.value
+    ).count()
+    
+    # Check the last log
+    last_log = db.query(AnalyticsSyncLog).order_by(AnalyticsSyncLog.started_at.desc()).first()
+    last_run_at = last_log.started_at.isoformat() if last_log else None
+    
+    collector_status = "healthy"
+    if failed_count > 0:
+        collector_status = "unhealthy"
+        
+    return {
+        "collector_status": collector_status,
+        "last_run_at": last_run_at,
+        "active_channels": active_count,
+        "pending_sync": pending_count,
+        "failed_sync": failed_count
+    }
