@@ -338,3 +338,118 @@ class TestAnalytics(unittest.TestCase):
         self.assertEqual(logs[0]["channel_name"], "Test Logging Channel")
         self.assertEqual(logs[0]["status"], "SUCCESS")
         self.assertIsNotNone(logs[0]["duration_seconds"])
+
+    def test_explorer_endpoints_and_comparison(self):
+        from database.models import AnalyticsChannel, AnalyticsSnapshot, AnalyticsVideo
+        from datetime import datetime, timedelta, timezone
+
+        # 1. Create channels
+        ch1 = AnalyticsChannel(
+            id="ch-1",
+            external_channel_id="UCch1",
+            channel_name="Channel One",
+            is_own=True,
+            analytics_type="owned",
+            sync_status="SUCCESS",
+            last_sync_at=datetime.now(timezone.utc)
+        )
+        ch2 = AnalyticsChannel(
+            id="ch-2",
+            external_channel_id="UCch2",
+            channel_name="Channel Two",
+            is_own=False,
+            analytics_type="competitor",
+            sync_status="SUCCESS",
+            last_sync_at=datetime.now(timezone.utc)
+        )
+        self.db.add_all([ch1, ch2])
+        self.db.commit()
+
+        # 2. Add snapshots for timelines
+        base_date = datetime.now(timezone.utc) - timedelta(days=5)
+        for i in range(5):
+            d = base_date + timedelta(days=i)
+            # ch1 snapshots
+            snap1 = AnalyticsSnapshot(
+                id=f"snap-1-{i}",
+                target_id="ch-1",
+                target_type="channel",
+                metric_source="youtube_analytics",
+                snapshot_date=d,
+                views=1000 + i * 200,
+                subscribers=100 + i * 10
+            )
+            # ch2 snapshots
+            snap2 = AnalyticsSnapshot(
+                id=f"snap-2-{i}",
+                target_id="ch-2",
+                target_type="channel",
+                metric_source="youtube_data_api",
+                snapshot_date=d,
+                views=5000 + i * 500,
+                subscribers=500 + i * 5
+            )
+            self.db.add_all([snap1, snap2])
+            
+        # Add a video to ch1 to test publishing pattern & videos endpoint
+        v1 = AnalyticsVideo(
+            id="video-1",
+            external_video_id="v1-ext",
+            analytics_channel_id="ch-1",
+            title="My video 1",
+            published_at=datetime.now(timezone.utc) - timedelta(days=1),
+            views=150,
+            likes=10,
+            comments=2
+        )
+        self.db.add(v1)
+        self.db.commit()
+
+        # Test GET /api/analytics/channels/ch-1/summary
+        resp = self.client.get("/api/analytics/channels/ch-1/summary")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertIn("channel", data)
+        self.assertIn("overview", data)
+        self.assertIn("publishing_pattern", data)
+        self.assertIn("diagnostics", data)
+        self.assertIn("meta", data)
+        self.assertEqual(data["meta"]["collector_version"], "Analytics Collector v1.0")
+        self.assertEqual(data["channel"]["channel_name"], "Channel One")
+
+        # Test GET /api/analytics/channels/ch-1/timeline
+        resp_timeline = self.client.get("/api/analytics/channels/ch-1/timeline?range=30")
+        self.assertEqual(resp_timeline.status_code, 200)
+        timeline_data = resp_timeline.json()
+        self.assertIn("timeline", timeline_data)
+        self.assertIn("subscriber_delta", timeline_data)
+        self.assertGreater(len(timeline_data["timeline"]), 0)
+        self.assertEqual(timeline_data["subscriber_delta"], 40)
+
+        # Test GET /api/analytics/compare
+        # Valid compare
+        resp_compare = self.client.get("/api/analytics/compare?channel_ids=ch-1,ch-2")
+        self.assertEqual(resp_compare.status_code, 200)
+        comp_data = resp_compare.json()
+        self.assertIn("subscribers_timeline", comp_data)
+        self.assertIn("views_timeline", comp_data)
+        self.assertIn("channels", comp_data)
+        self.assertEqual(len(comp_data["channels"]), 2)
+        
+        # Verify normalization/alignment shape
+        sub_t = comp_data["subscribers_timeline"]
+        self.assertGreater(len(sub_t), 0)
+        first_point = sub_t[0]
+        self.assertIn("date", first_point)
+        self.assertIn("ch-1", first_point)
+        self.assertIn("ch-2", first_point)
+        self.assertEqual(first_point["ch-1"], 100)
+        self.assertEqual(first_point["ch-2"], 500)
+
+        # Invalid compare: too few or too many
+        resp_err1 = self.client.get("/api/analytics/compare?channel_ids=ch-1")
+        self.assertEqual(resp_err1.status_code, 400)
+        
+        resp_err2 = self.client.get("/api/analytics/compare?channel_ids=ch-1,ch-2,ch-3,ch-4,ch-5,ch-6")
+        self.assertEqual(resp_err2.status_code, 400)
+

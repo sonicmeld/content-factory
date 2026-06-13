@@ -409,6 +409,9 @@ class AnalyticsVideo(Base):
     duration_seconds = Column(Integer, nullable=True)
     thumbnail_url = Column(String, nullable=True)
     category = Column(String, nullable=True)
+    views = Column(Integer, default=0, nullable=False)
+    likes = Column(Integer, default=0, nullable=False)
+    comments = Column(Integer, default=0, nullable=False)
 
 
 class AnalyticsSnapshot(Base):

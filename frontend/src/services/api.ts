@@ -373,7 +373,16 @@ export const approvePromptDraft = (id: string, data: {
 export const discardPromptDraft = (id: string) =>
     api.post<{ message: string }>(`/prompt-experts/drafts/${id}/discard`).then(res => res.data);
 
-import type { CompanionRuntime, AnalyticsChannel, AnalyticsOverview, SyncActivityLog } from '../types';
+import type { 
+    CompanionRuntime, 
+    AnalyticsChannel, 
+    AnalyticsOverview, 
+    SyncActivityLog,
+    AnalyticsVideo,
+    ExplorerSummaryResponse,
+    TimelineResponse,
+    ComparisonResponse
+} from '../types';
 export type { AnalyticsSyncStatus } from '../types';
 
 export const getCompanionRuntimes = () =>
@@ -422,6 +431,18 @@ export const assignWorkspaceChannel = (channelId: string, workspaceChannelId: st
 
 export const getAnalyticsHealth = () =>
     api.get<any>('/analytics/health').then(res => res.data);
+
+export const getChannelSummary = (channelId: string) =>
+    api.get<ExplorerSummaryResponse>(`/analytics/channels/${channelId}/summary`).then(res => res.data);
+
+export const getChannelTimeline = (channelId: string, range: string) =>
+    api.get<TimelineResponse>(`/analytics/channels/${channelId}/timeline`, { params: { range } }).then(res => res.data);
+
+export const getChannelVideos = (channelId: string, params?: { sort?: string; query?: string; page?: number; limit?: number }) =>
+    api.get<AnalyticsVideo[]>(`/analytics/channels/${channelId}/videos`, { params }).then(res => res.data);
+
+export const compareChannels = (channelIds: string) =>
+    api.get<ComparisonResponse>('/analytics/compare', { params: { channel_ids: channelIds } }).then(res => res.data);
 
 export default api;
 

@@ -347,3 +347,77 @@ export interface AnalyticsWorkspaceLink {
     analytics_channel_id: string;
     created_at: string;
 }
+
+export interface AnalyticsVideo {
+    id: string;
+    external_video_id: string;
+    analytics_channel_id: string;
+    title: string;
+    published_at: string;
+    duration_seconds?: number;
+    thumbnail_url?: string;
+    category?: string;
+    views: number;
+    likes: number;
+    comments: number;
+}
+
+export interface ExplorerSummaryResponse {
+    channel: AnalyticsChannel;
+    overview: AnalyticsOverview;
+    publishing_pattern: {
+        upload_frequency: string;
+        average_interval_days: number;
+        interval_stddev: number;
+        most_active_day: string;
+        most_active_hour: number;
+        consistency_score: number;
+        posting_habit: string;
+    };
+    diagnostics: {
+        sync_status: string;
+        last_error?: string;
+        last_sync_duration_seconds?: number;
+        last_sync_at?: string;
+        collector_health_score: number;
+        last_successful_sync_at?: string;
+        last_failed_sync_at?: string;
+    };
+    meta: {
+        collector_version: string;
+        generated_at: string;
+    };
+}
+
+export interface TimelineDataPoint {
+    date: string;
+    views: number;
+    subscribers: number;
+    watch_time: number;
+    impressions: number;
+    ctr: number;
+}
+
+export interface TimelineResponse {
+    timeline: TimelineDataPoint[];
+    subscriber_delta: number;
+    subscriber_growth_rate: number;
+    view_delta: number;
+    view_growth_rate: number;
+}
+
+export interface ComparisonChannelMeta {
+    id: string;
+    channel_name: string;
+    channel_handle?: string;
+    analytics_type: 'owned' | 'competitor' | 'observed';
+    subscribers: number;
+    views: number;
+    video_count: number;
+}
+
+export interface ComparisonResponse {
+    subscribers_timeline: any[];
+    views_timeline: any[];
+    channels: ComparisonChannelMeta[];
+}

@@ -201,18 +201,11 @@ def sync_owned_channel(db: Session, analytics_channel_id: str):
                 except Exception:
                     v_views, v_likes, v_comments = 0, 0, 0
                 
-                # Save video snapshot
-                v_snapshot = AnalyticsSnapshot(
-                    id=str(uuid.uuid4()),
-                    target_id=video.id,
-                    target_type="video",
-                    metric_source="youtube_data_api",
-                    snapshot_date=datetime.now(timezone.utc),
-                    views=v_views,
-                    likes=v_likes,
-                    comments=v_comments
-                )
-                db.add(v_snapshot)
+                # Save video metrics
+                video.views = v_views
+                video.likes = v_likes
+                video.comments = v_comments
+                db.commit()
         except Exception as search_err:
             print(f"Failed to fetch videos for channel: {search_err}")
 
@@ -347,18 +340,11 @@ def sync_competitor_channel(db: Session, analytics_channel_id: str):
                 except Exception:
                     v_views, v_likes, v_comments = 0, 0, 0
                 
-                # Save video snapshot
-                v_snapshot = AnalyticsSnapshot(
-                    id=str(uuid.uuid4()),
-                    target_id=video.id,
-                    target_type="video",
-                    metric_source="youtube_data_api",
-                    snapshot_date=datetime.now(timezone.utc),
-                    views=v_views,
-                    likes=v_likes,
-                    comments=v_comments
-                )
-                db.add(v_snapshot)
+                # Save video metrics
+                video.views = v_views
+                video.likes = v_likes
+                video.comments = v_comments
+                db.commit()
         except Exception as search_err:
             print(f"Failed to fetch videos for competitor channel: {search_err}")
             

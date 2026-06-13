@@ -29,6 +29,11 @@ from api.schemas import (
     SyncActivityLog
 )
 from services.analytics.collector import sync_channel, get_any_youtube_client
+from services.analytics.explorer import (
+    get_channel_timeline,
+    get_publishing_pattern,
+    compare_channels_data
+)
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
@@ -372,14 +377,39 @@ def get_channel_overview(channel_id: str, db: Session = Depends(get_db)):
     )
 
 @router.get("/channels/{channel_id}/videos", response_model=List[AnalyticsVideoResponse])
-def get_channel_videos(channel_id: str, db: Session = Depends(get_db)):
+def get_channel_videos(
+    channel_id: str,
+    sort: str = "newest",
+    query: Optional[str] = None,
+    limit: Optional[int] = None,
+    page: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
     channel = db.query(AnalyticsChannel).filter(AnalyticsChannel.id == channel_id).first()
     if not channel:
         raise HTTPException(status_code=404, detail="Observed channel not found")
 
-    return db.query(AnalyticsVideo).filter(
-        AnalyticsVideo.analytics_channel_id == channel_id
-    ).order_by(AnalyticsVideo.published_at.desc()).all()
+    q = db.query(AnalyticsVideo).filter(AnalyticsVideo.analytics_channel_id == channel_id)
+    
+    if query:
+        q = q.filter(AnalyticsVideo.title.like(f"%{query}%"))
+        
+    if sort == "views":
+        q = q.order_by(AnalyticsVideo.views.desc())
+    elif sort == "likes":
+        q = q.order_by(AnalyticsVideo.likes.desc())
+    elif sort == "comments":
+        q = q.order_by(AnalyticsVideo.comments.desc())
+    else:
+        q = q.order_by(AnalyticsVideo.published_at.desc())
+        
+    if limit is not None:
+        if page is not None and page > 0:
+            offset = (page - 1) * limit
+            q = q.offset(offset)
+        q = q.limit(limit)
+        
+    return q.all()
 
 @router.get("/channels/{channel_id}/insights", response_model=List[AnalyticsInsightResponse])
 def get_channel_insights(channel_id: str, db: Session = Depends(get_db)):
@@ -456,3 +486,132 @@ def get_analytics_health(db: Session = Depends(get_db)):
         "pending_sync": pending_count,
         "failed_sync": failed_count
     }
+
+
+@router.get("/channels/{channel_id}/summary")
+def get_channel_summary_route(channel_id: str, db: Session = Depends(get_db)):
+    channel = db.query(AnalyticsChannel).filter(AnalyticsChannel.id == channel_id).first()
+    if not channel:
+        raise HTTPException(status_code=404, detail="Observed channel not found")
+        
+    # Get latest snapshot overview
+    snapshot = db.query(AnalyticsSnapshot).filter(
+        AnalyticsSnapshot.target_id == channel_id,
+        AnalyticsSnapshot.target_type == "channel"
+    ).order_by(AnalyticsSnapshot.snapshot_date.desc()).first()
+    
+    if not snapshot:
+        overview = {
+            "channel_id": channel_id,
+            "views": 0,
+            "watch_time": 0.0,
+            "subscribers": 0,
+            "impressions": 0,
+            "ctr": 0.0,
+            "likes": 0,
+            "comments": 0,
+            "last_sync_at": channel.last_sync_at
+        }
+    else:
+        overview = {
+            "channel_id": channel_id,
+            "views": snapshot.views or 0,
+            "watch_time": snapshot.watch_time or 0.0,
+            "subscribers": snapshot.subscribers or 0,
+            "impressions": snapshot.impressions or 0,
+            "ctr": snapshot.ctr or 0.0,
+            "likes": snapshot.likes or 0,
+            "comments": snapshot.comments or 0,
+            "last_sync_at": channel.last_sync_at
+        }
+        
+    # Get diagnostics health score & timestamps
+    logs = db.query(AnalyticsSyncLog).filter(
+        AnalyticsSyncLog.channel_name == channel.channel_name
+    ).order_by(AnalyticsSyncLog.started_at.desc()).limit(5).all()
+    
+    health_score = 100
+    if logs:
+        failed_count = sum(1 for l in logs if l.status == "FAILED")
+        health_score -= failed_count * 20
+        
+    if channel.last_sync_at:
+        last_sync = channel.last_sync_at
+        if last_sync.tzinfo is None:
+            last_sync = last_sync.replace(tzinfo=timezone.utc)
+        now = datetime.now(timezone.utc)
+        if (now - last_sync).days > 7:
+            health_score -= 25
+            
+    health_score = max(0, min(100, health_score))
+    
+    last_success_log = db.query(AnalyticsSyncLog).filter(
+        AnalyticsSyncLog.channel_name == channel.channel_name,
+        AnalyticsSyncLog.status == "SUCCESS"
+    ).order_by(AnalyticsSyncLog.started_at.desc()).first()
+    
+    last_failed_log = db.query(AnalyticsSyncLog).filter(
+        AnalyticsSyncLog.channel_name == channel.channel_name,
+        AnalyticsSyncLog.status == "FAILED"
+    ).order_by(AnalyticsSyncLog.started_at.desc()).first()
+    
+    diagnostics = {
+        "sync_status": channel.sync_status,
+        "last_error": channel.last_error,
+        "last_sync_duration_seconds": channel.last_sync_duration_seconds,
+        "last_sync_at": channel.last_sync_at,
+        "collector_health_score": health_score,
+        "last_successful_sync_at": last_success_log.finished_at if last_success_log else None,
+        "last_failed_sync_at": last_failed_log.finished_at if last_failed_log else None
+    }
+    
+    # Get publishing pattern
+    publishing_pattern = get_publishing_pattern(db, channel_id)
+    
+    # Structure versioned summary
+    return {
+        "channel": {
+            "id": channel.id,
+            "external_channel_id": channel.external_channel_id,
+            "channel_name": channel.channel_name,
+            "channel_handle": channel.channel_handle,
+            "is_own": channel.is_own,
+            "analytics_type": channel.analytics_type,
+            "sync_status": channel.sync_status,
+            "last_error": channel.last_error,
+            "is_archived": channel.is_archived,
+            "last_sync_duration_seconds": channel.last_sync_duration_seconds,
+            "created_at": channel.created_at,
+            "last_sync_at": channel.last_sync_at
+        },
+        "overview": overview,
+        "publishing_pattern": publishing_pattern,
+        "diagnostics": diagnostics,
+        "meta": {
+            "collector_version": "Analytics Collector v1.0",
+            "generated_at": datetime.now(timezone.utc).isoformat()
+        }
+    }
+
+
+@router.get("/channels/{channel_id}/timeline")
+def get_channel_timeline_route(
+    channel_id: str,
+    range: str = "30",
+    db: Session = Depends(get_db)
+):
+    channel = db.query(AnalyticsChannel).filter(AnalyticsChannel.id == channel_id).first()
+    if not channel:
+        raise HTTPException(status_code=404, detail="Observed channel not found")
+        
+    return get_channel_timeline(db, channel_id, range)
+
+
+@router.get("/compare")
+def compare_channels(channel_ids: str, db: Session = Depends(get_db)):
+    ids = [cid.strip() for cid in channel_ids.split(",") if cid.strip()]
+    if len(ids) < 2 or len(ids) > 5:
+        raise HTTPException(status_code=400, detail="Comparison limited to between 2 and 5 channels")
+        
+    return compare_channels_data(db, ids)
+

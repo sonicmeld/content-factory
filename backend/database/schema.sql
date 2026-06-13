@@ -248,7 +248,10 @@ CREATE TABLE IF NOT EXISTS analytics_videos (
     published_at DATETIME NOT NULL,
     duration_seconds INTEGER,
     thumbnail_url TEXT,
-    category TEXT
+    category TEXT,
+    views INTEGER DEFAULT 0 NOT NULL,
+    likes INTEGER DEFAULT 0 NOT NULL,
+    comments INTEGER DEFAULT 0 NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS analytics_snapshots (

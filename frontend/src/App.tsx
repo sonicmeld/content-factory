@@ -11,6 +11,8 @@ import GenerationCombos from './pages/GenerationCombos';
 import MetadataLibraryPage from './pages/MetadataLibraryPage';
 import GlobalExecutionCenterPage from './pages/GlobalExecutionCenterPage';
 import AnalyticsHub from './pages/AnalyticsHub';
+import AnalyticsChannelExplorer from './pages/AnalyticsChannelExplorer';
+import AnalyticsCompare from './pages/AnalyticsCompare';
 
 // Workspace Pages
 import WorkspaceOverview from './pages/workspace/WorkspaceOverview';
@@ -32,6 +34,8 @@ function App() {
         <Route element={<Layout><Outlet /></Layout>}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/analytics" element={<AnalyticsHub />} />
+          <Route path="/analytics/channel/:id" element={<AnalyticsChannelExplorer />} />
+          <Route path="/analytics/compare" element={<AnalyticsCompare />} />
           <Route path="/execution-center" element={<GlobalExecutionCenterPage />} />
           <Route path="/channels" element={<Channels />} />
           <Route path="/connectors" element={<ConnectorsPage />} />

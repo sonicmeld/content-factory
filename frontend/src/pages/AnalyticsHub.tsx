@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
     getAnalyticsChannels, 
@@ -39,7 +40,9 @@ type TabType = 'registry' | 'identity' | 'workspace' | 'queue';
 
 export default function AnalyticsHub() {
     const queryClient = useQueryClient();
+    const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<TabType>('registry');
+    const [compareSelection, setCompareSelection] = useState<string[]>([]);
     
     // Add Channel Form State
     const [isObserveOpen, setIsObserveOpen] = useState(false);
@@ -47,10 +50,6 @@ export default function AnalyticsHub() {
     const [analyticsType, setAnalyticsType] = useState<'owned' | 'competitor' | 'observed'>('observed');
     const [assignedChannelId, setAssignedChannelId] = useState('');
 
-    // Detail Modal State
-    const [selectedChannel, setSelectedChannel] = useState<AnalyticsChannel | null>(null);
-
-    // Queries
     const { data: channels = [], isLoading: isChannelsLoading } = useQuery({
         queryKey: ['analyticsChannels'],
         queryFn: () => getAnalyticsChannels()
@@ -74,13 +73,7 @@ export default function AnalyticsHub() {
     const { data: syncLogs = [], isLoading: isLogsLoading } = useQuery({
         queryKey: ['syncLogs'],
         queryFn: getRecentSyncActivity,
-        refetchInterval: activeTab === 'queue' ? 5000 : undefined // Auto-refresh only when on queue tab
-    });
-
-    const { data: overview, isLoading: isOverviewLoading } = useQuery({
-        queryKey: ['channelOverview', selectedChannel?.id],
-        queryFn: () => getChannelOverview(selectedChannel!.id),
-        enabled: !!selectedChannel
+        refetchInterval: activeTab === 'queue' ? 5000 : undefined
     });
 
     const { data: healthData } = useQuery({
@@ -88,6 +81,20 @@ export default function AnalyticsHub() {
         queryFn: getAnalyticsHealth,
         refetchInterval: 10000 // Refetch health data every 10 seconds
     });
+
+    const handleCompareSelection = (id: string) => {
+        setCompareSelection(prev => {
+            if (prev.includes(id)) {
+                return prev.filter(x => x !== id);
+            } else {
+                if (prev.length >= 5) {
+                    toast.warning("You can compare a maximum of 5 channels simultaneously");
+                    return prev;
+                }
+                return [...prev, id];
+            }
+        });
+    };
 
     // Mutations
     const observeMutation = useMutation({
@@ -317,16 +324,28 @@ export default function AnalyticsHub() {
             {activeTab === 'registry' && (
                 <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
                     <div className="p-4 border-b border-border flex items-center justify-between">
-                        <h3 className="font-semibold text-base">Observed Channels List</h3>
-                        <span className="text-xs bg-secondary px-2.5 py-1 rounded-full font-mono text-muted-foreground">
-                            {channels.length} Total
-                        </span>
+                        <div className="flex items-center gap-3">
+                            <h3 className="font-semibold text-base">Observed Channels List</h3>
+                            <span className="text-xs bg-secondary px-2.5 py-1 rounded-full font-mono text-muted-foreground">
+                                {channels.length} Total
+                            </span>
+                        </div>
+                        {compareSelection.length > 0 && (
+                            <button
+                                onClick={() => navigate(`/analytics/compare?channel_ids=${compareSelection.join(',')}`)}
+                                disabled={compareSelection.length < 2 || compareSelection.length > 5}
+                                className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-all shadow-lg shadow-indigo-600/10 animate-pulse"
+                            >
+                                Compare Selected ({compareSelection.length})
+                            </button>
+                        )}
                     </div>
 
                     <div className="overflow-x-auto">
                         <table className="w-full text-left text-sm border-collapse">
                             <thead>
                                 <tr className="bg-secondary/40 text-muted-foreground border-b border-border">
+                                    <th className="p-4 w-[5%] font-semibold">Select</th>
                                     <th className="p-4 font-semibold">Channel Details</th>
                                     <th className="p-4 font-semibold">Analytics Type</th>
                                     <th className="p-4 font-semibold">Subscribers</th>
@@ -340,13 +359,13 @@ export default function AnalyticsHub() {
                             {isChannelsLoading ? (
                                 <tbody>
                                     <tr>
-                                        <td colSpan={7} className="p-8 text-center text-muted-foreground">Loading observed channels...</td>
+                                        <td colSpan={8} className="p-8 text-center text-muted-foreground">Loading observed channels...</td>
                                     </tr>
                                 </tbody>
                             ) : channels.length === 0 ? (
                                 <tbody>
                                     <tr>
-                                        <td colSpan={7} className="p-12 text-center text-muted-foreground">
+                                        <td colSpan={8} className="p-12 text-center text-muted-foreground">
                                             No observed channels yet. Click "Observe Channel" to start monitoring.
                                         </td>
                                     </tr>
@@ -358,7 +377,7 @@ export default function AnalyticsHub() {
                                             channel.analytics_type === 'owned' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' : 
                                             channel.analytics_type === 'competitor' ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' : 
                                             'bg-teal-500/10 text-teal-400 border border-teal-500/20';
-
+ 
                                         const typeLabel = 
                                             channel.analytics_type === 'owned' ? 'Owned' : 
                                             channel.analytics_type === 'competitor' ? 'Competitor' : 
@@ -370,9 +389,17 @@ export default function AnalyticsHub() {
                                             channel.sync_status === 'PENDING' ? 'bg-amber-500/5 text-amber-500/80 border border-amber-500/10' :
                                             channel.sync_status === 'DISABLED' ? 'bg-gray-500/10 text-gray-500 border border-gray-500/20' :
                                             'bg-red-500/10 text-red-500 border border-red-500/20';
-
+ 
                                         return (
                                             <tr key={channel.id} className="hover:bg-secondary/20 transition-all">
+                                                <td className="p-4">
+                                                    <input 
+                                                        type="checkbox"
+                                                        checked={compareSelection.includes(channel.id)}
+                                                        onChange={() => handleCompareSelection(channel.id)}
+                                                        className="rounded border-border bg-secondary text-indigo-600 focus:ring-0 focus:ring-offset-0 focus:outline-none w-4 h-4 cursor-pointer"
+                                                    />
+                                                </td>
                                                 <td className="p-4">
                                                     <div className="flex flex-col">
                                                         <span className="font-semibold text-foreground text-sm flex items-center gap-1.5 truncate">
@@ -383,13 +410,13 @@ export default function AnalyticsHub() {
                                                         </span>
                                                     </div>
                                                 </td>
-
+ 
                                                 <td className="p-4 text-xs font-medium uppercase">
                                                     <span className={`px-2.5 py-1 rounded-full text-[10px] tracking-wide ${typeColor}`}>
                                                         {typeLabel}
                                                     </span>
                                                 </td>
-
+ 
                                                 <td className="p-4 text-sm font-mono">
                                                     {channel.sync_status === 'PENDING' ? (
                                                         <span className="text-xs text-muted-foreground italic font-sans">Pending Initial Sync</span>
@@ -397,26 +424,26 @@ export default function AnalyticsHub() {
                                                         <span className="font-medium">—</span>
                                                     )}
                                                 </td>
-
+ 
                                                 <td className="p-4 text-xs text-muted-foreground font-mono">
                                                     {channel.last_sync_at ? new Date(channel.last_sync_at).toLocaleString() : 'Never'}
                                                 </td>
-
+ 
                                                 <td className="p-4 text-xs font-mono text-muted-foreground">
                                                     {channel.last_sync_duration_seconds !== null && channel.last_sync_duration_seconds !== undefined
                                                         ? `${channel.last_sync_duration_seconds}s` 
                                                         : '—'}
                                                 </td>
-
+ 
                                                 <td className="p-4">
                                                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wider border ${statusBadge}`}>
                                                         {channel.sync_status}
                                                     </span>
                                                 </td>
-
+ 
                                                 <td className="p-4 flex items-center justify-end gap-2.5">
                                                     <button 
-                                                        onClick={() => setSelectedChannel(channel)}
+                                                        onClick={() => navigate(`/analytics/channel/${channel.id}`)}
                                                         title="View Details"
                                                         className="p-1.5 hover:text-blue-400 bg-secondary rounded transition-colors"
                                                     >
@@ -727,110 +754,6 @@ export default function AnalyticsHub() {
                 </div>
             )}
 
-            {/* View Details Modal */}
-            {selectedChannel && (
-                <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-card border border-border rounded-lg shadow-lg w-full max-w-lg overflow-hidden flex flex-col">
-                        <div className="flex items-center justify-between p-4 border-b border-border">
-                            <div>
-                                <h2 className="font-semibold text-lg">{selectedChannel.channel_name}</h2>
-                                <p className="text-xs text-muted-foreground font-mono">{selectedChannel.channel_handle || selectedChannel.external_channel_id}</p>
-                            </div>
-                            <button 
-                                onClick={() => setSelectedChannel(null)}
-                                className="text-muted-foreground hover:text-foreground"
-                            >
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-                        
-                        <div className="p-6 overflow-y-auto space-y-6 flex-1 min-h-[300px]">
-                            {isOverviewLoading ? (
-                                <div className="text-center text-muted-foreground py-12">Loading metrics overview...</div>
-                            ) : !overview ? (
-                                <div className="text-center text-muted-foreground py-12">No data captured yet. Click refresh to sync.</div>
-                            ) : (
-                                <div className="space-y-6">
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="bg-secondary/30 p-4 border border-border rounded-lg">
-                                            <p className="text-xs text-muted-foreground uppercase font-semibold">Subscribers</p>
-                                            <p className="text-xl font-bold font-mono mt-1">
-                                                {overview.subscribers ? overview.subscribers.toLocaleString() : 'Pending Sync'}
-                                            </p>
-                                        </div>
-                                        <div className="bg-secondary/30 p-4 border border-border rounded-lg">
-                                            <p className="text-xs text-muted-foreground uppercase font-semibold">Total Views</p>
-                                            <p className="text-xl font-bold font-mono mt-1">
-                                                {overview.views ? overview.views.toLocaleString() : '—'}
-                                            </p>
-                                        </div>
-                                        <div className="bg-secondary/30 p-4 border border-border rounded-lg">
-                                            <p className="text-xs text-muted-foreground uppercase font-semibold">Watch Time (min)</p>
-                                            <p className="text-xl font-bold font-mono mt-1">
-                                                {overview.watch_time ? overview.watch_time.toLocaleString() : '—'}
-                                            </p>
-                                        </div>
-                                        <div className="bg-secondary/30 p-4 border border-border rounded-lg">
-                                            <p className="text-xs text-muted-foreground uppercase font-semibold">CTR</p>
-                                            <p className="text-xl font-bold font-mono mt-1">
-                                                {overview.ctr ? `${overview.ctr.toFixed(2)}%` : '—'}
-                                            </p>
-                                        </div>
-                                        <div className="bg-secondary/30 p-4 border border-border rounded-lg">
-                                            <p className="text-xs text-muted-foreground uppercase font-semibold">Likes</p>
-                                            <p className="text-xl font-bold font-mono mt-1">
-                                                {overview.likes ? overview.likes.toLocaleString() : '—'}
-                                            </p>
-                                        </div>
-                                        <div className="bg-secondary/30 p-4 border border-border rounded-lg">
-                                            <p className="text-xs text-muted-foreground uppercase font-semibold">Comments</p>
-                                            <p className="text-xl font-bold font-mono mt-1">
-                                                {overview.comments ? overview.comments.toLocaleString() : '—'}
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <div className="bg-secondary/15 border border-border/80 p-4 rounded-lg space-y-2.5">
-                                        <h4 className="font-semibold text-xs uppercase text-muted-foreground tracking-wider">Sync Log Details</h4>
-                                        <div className="grid grid-cols-2 gap-y-2 text-xs">
-                                            <span className="text-muted-foreground">Observed Since:</span>
-                                            <span className="font-mono text-foreground">{new Date(selectedChannel.created_at).toLocaleString()}</span>
-
-                                            <span className="text-muted-foreground">Last Sync Completed:</span>
-                                            <span className="font-mono text-foreground">
-                                                {selectedChannel.last_sync_at ? new Date(selectedChannel.last_sync_at).toLocaleString() : 'Never'}
-                                            </span>
-
-                                            <span className="text-muted-foreground">Last Sync Duration:</span>
-                                            <span className="font-mono text-foreground">
-                                                {selectedChannel.last_sync_duration_seconds !== null ? `${selectedChannel.last_sync_duration_seconds} seconds` : 'N/A'}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    
-                                    {selectedChannel.last_error && (
-                                        <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-lg space-y-1">
-                                            <h4 className="font-semibold text-xs uppercase text-red-500 flex items-center gap-1.5">
-                                                <ShieldAlert className="w-4 h-4" /> Sync Error Log
-                                            </h4>
-                                            <p className="text-xs text-muted-foreground leading-relaxed break-words">{selectedChannel.last_error}</p>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="p-4 border-t border-border flex justify-end bg-secondary/10">
-                            <button 
-                                onClick={() => setSelectedChannel(null)}
-                                className="px-4 py-2 text-sm font-semibold bg-secondary hover:bg-secondary/80 rounded-md transition-colors"
-                            >
-                                Close
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

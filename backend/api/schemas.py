@@ -524,6 +524,9 @@ class AnalyticsVideoResponse(BaseModel):
     duration_seconds: Optional[int] = None
     thumbnail_url: Optional[str] = None
     category: Optional[str] = None
+    views: int = 0
+    likes: int = 0
+    comments: int = 0
 
     model_config = ConfigDict(from_attributes=True)
 
