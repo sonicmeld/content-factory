@@ -10,8 +10,7 @@ import {
     Eye,
     Video,
     BarChart3,
-    AlertCircle,
-    Info
+    AlertCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { 

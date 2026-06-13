@@ -10,7 +10,6 @@ import {
 import { 
     TrendingUp, 
     RefreshCw, 
-    Eye, 
     Users, 
     CheckCircle2, 
     AlertCircle, 
@@ -19,7 +18,6 @@ import {
     ShieldAlert, 
     Search, 
     ChevronLeft,
-    FileText,
     Activity,
     Award,
     Zap,
@@ -52,7 +50,7 @@ export default function AnalyticsChannelExplorer() {
     const videoLimit = 10;
 
     // Fetch Summary (First paint entrypoint - staleTime 5m)
-    const { data: summary, isLoading: isSummaryLoading, refetch: refetchSummary } = useQuery({
+    const { data: summary, isLoading: isSummaryLoading } = useQuery({
         queryKey: ['channelSummary', id],
         queryFn: () => getChannelSummary(id!),
         enabled: !!id,

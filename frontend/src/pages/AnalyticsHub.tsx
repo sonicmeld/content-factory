@@ -6,7 +6,6 @@ import {
     observeAnalyticsChannel, 
     syncAnalyticsChannel, 
     archiveAnalyticsChannel, 
-    getChannelOverview, 
     getRecentSyncActivity, 
     getAnalyticsWorkspaceLinks, 
     getAnalyticsIdentities, 
@@ -26,14 +25,12 @@ import {
     AlertCircle, 
     Clock, 
     Database, 
-    ShieldAlert, 
     Globe, 
     X,
     History, 
     UserCheck, 
     LayoutGrid 
 } from 'lucide-react';
-import type { AnalyticsChannel } from '../types';
 import { toast } from 'sonner';
 
 type TabType = 'registry' | 'identity' | 'workspace' | 'queue';
