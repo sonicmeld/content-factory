@@ -37,7 +37,7 @@ const domainGroups: DomainGroup[] = [
         domain: 'Analytics Domain',
         icon: BarChart3,
         items: [
-            { label: 'Analytics Hub', icon: TrendingUp, path: '/analytics', disabled: true },
+            { label: 'Analytics Hub', icon: TrendingUp, path: '/analytics' },
         ],
     },
     {

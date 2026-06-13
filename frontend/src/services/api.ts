@@ -373,13 +373,52 @@ export const approvePromptDraft = (id: string, data: {
 export const discardPromptDraft = (id: string) =>
     api.post<{ message: string }>(`/prompt-experts/drafts/${id}/discard`).then(res => res.data);
 
-import type { CompanionRuntime } from '../types';
+import type { CompanionRuntime, AnalyticsChannel, AnalyticsOverview, SyncActivityLog } from '../types';
+export { AnalyticsSyncStatus } from '../types';
 
 export const getCompanionRuntimes = () =>
     api.get<CompanionRuntime[]>('/companion/runtimes').then(res => res.data);
 
 export const revokeCompanionRuntime = (id: string) =>
     api.post<{ status: string }>(`/companion/runtimes/${id}/revoke`).then(res => res.data);
+
+// Analytics API helpers
+export const getAnalyticsChannels = (channelId?: string) => {
+    const params: any = {};
+    if (channelId) params.workspace_id = channelId;
+    return api.get<AnalyticsChannel[]>('/analytics/channels', { params }).then(res => res.data);
+};
+
+export const observeAnalyticsChannel = (data: { 
+    external_channel_id: string; 
+    analytics_type: 'owned' | 'competitor' | 'observed'; 
+    channel_id?: string 
+}) =>
+    api.post<AnalyticsChannel>('/analytics/channels/observe', data).then(res => res.data);
+
+export const syncAnalyticsChannel = (channelId: string) =>
+    api.post<{ status: string }>(`/analytics/channels/${channelId}/sync`).then(res => res.data);
+
+export const archiveAnalyticsChannel = (channelId: string) =>
+    api.post<{ message: string }>(`/analytics/channels/${channelId}/archive`).then(res => res.data);
+
+export const getChannelOverview = (channelId: string) =>
+    api.get<AnalyticsOverview>(`/analytics/channels/${channelId}/overview`).then(res => res.data);
+
+export const getRecentSyncActivity = () =>
+    api.get<SyncActivityLog[]>('/analytics/sync-logs').then(res => res.data);
+
+export const linkChannelIdentity = (channelId: string, identityReferenceId: string) =>
+    api.post<AnalyticsChannel>(`/analytics/channels/${channelId}/link-identity`, { identity_reference_id: identityReferenceId }).then(res => res.data);
+
+export const getAnalyticsWorkspaceLinks = () =>
+    api.get<any[]>('/analytics/workspace-links').then(res => res.data);
+
+export const getAnalyticsIdentities = () =>
+    api.get<any[]>('/analytics/identities').then(res => res.data);
+
+export const assignWorkspaceChannel = (channelId: string, workspaceChannelId: string | null) =>
+    api.post<{ message: string }>(`/analytics/channels/${channelId}/assign-workspace`, { channel_id: workspaceChannelId }).then(res => res.data);
 
 export default api;
 

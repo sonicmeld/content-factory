@@ -219,6 +219,8 @@ CREATE TABLE IF NOT EXISTS analytics_channels (
     is_own INTEGER DEFAULT 1,
     sync_status TEXT DEFAULT 'pending',
     last_error TEXT,
+    is_archived INTEGER DEFAULT 0 NOT NULL,
+    last_sync_duration_seconds INTEGER,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     last_sync_at DATETIME
 );
@@ -302,6 +304,15 @@ CREATE TABLE IF NOT EXISTS companion_runtimes (
     last_seen_at DATETIME,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS analytics_sync_logs (
+    id TEXT PRIMARY KEY,
+    channel_name TEXT NOT NULL,
+    started_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    finished_at DATETIME,
+    duration_seconds INTEGER,
+    status TEXT NOT NULL
 );
 
 

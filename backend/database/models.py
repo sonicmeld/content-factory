@@ -373,6 +373,8 @@ class AnalyticsChannel(Base):
     is_own = Column(Boolean, default=True)
     sync_status = Column(String, default="pending")
     last_error = Column(String, nullable=True)
+    is_archived = Column(Boolean, default=False, nullable=False)
+    last_sync_duration_seconds = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=func.now())
     last_sync_at = Column(DateTime, nullable=True)
 
@@ -470,6 +472,17 @@ class CompanionRuntime(Base):
     last_seen_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=func.now(), nullable=False)
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class AnalyticsSyncLog(Base):
+    __tablename__ = "analytics_sync_logs"
+
+    id = Column(String, primary_key=True)
+    channel_name = Column(String, nullable=False)
+    started_at = Column(DateTime, default=func.now(), nullable=False)
+    finished_at = Column(DateTime, nullable=True)
+    duration_seconds = Column(Integer, nullable=True)
+    status = Column(String, nullable=False)  # 'PENDING', 'SYNCING', 'SUCCESS', 'FAILED'
 
 
 

@@ -1,6 +1,7 @@
 from pydantic import BaseModel, ConfigDict
-from typing import Optional, List
+from typing import Optional, List, Literal
 from datetime import datetime
+from enum import Enum
 
 class ChannelBase(BaseModel):
     name: str
@@ -467,10 +468,18 @@ class DraftApproveRequest(BaseModel):
 
 
 # Sprint A: Analytics schemas
+class AnalyticsSyncStatus(str, Enum):
+    PENDING = "PENDING"
+    SYNCING = "SYNCING"
+    SUCCESS = "SUCCESS"
+    FAILED = "FAILED"
+    DISABLED = "DISABLED"
+
+
 class ObserveChannelRequest(BaseModel):
     external_channel_id: str
-    is_own: bool = True
-    workspace_id: Optional[str] = None
+    analytics_type: Literal["owned", "competitor", "observed"]
+    channel_id: Optional[str] = None
 
 
 class LinkChannelIdentityRequest(BaseModel):
@@ -485,6 +494,8 @@ class AnalyticsChannelResponse(BaseModel):
     is_own: bool
     sync_status: str
     last_error: Optional[str] = None
+    is_archived: bool
+    last_sync_duration_seconds: Optional[int] = None
     created_at: datetime
     last_sync_at: Optional[datetime] = None
 
@@ -576,6 +587,17 @@ class CompanionRuntimeResponse(BaseModel):
     is_revoked: int
     last_seen_at: Optional[datetime] = None
     created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SyncActivityLog(BaseModel):
+    id: str
+    channel_name: str
+    started_at: datetime
+    finished_at: Optional[datetime] = None
+    duration_seconds: Optional[int] = None
+    status: str
 
     model_config = ConfigDict(from_attributes=True)
 

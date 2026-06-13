@@ -10,6 +10,7 @@ import Settings from './pages/Settings';
 import GenerationCombos from './pages/GenerationCombos';
 import MetadataLibraryPage from './pages/MetadataLibraryPage';
 import GlobalExecutionCenterPage from './pages/GlobalExecutionCenterPage';
+import AnalyticsHub from './pages/AnalyticsHub';
 
 // Workspace Pages
 import WorkspaceOverview from './pages/workspace/WorkspaceOverview';
@@ -30,6 +31,7 @@ function App() {
         {/* Global Routes */}
         <Route element={<Layout><Outlet /></Layout>}>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/analytics" element={<AnalyticsHub />} />
           <Route path="/execution-center" element={<GlobalExecutionCenterPage />} />
           <Route path="/channels" element={<Channels />} />
           <Route path="/connectors" element={<ConnectorsPage />} />

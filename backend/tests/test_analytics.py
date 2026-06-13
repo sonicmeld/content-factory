@@ -122,8 +122,8 @@ class TestAnalytics(unittest.TestCase):
             "/api/analytics/channels/observe",
             json={
                 "external_channel_id": "UC123456",
-                "is_own": True,
-                "workspace_id": "workspace-123"
+                "analytics_type": "owned",
+                "channel_id": "workspace-123"
             }
         )
         self.assertEqual(resp.status_code, 200)
@@ -220,8 +220,8 @@ class TestAnalytics(unittest.TestCase):
             "/api/analytics/channels/observe",
             json={
                 "external_channel_id": "UCcompetitor",
-                "is_own": False,
-                "workspace_id": "workspace-123"
+                "analytics_type": "competitor",
+                "channel_id": "workspace-123"
             }
         )
         self.assertEqual(resp.status_code, 200)
@@ -237,3 +237,104 @@ class TestAnalytics(unittest.TestCase):
         self.assertEqual(overview["subscribers"], 10000)
         self.assertEqual(overview["watch_time"], 0.0) # Private metric: 0
         self.assertEqual(overview["ctr"], 0.0)         # Private metric: 0
+
+    @patch("services.analytics.collector.build")
+    def test_normalization_and_archive(self, mock_build):
+        mock_youtube = MagicMock()
+        mock_build.return_value = mock_youtube
+
+        # Mock channels response
+        mock_youtube.channels().list().execute.return_value = {
+            "items": [
+                {
+                    "id": "UCnormalized123",
+                    "snippet": {
+                        "title": "Normalized Channel",
+                        "customUrl": "@normalized"
+                    },
+                    "statistics": {
+                        "viewCount": "100",
+                        "subscriberCount": "10"
+                    }
+                }
+            ]
+        }
+
+        # 1. Observe via @handle (url format)
+        resp = self.client.post(
+            "/api/analytics/channels/observe",
+            json={
+                "external_channel_id": "https://www.youtube.com/@normalized",
+                "analytics_type": "observed"
+            }
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data["external_channel_id"], "UCnormalized123")
+        self.assertEqual(data["channel_name"], "Normalized Channel")
+        self.assertEqual(data["is_archived"], False)
+
+        channel_id = data["id"]
+
+        # 2. Archive
+        archive_resp = self.client.post(f"/api/analytics/channels/{channel_id}/archive")
+        self.assertEqual(archive_resp.status_code, 200)
+        
+        # Verify it's archived (is_archived == True, sync_status == "DISABLED")
+        from database.models import AnalyticsChannel
+        db_channel = self.db.query(AnalyticsChannel).filter(AnalyticsChannel.id == channel_id).first()
+        self.assertTrue(db_channel.is_archived)
+        self.assertEqual(db_channel.sync_status, "DISABLED")
+
+        # 3. Observe again (restoring logic)
+        resp_restore = self.client.post(
+            "/api/analytics/channels/observe",
+            json={
+                "external_channel_id": "UCnormalized123",
+                "analytics_type": "observed"
+            }
+        )
+        self.assertEqual(resp_restore.status_code, 200)
+        data_restore = resp_restore.json()
+        self.assertEqual(data_restore["is_archived"], False)
+        self.assertNotEqual(data_restore["sync_status"], "DISABLED")
+
+    @patch("api.analytics.sync_channel")
+    @patch("api.analytics.SessionLocal")
+    def test_async_sync_and_logs(self, mock_session_local, mock_sync_channel):
+        from database.models import AnalyticsChannel, AnalyticsSyncLog
+        from api.analytics import run_async_channel_sync
+
+        # Setup mock SessionLocal to yield a new test DB session bound to in-memory db
+        test_session = self.SessionLocal()
+        mock_session_local.return_value = test_session
+
+        # Create channel in DB
+        channel = AnalyticsChannel(
+            id="test-channel-id",
+            external_channel_id="UCtest123",
+            channel_name="Test Logging Channel",
+            is_own=False,
+            sync_status="pending"
+        )
+        self.db.add(channel)
+        self.db.commit()
+
+        # Run run_async_channel_sync (which spawns SessionLocal internally)
+        run_async_channel_sync("test-channel-id")
+
+        # Query database to check if status is SUCCESS
+        self.db.expire_all()
+        db_channel = self.db.query(AnalyticsChannel).filter(AnalyticsChannel.id == "test-channel-id").first()
+        self.assertEqual(db_channel.sync_status, "SUCCESS")
+        self.assertIsNotNone(db_channel.last_sync_duration_seconds)
+        self.assertIsNotNone(db_channel.last_sync_at)
+
+        # Check that sync log was created
+        logs_resp = self.client.get("/api/analytics/sync-logs")
+        self.assertEqual(logs_resp.status_code, 200)
+        logs = logs_resp.json()
+        self.assertEqual(len(logs), 1)
+        self.assertEqual(logs[0]["channel_name"], "Test Logging Channel")
+        self.assertEqual(logs[0]["status"], "SUCCESS")
+        self.assertIsNotNone(logs[0]["duration_seconds"])

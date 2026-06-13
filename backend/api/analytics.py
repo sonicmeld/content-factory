@@ -1,9 +1,12 @@
 import uuid
+import re
+import time
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 
-from database.database import get_db
+from database.database import get_db, SessionLocal
 from database.models import (
     AnalyticsChannel,
     AnalyticsChannelIdentity,
@@ -11,7 +14,8 @@ from database.models import (
     AnalyticsVideo,
     AnalyticsSnapshot,
     AnalyticsInsight,
-    GoogleTrendsSnapshot
+    GoogleTrendsSnapshot,
+    AnalyticsSyncLog
 )
 from api.schemas import (
     ObserveChannelRequest,
@@ -20,36 +24,204 @@ from api.schemas import (
     AnalyticsOverviewResponse,
     AnalyticsVideoResponse,
     AnalyticsInsightResponse,
-    GoogleTrendsSnapshotResponse
+    GoogleTrendsSnapshotResponse,
+    AnalyticsSyncStatus,
+    SyncActivityLog
 )
 from services.analytics.collector import sync_channel, get_any_youtube_client
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
+def resolve_handle_to_channel_id(handle: str, db: Session) -> str:
+    try:
+        youtube = get_any_youtube_client(db)
+        if not handle.startswith("@"):
+            handle = f"@{handle}"
+        ch_resp = youtube.channels().list(
+            part="id",
+            forHandle=handle
+        ).execute()
+        if ch_resp.get("items"):
+            return ch_resp["items"][0]["id"]
+    except Exception as e:
+        print(f"Failed to resolve handle {handle}: {e}")
+    raise HTTPException(status_code=400, detail=f"Could not resolve YouTube handle '{handle}' to a channel ID")
+
+def resolve_username_to_channel_id(username: str, db: Session) -> str:
+    try:
+        youtube = get_any_youtube_client(db)
+        ch_resp = youtube.channels().list(
+            part="id",
+            forUsername=username
+        ).execute()
+        if ch_resp.get("items"):
+            return ch_resp["items"][0]["id"]
+    except Exception as e:
+        print(f"Failed to resolve username {username}: {e}")
+    raise HTTPException(status_code=400, detail=f"Could not resolve YouTube username '{username}' to a channel ID")
+
+def normalize_youtube_channel_input(input_val: str, db: Session) -> str:
+    input_val = input_val.strip()
+    
+    # 1. Check if it's already a channel ID
+    if re.match(r"^UC[A-Za-z0-9_-]{22}$", input_val):
+        return input_val
+        
+    # 2. Parse URLs
+    channel_match = re.search(r"youtube\.com/channel/(UC[A-Za-z0-9_-]{22})", input_val, re.IGNORECASE)
+    if channel_match:
+        return channel_match.group(1)
+        
+    handle_match = re.search(r"youtube\.com/@([A-Za-z0-9_\-\.]+)", input_val, re.IGNORECASE)
+    if handle_match:
+        handle = "@" + handle_match.group(1)
+        return resolve_handle_to_channel_id(handle, db)
+        
+    user_match = re.search(r"youtube\.com/user/([A-Za-z0-9_\-\.]+)", input_val, re.IGNORECASE)
+    if user_match:
+        username = user_match.group(1)
+        return resolve_username_to_channel_id(username, db)
+        
+    # 3. Handle @handle directly
+    if input_val.startswith("@"):
+        return resolve_handle_to_channel_id(input_val, db)
+        
+    # 4. Fallback: treat plain text as a handle
+    if "/" not in input_val and " " not in input_val:
+        handle = input_val if input_val.startswith("@") else f"@{input_val}"
+        try:
+            return resolve_handle_to_channel_id(handle, db)
+        except Exception:
+            try:
+                return resolve_username_to_channel_id(input_val, db)
+            except Exception:
+                pass
+                
+    raise HTTPException(status_code=400, detail="Invalid YouTube channel ID, handle, or URL format")
+
+def run_async_channel_sync(channel_id: str):
+    db_session = SessionLocal()
+    start_time = datetime.now(timezone.utc)
+    log_id = str(uuid.uuid4())
+    
+    # Update status to SYNCING
+    channel = db_session.query(AnalyticsChannel).filter(AnalyticsChannel.id == channel_id).first()
+    channel_name = "Unknown Channel"
+    if channel:
+        channel.sync_status = AnalyticsSyncStatus.SYNCING.value
+        channel_name = channel.channel_name
+        db_session.commit()
+        
+    # Create sync log
+    sync_log = AnalyticsSyncLog(
+        id=log_id,
+        channel_name=channel_name,
+        started_at=start_time,
+        status=AnalyticsSyncStatus.SYNCING.value
+    )
+    db_session.add(sync_log)
+    db_session.commit()
+    
+    try:
+        sync_channel(db_session, channel_id)
+        
+        # Calculate duration and set status to SUCCESS
+        finished_time = datetime.now(timezone.utc)
+        duration = int((finished_time - start_time).total_seconds())
+        
+        channel = db_session.query(AnalyticsChannel).filter(AnalyticsChannel.id == channel_id).first()
+        if channel:
+            channel.sync_status = AnalyticsSyncStatus.SUCCESS.value
+            channel.last_sync_duration_seconds = duration
+            channel.last_sync_at = finished_time
+            channel.last_error = None
+            db_session.commit()
+            
+        log = db_session.query(AnalyticsSyncLog).filter(AnalyticsSyncLog.id == log_id).first()
+        if log:
+            log.finished_at = finished_time
+            log.duration_seconds = duration
+            log.status = AnalyticsSyncStatus.SUCCESS.value
+            db_session.commit()
+            
+        cleanup_sync_logs_retention(db_session)
+        
+    except Exception as e:
+        db_session.rollback()
+        finished_time = datetime.now(timezone.utc)
+        duration = int((finished_time - start_time).total_seconds())
+        
+        channel = db_session.query(AnalyticsChannel).filter(AnalyticsChannel.id == channel_id).first()
+        if channel:
+            channel.sync_status = AnalyticsSyncStatus.FAILED.value
+            channel.last_error = str(e)[:500]
+            db_session.commit()
+            
+        log = db_session.query(AnalyticsSyncLog).filter(AnalyticsSyncLog.id == log_id).first()
+        if log:
+            log.finished_at = finished_time
+            log.duration_seconds = duration
+            log.status = AnalyticsSyncStatus.FAILED.value
+            db_session.commit()
+    finally:
+        db_session.close()
+
+def cleanup_sync_logs_retention(db: Session):
+    try:
+        # 1. Delete records > 90 days old
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=90)
+        db.query(AnalyticsSyncLog).filter(AnalyticsSyncLog.started_at < cutoff_date).delete()
+        db.commit()
+        
+        # 2. Keep at most 10,000 records
+        total_count = db.query(AnalyticsSyncLog).count()
+        if total_count > 10000:
+            threshold_log = db.query(AnalyticsSyncLog).order_by(AnalyticsSyncLog.started_at.desc()).offset(10000).first()
+            if threshold_log:
+                db.query(AnalyticsSyncLog).filter(AnalyticsSyncLog.started_at <= threshold_log.started_at).delete()
+                db.commit()
+    except Exception as cleanup_err:
+        print(f"Error during sync log cleanup retention: {cleanup_err}")
+        db.rollback()
+
 @router.get("/channels", response_model=List[AnalyticsChannelResponse])
 def list_observed_channels(workspace_id: Optional[str] = None, db: Session = Depends(get_db)):
+    query = db.query(AnalyticsChannel).filter(AnalyticsChannel.is_archived == False)
     if workspace_id:
         links = db.query(AnalyticsWorkspaceLink).filter(AnalyticsWorkspaceLink.workspace_id == workspace_id).all()
         channel_ids = [link.analytics_channel_id for link in links]
-        return db.query(AnalyticsChannel).filter(AnalyticsChannel.id.in_(channel_ids)).all()
-    return db.query(AnalyticsChannel).all()
+        return query.filter(AnalyticsChannel.id.in_(channel_ids)).all()
+    return query.all()
 
 @router.post("/channels/observe", response_model=AnalyticsChannelResponse)
 def observe_channel(request: ObserveChannelRequest, db: Session = Depends(get_db)):
+    normalized_channel_id = normalize_youtube_channel_input(request.external_channel_id, db)
+    
     # Check if channel is already observed
     channel = db.query(AnalyticsChannel).filter(
-        AnalyticsChannel.external_channel_id == request.external_channel_id
+        AnalyticsChannel.external_channel_id == normalized_channel_id
     ).first()
 
-    if not channel:
+    is_own = (request.analytics_type == "owned")
+
+    if channel:
+        if channel.is_archived:
+            channel.is_archived = False
+        channel.is_own = is_own
+        # Reset sync status if it was disabled or archived
+        if channel.sync_status == AnalyticsSyncStatus.DISABLED.value:
+            channel.sync_status = AnalyticsSyncStatus.PENDING.value
+        db.commit()
+        db.refresh(channel)
+    else:
         # Resolve name and handle using public API client
-        channel_name = f"Channel {request.external_channel_id}"
+        channel_name = f"Channel {normalized_channel_id}"
         channel_handle = None
         try:
             youtube = get_any_youtube_client(db)
             ch_resp = youtube.channels().list(
                 part="snippet",
-                id=request.external_channel_id
+                id=normalized_channel_id
             ).execute()
             if ch_resp.get("items"):
                 snippet = ch_resp["items"][0].get("snippet", {})
@@ -60,32 +232,33 @@ def observe_channel(request: ObserveChannelRequest, db: Session = Depends(get_db
 
         channel = AnalyticsChannel(
             id=str(uuid.uuid4()),
-            external_channel_id=request.external_channel_id,
+            external_channel_id=normalized_channel_id,
             channel_name=channel_name,
             channel_handle=channel_handle,
-            is_own=request.is_own,
-            sync_status="pending"
+            is_own=is_own,
+            sync_status=AnalyticsSyncStatus.PENDING.value,
+            is_archived=False
         )
         db.add(channel)
         db.commit()
         db.refresh(channel)
 
-    # Associate with workspace if provided
-    if request.workspace_id:
+    # Associate with workspace channel if provided
+    if request.channel_id:
         link = db.query(AnalyticsWorkspaceLink).filter(
-            AnalyticsWorkspaceLink.workspace_id == request.workspace_id,
+            AnalyticsWorkspaceLink.workspace_id == request.channel_id,
             AnalyticsWorkspaceLink.analytics_channel_id == channel.id
         ).first()
         if not link:
             link = AnalyticsWorkspaceLink(
                 id=str(uuid.uuid4()),
-                workspace_id=request.workspace_id,
+                workspace_id=request.channel_id,
                 analytics_channel_id=channel.id
             )
             db.add(link)
             db.commit()
 
-    # Trigger initial sync
+    # Trigger initial sync (run synchronously for the observe call to match tests/expectations)
     try:
         sync_channel(db, channel.id)
         db.refresh(channel)
@@ -118,7 +291,7 @@ def link_channel_identity(channel_id: str, request: LinkChannelIdentityRequest, 
     channel.is_own = True
     db.commit()
 
-    # Trigger sync
+    # Trigger sync synchronously (so returned value has correct status)
     try:
         sync_channel(db, channel.id)
         db.refresh(channel)
@@ -126,6 +299,37 @@ def link_channel_identity(channel_id: str, request: LinkChannelIdentityRequest, 
         print(f"Error during linked identity sync: {e}")
 
     return channel
+
+@router.post("/channels/{channel_id}/archive")
+def archive_observed_channel(channel_id: str, db: Session = Depends(get_db)):
+    channel = db.query(AnalyticsChannel).filter(AnalyticsChannel.id == channel_id).first()
+    if not channel:
+        raise HTTPException(status_code=404, detail="Observed channel not found")
+    
+    channel.is_archived = True
+    channel.sync_status = AnalyticsSyncStatus.DISABLED.value
+    db.commit()
+    return {"message": "Channel archived successfully"}
+
+@router.post("/channels/{channel_id}/sync")
+def sync_observed_channel(
+    channel_id: str, 
+    background_tasks: BackgroundTasks, 
+    db: Session = Depends(get_db)
+):
+    channel = db.query(AnalyticsChannel).filter(AnalyticsChannel.id == channel_id).first()
+    if not channel:
+        raise HTTPException(status_code=404, detail="Observed channel not found")
+    
+    channel.sync_status = AnalyticsSyncStatus.PENDING.value
+    db.commit()
+    
+    background_tasks.add_task(run_async_channel_sync, channel.id)
+    return {"status": "queued"}
+
+@router.get("/sync-logs", response_model=List[SyncActivityLog])
+def list_sync_logs(db: Session = Depends(get_db)):
+    return db.query(AnalyticsSyncLog).order_by(AnalyticsSyncLog.started_at.desc()).all()
 
 @router.get("/channels/{channel_id}/overview", response_model=AnalyticsOverviewResponse)
 def get_channel_overview(channel_id: str, db: Session = Depends(get_db)):
@@ -187,3 +391,32 @@ def get_market_trends(query: Optional[str] = None, geo: Optional[str] = None, db
     if geo:
         q = q.filter(GoogleTrendsSnapshot.geo == geo)
     return q.order_by(GoogleTrendsSnapshot.snapshot_date.desc()).all()
+
+from pydantic import BaseModel
+class AssignWorkspaceRequest(BaseModel):
+    channel_id: Optional[str] = None
+
+@router.post("/channels/{channel_id}/assign-workspace")
+def assign_workspace_channel(channel_id: str, request: AssignWorkspaceRequest, db: Session = Depends(get_db)):
+    # Delete old links for this analytics channel
+    db.query(AnalyticsWorkspaceLink).filter(AnalyticsWorkspaceLink.analytics_channel_id == channel_id).delete()
+    
+    if request.channel_id:
+        link = AnalyticsWorkspaceLink(
+            id=str(uuid.uuid4()),
+            workspace_id=request.channel_id,
+            analytics_channel_id=channel_id
+        )
+        db.add(link)
+    db.commit()
+    return {"message": "Workspace assignment updated successfully"}
+
+@router.get("/workspace-links")
+def list_workspace_links(db: Session = Depends(get_db)):
+    links = db.query(AnalyticsWorkspaceLink).all()
+    return [{"id": l.id, "workspace_id": l.workspace_id, "analytics_channel_id": l.analytics_channel_id} for l in links]
+
+@router.get("/identities")
+def list_identities(db: Session = Depends(get_db)):
+    identities = db.query(AnalyticsChannelIdentity).all()
+    return [{"id": i.id, "analytics_channel_id": i.analytics_channel_id, "identity_reference_id": i.identity_reference_id} for i in identities]

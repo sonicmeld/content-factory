@@ -296,4 +296,59 @@ export interface CompanionRuntime {
     created_at: string;
 }
 
+export enum AnalyticsSyncStatus {
+    PENDING = "PENDING",
+    SYNCING = "SYNCING",
+    SUCCESS = "SUCCESS",
+    FAILED = "FAILED",
+    DISABLED = "DISABLED"
+}
 
+export interface AnalyticsChannel {
+    id: string;
+    external_channel_id: string;
+    channel_name: string;
+    channel_handle?: string;
+    is_own: boolean;
+    sync_status: AnalyticsSyncStatus | string;
+    last_error?: string;
+    is_archived: boolean;
+    last_sync_duration_seconds?: number;
+    created_at: string;
+    last_sync_at?: string;
+}
+
+export interface AnalyticsOverview {
+    channel_id: string;
+    views: number;
+    watch_time: number;
+    subscribers: number;
+    impressions: number;
+    ctr: number;
+    likes: number;
+    comments: number;
+    last_sync_at?: string;
+}
+
+export interface SyncActivityLog {
+    id: string;
+    channel_name: string;
+    started_at: string;
+    finished_at?: string;
+    duration_seconds?: number;
+    status: AnalyticsSyncStatus | string;
+}
+
+export interface AnalyticsChannelIdentity {
+    id: string;
+    analytics_channel_id: string;
+    identity_reference_id: string;
+    created_at: string;
+}
+
+export interface AnalyticsWorkspaceLink {
+    id: string;
+    workspace_id: string;
+    analytics_channel_id: string;
+    created_at: string;
+}
