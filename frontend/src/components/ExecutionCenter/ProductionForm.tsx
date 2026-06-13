@@ -143,16 +143,22 @@ export default function ProductionForm({ assetType, disabled = false }: Producti
     // Mutation: Connector Job Trigger
     const triggerConnectorMutation = useMutation({
         mutationFn: async () => {
-            return createConnectorJob({
-                workspace_id: slug || 'default',
-                provider: selectedExternalProvider,
-                account_id: selectedExternalAccount || undefined,
-                asset_type: assetType.toLowerCase(),
-                prompt_id: selectedExternalContextId || undefined
-            });
+            const jobs = [];
+            for (let i = 0; i < outputCount; i++) {
+                const job = await createConnectorJob({
+                    workspace_id: slug || 'default',
+                    provider: selectedExternalProvider,
+                    account_id: selectedExternalAccount || undefined,
+                    asset_type: assetType.toLowerCase(),
+                    prompt_id: selectedExternalContextId || undefined
+                });
+                jobs.push(job);
+            }
+            return jobs;
         },
-        onSuccess: (data) => {
-            toast.success(`External connector job logged: ${data.provider}`);
+        onSuccess: (jobs) => {
+            const data = jobs[0];
+            toast.success(`${jobs.length} External connector job(s) logged: ${data.provider}`);
             const urlMap: Record<string, string> = {
                 'Google Flow': 'https://labs.google/fx/tools/flow',
                 'Gemini': 'https://gemini.google.com',
@@ -163,7 +169,7 @@ export default function ProductionForm({ assetType, disabled = false }: Producti
             queryClient.invalidateQueries({ queryKey: ['connector-jobs', slug] });
         },
         onError: (err: any) => {
-            toast.error(`Failed to register connector job: ${err.message}`);
+            toast.error(`Failed to register connector job(s): ${err.message}`);
         }
     });
 
@@ -206,6 +212,10 @@ export default function ProductionForm({ assetType, disabled = false }: Producti
             }
             generateSingleModelMutation.mutate();
         } else if (genMode === 'external') {
+            if (!selectedExternalContextId) {
+                toast.error("Please select a Prompt Context.");
+                return;
+            }
             triggerConnectorMutation.mutate();
         }
     };
@@ -466,6 +476,23 @@ export default function ProductionForm({ assetType, disabled = false }: Producti
                                         <option key={a.id} value={a.id}>{a.account_name}</option>
                                     ))}
                             </select>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <div className="flex justify-between items-center">
+                                <label className="text-xs font-semibold text-foreground flex items-center">
+                                    <Sliders className="w-3.5 h-3.5 mr-1.5" /> Output Count
+                                </label>
+                                <span className="text-xs text-muted-foreground font-mono">{outputCount} output(s)</span>
+                            </div>
+                            <input 
+                                type="number" 
+                                min="1"
+                                max="10"
+                                value={outputCount} 
+                                onChange={(e) => setOutputCount(Math.max(1, parseInt(e.target.value) || 1))}
+                                className="w-full text-xs bg-background border border-border rounded-xl px-3 py-2 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                            />
                         </div>
                     </div>
                 )}

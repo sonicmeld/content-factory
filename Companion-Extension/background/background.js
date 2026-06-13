@@ -23,10 +23,13 @@ async function sendHeartbeat() {
       'Authorization': `Bearer ${settings.api_key}`
     };
 
+    console.log('[Companion] Heartbeat request sent');
     const response = await fetch(heartbeatUrl, {
       method: 'POST',
       headers
     });
+
+    console.log('[Companion] Heartbeat response received');
 
     if (response.status === 401) {
       console.warn('[Companion] Heartbeat unauthorized (401). Invaliding API key to trigger re-registration.');
@@ -41,22 +44,38 @@ async function sendHeartbeat() {
     console.warn('[Companion] Heartbeat request failed:', err.message);
   }
 }
-
 // Set up Chrome Alarms for robust background scheduling (avoids worker sleep issues)
-chrome.alarms.create('companion_heartbeat', { periodInMinutes: 1.0 });
+function setupHeartbeatAlarm() {
+  chrome.alarms.get('heartbeat', (alarm) => {
+    if (!alarm) {
+      chrome.alarms.create('heartbeat', { periodInMinutes: 1.0 });
+      console.log('[Companion] Heartbeat scheduler initialized');
+    } else {
+      console.log('[Companion] Heartbeat scheduler already initialized');
+    }
+  });
+}
+
+// Initialize on background startup
+setupHeartbeatAlarm();
 
 chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === 'companion_heartbeat') {
+  if (alarm.name === 'heartbeat') {
+    console.log('[Companion] Heartbeat triggered');
     sendHeartbeat();
   }
 });
 
 // Trigger heartbeat on initial startup/install
 chrome.runtime.onInstalled.addListener(async () => {
+  setupHeartbeatAlarm();
+  console.log('[Companion] Heartbeat triggered');
   await sendHeartbeat();
 });
 
 chrome.runtime.onStartup.addListener(async () => {
+  setupHeartbeatAlarm();
+  console.log('[Companion] Heartbeat triggered');
   await sendHeartbeat();
 });
 
@@ -64,6 +83,7 @@ chrome.runtime.onStartup.addListener(async () => {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'FORCE_HEARTBEAT') {
     (async () => {
+      console.log('[Companion] Heartbeat triggered');
       await sendHeartbeat();
       sendResponse({ ok: true });
     })();
