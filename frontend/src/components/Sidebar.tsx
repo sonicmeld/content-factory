@@ -13,6 +13,7 @@ import {
     Rocket,
     Tv2,
     BarChart3,
+    Plug,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useQuery } from '@tanstack/react-query';
@@ -68,6 +69,7 @@ const domainGroups: DomainGroup[] = [
         domain: 'Platform',
         icon: Settings,
         items: [
+            { label: 'Connector Hub', icon: Plug, path: '/connectors' },
             { label: 'Settings', icon: Settings, path: '/settings' },
         ],
     },

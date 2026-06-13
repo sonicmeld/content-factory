@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import {
@@ -20,7 +19,8 @@ import {
     FileVideo,
     Calendar,
     Settings,
-    Globe
+    Globe,
+    Plug
 } from 'lucide-react';
 import {
     getInboxAssets,
@@ -34,16 +34,16 @@ import {
     deleteExternalAccount,
     getConnectorJobs,
     getProviders
-} from '../../services/api';
-import type { AssetInbox } from '../../types';
+} from '../services/api';
+import type { AssetInbox } from '../types';
 
 type TabType = 'inbox' | 'accounts' | 'jobs' | 'providers';
 
-export default function ProductionPage() {
-    const { slug } = useParams();
+export default function ConnectorsPage() {
     const queryClient = useQueryClient();
     const [activeTab, setActiveTab] = useState<TabType>('inbox');
     const [inboxFilter, setInboxFilter] = useState<'pending' | 'approved' | 'rejected' | 'archived'>('pending');
+    const [selectedWorkspace, setSelectedWorkspace] = useState<string>('all');
 
     // For Approve Destination Modal
     const [selectedAsset, setSelectedAsset] = useState<AssetInbox | null>(null);
@@ -53,6 +53,7 @@ export default function ProductionPage() {
     const [provider, setProvider] = useState('Google Flow');
     const [accountName, setAccountName] = useState('');
     const [profileName, setProfileName] = useState('');
+    const [targetWorkspaceId, setTargetWorkspaceId] = useState<string>('default');
 
     // Query active sub-channels for workspace routing
     const { data: channels = [] } = useQuery({
@@ -60,26 +61,25 @@ export default function ProductionPage() {
         queryFn: getChannels
     });
 
+    const queryWorkspace = selectedWorkspace === 'all' ? undefined : selectedWorkspace;
+
     // Query inbox assets
     const { data: inboxAssets = [], isLoading: loadingInbox, refetch: refetchInbox } = useQuery({
-        queryKey: ['inbox-assets', slug, inboxFilter],
-        queryFn: () => getInboxAssets(slug, inboxFilter),
-        enabled: !!slug,
+        queryKey: ['inbox-assets', queryWorkspace, inboxFilter],
+        queryFn: () => getInboxAssets(queryWorkspace, inboxFilter),
         refetchInterval: inboxFilter === 'pending' && activeTab === 'inbox' ? 5000 : false
     });
 
     // Query external accounts
     const { data: externalAccounts = [], refetch: refetchAccounts } = useQuery({
-        queryKey: ['external-accounts', slug],
-        queryFn: () => getExternalAccounts(slug),
-        enabled: !!slug
+        queryKey: ['external-accounts', queryWorkspace],
+        queryFn: () => getExternalAccounts(queryWorkspace),
     });
 
     // Query connector jobs log
     const { data: jobsLog = [], isLoading: loadingJobs, refetch: refetchJobs } = useQuery({
-        queryKey: ['connector-jobs', slug],
-        queryFn: () => getConnectorJobs(slug),
-        enabled: !!slug,
+        queryKey: ['connector-jobs', queryWorkspace],
+        queryFn: () => getConnectorJobs(queryWorkspace),
         refetchInterval: activeTab === 'jobs' ? 10000 : false
     });
 
@@ -128,7 +128,7 @@ export default function ProductionPage() {
 
     const addAccountMutation = useMutation({
         mutationFn: () => createExternalAccount({
-            workspace_id: slug!,
+            workspace_id: targetWorkspaceId,
             provider,
             account_name: accountName,
             profile_name: profileName || undefined
@@ -190,20 +190,49 @@ export default function ProductionPage() {
         <div className="space-y-6 pb-12">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-                        Production Dashboard
+                <div className="space-y-1">
+                    <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent flex items-center gap-2">
+                        <Plug className="w-8 h-8 text-indigo-400" />
+                        Connector Hub
                     </h1>
-                    <p className="text-muted-foreground mt-1 text-sm">
-                        Manage external connectors, review and route asset inbox submissions, and track workspace jobs.
+                    <p className="text-muted-foreground text-sm">
+                        Manage external integrations, provider registry, external accounts, and connector jobs at the platform level.
                     </p>
                 </div>
-                {inboxFilter === 'pending' && activeTab === 'inbox' && (
-                    <div className="flex items-center gap-2 text-xs font-semibold text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-3.5 py-2 rounded-xl w-fit">
-                        <Clock className="w-4 h-4 animate-spin-slow" />
-                        <span>Polling pending inbox...</span>
+                
+                <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-2 bg-secondary/50 border border-border px-3 py-1.5 rounded-xl">
+                        <span className="text-xs text-muted-foreground font-semibold">Workspace Filter:</span>
+                        <select
+                            value={selectedWorkspace}
+                            onChange={e => {
+                                setSelectedWorkspace(e.target.value);
+                                // Also update target workspace for adding connections to match the filter if not 'all'
+                                if (e.target.value !== 'all') {
+                                    setTargetWorkspaceId(e.target.value);
+                                } else {
+                                    setTargetWorkspaceId('default');
+                                }
+                            }}
+                            className="bg-transparent text-sm font-semibold focus:outline-none cursor-pointer text-foreground"
+                        >
+                            <option value="all">All Workspaces</option>
+                            <option value="default">Default Workspace</option>
+                            {channels.map((chan) => (
+                                <option key={chan.id} value={chan.slug}>
+                                    {chan.name}
+                                </option>
+                            ))}
+                        </select>
                     </div>
-                )}
+
+                    {inboxFilter === 'pending' && activeTab === 'inbox' && (
+                        <div className="flex items-center gap-2 text-xs font-semibold text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-3.5 py-2 rounded-xl w-fit">
+                            <Clock className="w-4 h-4 animate-spin-slow" />
+                            <span>Polling pending inbox...</span>
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Navigation Tabs */}
@@ -350,6 +379,14 @@ export default function ProductionPage() {
                                                         <span>{dateFormatted}</span>
                                                     </div>
                                                 </div>
+                                                {asset.workspace_id && (
+                                                    <div>
+                                                        <span className="text-[9px] font-extrabold text-muted-foreground uppercase tracking-widest block">Workspace (Slug)</span>
+                                                        <span className="text-xs bg-secondary px-2 py-0.5 rounded text-foreground font-semibold">
+                                                            /{asset.workspace_id}
+                                                        </span>
+                                                    </div>
+                                                )}
                                                 {asset.metadata && (
                                                     <div>
                                                         <span className="text-[9px] font-extrabold text-muted-foreground uppercase tracking-widest block">Metadata</span>
@@ -449,6 +486,21 @@ export default function ProductionPage() {
                                         </select>
                                     </div>
                                     <div className="space-y-1">
+                                        <label className="text-xs font-semibold text-muted-foreground">Target Workspace</label>
+                                        <select
+                                            value={targetWorkspaceId}
+                                            onChange={e => setTargetWorkspaceId(e.target.value)}
+                                            className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm focus:outline-none"
+                                        >
+                                            <option value="default">Default / Global Workspace</option>
+                                            {channels.map((chan) => (
+                                                <option key={chan.id} value={chan.slug}>
+                                                    {chan.name} (/{chan.slug})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1">
                                         <label className="text-xs font-semibold text-muted-foreground">Account Name / Email</label>
                                         <input
                                             type="text"
@@ -502,9 +554,14 @@ export default function ProductionPage() {
                                                         <span className="text-sm font-bold truncate text-foreground">{account.account_name}</span>
                                                         <span className="text-[9px] font-extrabold tracking-widest uppercase px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">{account.provider}</span>
                                                     </div>
-                                                    {account.profile_name && (
-                                                        <p className="text-xs text-muted-foreground truncate">Profile: {account.profile_name}</p>
-                                                    )}
+                                                    <div className="flex flex-wrap gap-1.5 items-center mt-1">
+                                                        {account.profile_name && (
+                                                            <span className="text-xs text-muted-foreground truncate">Profile: {account.profile_name}</span>
+                                                        )}
+                                                        <span className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.2 rounded font-mono">
+                                                            /{account.workspace_id}
+                                                        </span>
+                                                    </div>
                                                 </div>
                                                 <div className="flex items-center gap-3 shrink-0">
                                                     <button
@@ -522,7 +579,7 @@ export default function ProductionPage() {
                                                         type="button"
                                                         onClick={() => {
                                                             if (confirm("Delete this connected account? All active jobs using it will be affected.")) {
-                                                                deleteAccountMutation.mutate(account.id);
+                                                                 deleteAccountMutation.mutate(account.id);
                                                             }
                                                         }}
                                                         className="text-red-400 hover:text-red-300 transition-colors p-1.5"
@@ -568,6 +625,7 @@ export default function ProductionPage() {
                                 <thead>
                                     <tr className="border-b border-border/80 bg-secondary/25">
                                         <th className="p-4 font-bold text-muted-foreground">Job ID</th>
+                                        <th className="p-4 font-bold text-muted-foreground">Workspace</th>
                                         <th className="p-4 font-bold text-muted-foreground">Provider</th>
                                         <th className="p-4 font-bold text-muted-foreground">Linked Account</th>
                                         <th className="p-4 font-bold text-muted-foreground">Asset Type</th>
@@ -626,6 +684,9 @@ export default function ProductionPage() {
                                             <tr key={job.id} className="border-b border-border/40 hover:bg-secondary/5 transition-colors">
                                                 <td className="p-4 font-mono text-xs text-muted-foreground" title={job.id}>
                                                     {job.id.substring(0, 8)}...
+                                                </td>
+                                                <td className="p-4 text-xs font-bold text-foreground font-mono">
+                                                    /{job.workspace_id}
                                                 </td>
                                                 <td className="p-4 font-semibold text-foreground">
                                                     {job.provider}

@@ -19,7 +19,7 @@ import PackageDetail from './pages/workspace/PackageDetail';
 import UploadQueue from './pages/workspace/UploadQueue';
 import PublishedVideos from './pages/workspace/PublishedVideos';
 import ChannelSettings from './pages/workspace/ChannelSettings';
-import ProductionPage from './pages/workspace/ProductionPage';
+import ConnectorsPage from './pages/ConnectorsPage';
 
 import { Toaster } from 'sonner';
 
@@ -32,6 +32,7 @@ function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/execution-center" element={<GlobalExecutionCenterPage />} />
           <Route path="/channels" element={<Channels />} />
+          <Route path="/connectors" element={<ConnectorsPage />} />
           <Route path="/prompts" element={<PromptLibraryPage />} />
           <Route path="/assets" element={<Assets />} />
           <Route path="/uploads" element={<Uploads />} />
@@ -50,7 +51,6 @@ function App() {
           <Route path="published" element={<PublishedVideos />} />
           <Route path="assets" element={<Assets />} />
           <Route path="prompts" element={<PromptLibraryPage />} />
-          <Route path="production" element={<ProductionPage />} />
           <Route path="settings" element={<ChannelSettings />} />
         </Route>
       </Routes>

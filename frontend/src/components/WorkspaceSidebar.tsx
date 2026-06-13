@@ -9,7 +9,6 @@ import {
     Settings,
     ArrowLeft,
     CheckCircle2,
-    Plug,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useQuery } from '@tanstack/react-query';
@@ -58,12 +57,6 @@ export default function WorkspaceSidebar() {
             section: 'Production Assets',
             items: [
                 { label: 'Assets', icon: ImageIcon, path: `/workspace/${slug}/assets` },
-            ],
-        },
-        {
-            section: 'Connectors',
-            items: [
-                { label: 'Connector Hub', icon: Plug, path: `/workspace/${slug}/production` },
             ],
         },
         {
