@@ -260,6 +260,16 @@ export const getConnectorJobs = (workspaceId?: string) => {
     return api.get<ConnectorJob[]>('/connectors/jobs', { params }).then(res => res.data);
 };
 
+export const clearConnectorJobs = (workspaceId?: string, status?: string) => {
+    const params: any = {};
+    if (workspaceId) params.workspace_id = workspaceId;
+    if (status) params.status = status;
+    return api.delete<{ message: string; deleted_count: number }>('/connectors/jobs', { params }).then(res => res.data);
+};
+
+export const deleteConnectorJob = (jobId: string) =>
+    api.delete<{ message: string }>(`/connectors/jobs/${jobId}`).then(res => res.data);
+
 export const getActiveConnectorJob = (workspaceId?: string, channelId?: string) => {
     const params: any = {};
     if (workspaceId) params.workspace_id = workspaceId;

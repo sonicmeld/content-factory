@@ -194,6 +194,39 @@ def get_connector_job(
     return to_job_response(job, db)
 
 
+@router.delete("/jobs/{job_id}")
+def delete_connector_job(
+    job_id: str,
+    db: Session = Depends(get_db)
+):
+    job = db.query(ConnectorJob).filter(ConnectorJob.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Connector job not found")
+    db.delete(job)
+    db.commit()
+    return {"message": "Connector job deleted successfully"}
+
+
+@router.delete("/jobs")
+def clear_connector_jobs(
+    workspace_id: Optional[str] = None,
+    status: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    query = db.query(ConnectorJob)
+    if workspace_id:
+        query = query.filter(ConnectorJob.workspace_id == workspace_id)
+    if status:
+        if "," in status:
+            query = query.filter(ConnectorJob.status.in_(status.split(",")))
+        else:
+            query = query.filter(ConnectorJob.status == status)
+    
+    deleted_count = query.delete(synchronize_session=False)
+    db.commit()
+    return {"message": "Connector jobs cleared successfully", "deleted_count": deleted_count}
+
+
 # --- Asset Inbox ---
 
 ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "txt", "md", "mp4", "mov", "mkv", "webm", "wav", "mp3"}

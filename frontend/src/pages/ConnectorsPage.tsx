@@ -191,6 +191,24 @@ export default function ConnectorsPage() {
         onError: () => toast.error('Failed to delete external account')
     });
 
+    const deleteJobMutation = useMutation({
+        mutationFn: (id: string) => deleteConnectorJob(id),
+        onSuccess: () => {
+            toast.success('Connector job deleted successfully');
+            refetchJobs();
+        },
+        onError: () => toast.error('Failed to delete connector job')
+    });
+
+    const clearJobsMutation = useMutation({
+        mutationFn: ({ status }: { status?: string }) => clearConnectorJobs(queryWorkspace, status),
+        onSuccess: (data) => {
+            toast.success(`Cleared ${data.deleted_count} job(s) from log`);
+            refetchJobs();
+        },
+        onError: () => toast.error('Failed to clear connector jobs')
+    });
+
     // Helper to extract preview URL
     const getAssetPreviewUrl = (asset: AssetInbox) => {
         const filename = asset.file_path.split(/[/\\]/).pop();
@@ -664,14 +682,40 @@ export default function ConnectorsPage() {
                             <History className="w-5 h-5 text-indigo-500" />
                             <h3 className="font-bold text-lg">Connector Jobs Log</h3>
                         </div>
-                        <button
-                            onClick={() => refetchJobs()}
-                            disabled={loadingJobs}
-                            className="text-xs bg-secondary hover:bg-secondary/80 border border-border px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors disabled:opacity-50"
-                        >
-                            {loadingJobs ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
-                            Refresh Log
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => {
+                                    if (confirm("Clear all completed and failed jobs?")) {
+                                        clearJobsMutation.mutate({ status: 'completed,failed' });
+                                    }
+                                }}
+                                disabled={clearJobsMutation.isPending || jobsLog.length === 0}
+                                className="text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors disabled:opacity-40 font-bold"
+                            >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                Clear Completed/Failed
+                            </button>
+                            <button
+                                onClick={() => {
+                                    if (confirm("Are you sure you want to clear ALL jobs (including pending ones)?")) {
+                                        clearJobsMutation.mutate({});
+                                    }
+                                }}
+                                disabled={clearJobsMutation.isPending || jobsLog.length === 0}
+                                className="text-xs bg-red-600 hover:bg-red-700 text-white border border-red-700 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors disabled:opacity-40 font-bold"
+                            >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                Clear All
+                            </button>
+                            <button
+                                onClick={() => refetchJobs()}
+                                disabled={loadingJobs}
+                                className="text-xs bg-secondary hover:bg-secondary/80 border border-border px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors disabled:opacity-50 font-bold"
+                            >
+                                {loadingJobs ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                                Refresh Log
+                            </button>
+                        </div>
                     </div>
                     <div className="p-0 overflow-x-auto">
                         {jobsLog.length === 0 ? (
@@ -690,6 +734,7 @@ export default function ConnectorsPage() {
                                         <th className="p-4 font-bold text-muted-foreground">Status</th>
                                         <th className="p-4 font-bold text-muted-foreground">Prompt Context Target</th>
                                         <th className="p-4 font-bold text-muted-foreground">Created At</th>
+                                        <th className="p-4 font-bold text-muted-foreground text-right">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -763,6 +808,21 @@ export default function ConnectorsPage() {
                                                 </td>
                                                 <td className="p-4 text-xs text-muted-foreground">
                                                     {dateLabel}
+                                                </td>
+                                                <td className="p-4 text-right">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            if (confirm("Delete this connector job?")) {
+                                                                deleteJobMutation.mutate(job.id);
+                                                            }
+                                                        }}
+                                                        disabled={deleteJobMutation.isPending}
+                                                        className="text-red-400 hover:text-red-300 disabled:opacity-40 transition-colors p-1"
+                                                        title="Delete Job"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
                                                 </td>
                                             </tr>
                                         );
