@@ -192,7 +192,7 @@ export default function ProductionPage() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-                        Global Production Dashboard
+                        Production Dashboard
                     </h1>
                     <p className="text-muted-foreground mt-1 text-sm">
                         Manage external connectors, review and route asset inbox submissions, and track workspace jobs.
