@@ -494,4 +494,60 @@ class AnalyticsSyncLog(Base):
     status = Column(String, nullable=False)  # 'PENDING', 'SYNCING', 'SUCCESS', 'FAILED'
 
 
+class AnalyticsTopic(Base):
+    __tablename__ = "analytics_topics"
+
+    id = Column(String, primary_key=True)
+    topic_name = Column(String, nullable=False)
+    topic_slug = Column(String, unique=True, nullable=False)
+    fingerprint = Column(String, unique=True, nullable=False)
+    status = Column(String, default="active")  # active, emerging, declining, archived
+    trend_score = Column(Float, default=0.0)
+    demand_score = Column(Float, default=0.0)
+    competition_score = Column(Float, default=0.0)
+    forecast_score = Column(Float, default=0.0)
+    opportunity_score = Column(Float, default=0.0)
+    last_calculated_at = Column(DateTime, default=func.now())
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class AnalyticsKeyword(Base):
+    __tablename__ = "analytics_keywords"
+
+    id = Column(String, primary_key=True)
+    topic_id = Column(String, nullable=False)
+    keyword = Column(String, nullable=False)
+    trend_score = Column(Float, default=0.0)
+    search_volume = Column(Float, default=0.0)
+    competition_score = Column(Float, default=0.0)
+    created_at = Column(DateTime, default=func.now())
+
+
+class AnalyticsMarketTrend(Base):
+    __tablename__ = "analytics_market_trends"
+
+    id = Column(String, primary_key=True)
+    keyword_id = Column(String, nullable=True)
+    topic_id = Column(String, nullable=True)
+    source = Column(String, nullable=False)  # e.g. 'google_trends', 'youtube_suggest'
+    trend_score = Column(Float, default=0.0)
+    growth_rate = Column(Float, default=0.0)
+    region = Column(String, nullable=True)
+    collected_at = Column(DateTime, nullable=False)
+
+
+class AnalyticsOpportunityExport(Base):
+    __tablename__ = "analytics_opportunity_exports"
+
+    id = Column(String, primary_key=True)
+    topic_id = Column(String, nullable=False)
+    market_score = Column(Float)
+    competition_score = Column(Float)
+    forecast_score = Column(Float)
+    opportunity_score = Column(Float)
+    exported_at = Column(DateTime, default=func.now())
+
+
+
 

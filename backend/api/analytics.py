@@ -15,7 +15,11 @@ from database.models import (
     AnalyticsSnapshot,
     AnalyticsInsight,
     GoogleTrendsSnapshot,
-    AnalyticsSyncLog
+    AnalyticsSyncLog,
+    AnalyticsTopic,
+    AnalyticsKeyword,
+    AnalyticsMarketTrend,
+    AnalyticsOpportunityExport
 )
 from api.schemas import (
     ObserveChannelRequest,
@@ -28,7 +32,14 @@ from api.schemas import (
     AnalyticsSyncStatus,
     SyncActivityLog,
     InsightRefreshResponse,
-    InsightStatusUpdateRequest
+    InsightStatusUpdateRequest,
+    MarketTopicResponse,
+    MarketKeywordResponse,
+    MarketTrendResponse,
+    MarketOpportunityResponse,
+    MarketForecastResponse,
+    OpportunityExportResponse,
+    OpportunityExportRequest
 )
 from services.analytics.collector import sync_channel, get_any_youtube_client
 from services.analytics.explorer import (
@@ -36,6 +47,11 @@ from services.analytics.explorer import (
     get_publishing_pattern,
     compare_channels_data
 )
+from services.analytics.market_collector import collect_market_trends
+from services.analytics.topic_radar import cluster_and_save_trends
+from services.analytics.competitor_topic_analysis import analyze_competitor_coverage
+from services.analytics.forecast_engine import calculate_forecasts
+from services.analytics.opportunity_engine import calculate_opportunity_scores
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
@@ -656,4 +672,228 @@ def compare_channels(channel_ids: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Comparison limited to between 2 and 5 channels")
         
     return compare_channels_data(db, ids)
+
+
+# --- Sprint D: Market Intelligence Endpoints ---
+
+@router.get("/market/trends", response_model=List[MarketTrendResponse])
+def get_market_trends(db: Session = Depends(get_db)):
+    """
+    Fetch all collected market trends, ordered by collected_at descending.
+    """
+    results = db.query(
+        AnalyticsMarketTrend,
+        AnalyticsKeyword.keyword
+    ).outerjoin(
+        AnalyticsKeyword, AnalyticsMarketTrend.keyword_id == AnalyticsKeyword.id
+    ).order_by(AnalyticsMarketTrend.collected_at.desc()).all()
+    
+    trends = []
+    for trend, keyword in results:
+        trend_dict = {
+            "id": trend.id,
+            "keyword_id": trend.keyword_id,
+            "topic_id": trend.topic_id,
+            "source": trend.source,
+            "trend_score": trend.trend_score,
+            "growth_rate": trend.growth_rate,
+            "region": trend.region,
+            "collected_at": trend.collected_at,
+            "keyword": keyword or "Unknown"
+        }
+        trends.append(trend_dict)
+    return trends
+
+
+@router.get("/market/topics", response_model=List[MarketTopicResponse])
+def get_market_topics(
+    page: int = 1,
+    search: Optional[str] = None,
+    sort: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Fetch all clustered topics, supporting pagination, keyword search, and sorting.
+    """
+    limit = 20
+    offset = (page - 1) * limit
+    
+    query = db.query(AnalyticsTopic).filter(AnalyticsTopic.status != "archived")
+    
+    if search:
+        query = query.filter(AnalyticsTopic.topic_name.like(f"%{search}%"))
+        
+    if sort:
+        # e.g., "opportunity_score", "trend_score", "demand_score", "competition_score"
+        if sort == "opportunity_score":
+            query = query.order_by(AnalyticsTopic.opportunity_score.desc())
+        elif sort == "trend_score":
+            query = query.order_by(AnalyticsTopic.trend_score.desc())
+        elif sort == "demand_score":
+            query = query.order_by(AnalyticsTopic.demand_score.desc())
+        elif sort == "competition_score":
+            query = query.order_by(AnalyticsTopic.competition_score.desc())
+        else:
+            query = query.order_by(AnalyticsTopic.topic_name.asc())
+    else:
+        query = query.order_by(AnalyticsTopic.opportunity_score.desc())
+        
+    return query.offset(offset).limit(limit).all()
+
+
+@router.get("/market/topics/{id}", response_model=MarketTopicResponse)
+def get_market_topic_detail(id: str, db: Session = Depends(get_db)):
+    """
+    Fetch details of a single topic.
+    """
+    topic = db.query(AnalyticsTopic).filter(AnalyticsTopic.id == id).first()
+    if not topic:
+        raise HTTPException(status_code=404, detail="Topic not found")
+    return topic
+
+
+@router.get("/market/topics/{id}/opportunities")
+def get_market_topic_opportunities(id: str, db: Session = Depends(get_db)):
+    """
+    Fetch opportunities history and forecast values for a single topic.
+    """
+    topic = db.query(AnalyticsTopic).filter(AnalyticsTopic.id == id).first()
+    if not topic:
+        raise HTTPException(status_code=404, detail="Topic not found")
+        
+    # Get forecasts
+    forecasts = calculate_forecasts(db, id)
+    
+    # Get exports
+    exports = db.query(AnalyticsOpportunityExport).filter(
+        AnalyticsOpportunityExport.topic_id == id
+    ).order_by(AnalyticsOpportunityExport.exported_at.desc()).all()
+    
+    return {
+        "topic_id": topic.id,
+        "topic_name": topic.topic_name,
+        "opportunity_score": topic.opportunity_score,
+        "demand_score": topic.demand_score,
+        "competition_score": topic.competition_score,
+        "forecast_score": topic.forecast_score,
+        "status": topic.status,
+        "forecast_history": {
+            "forecast_7": forecasts["forecast_7"],
+            "forecast_30": forecasts["forecast_30"],
+            "forecast_90": forecasts["forecast_90"]
+        },
+        "exports": [
+            {
+                "id": e.id,
+                "market_score": e.market_score,
+                "competition_score": e.competition_score,
+                "forecast_score": e.forecast_score,
+                "opportunity_score": e.opportunity_score,
+                "exported_at": e.exported_at
+            } for e in exports
+        ]
+    }
+
+
+@router.get("/market/keywords", response_model=List[MarketKeywordResponse])
+def get_market_keywords(topic_id: Optional[str] = None, db: Session = Depends(get_db)):
+    """
+    Fetch all keywords, optionally filtered by topic_id.
+    """
+    query = db.query(AnalyticsKeyword)
+    if topic_id:
+        query = query.filter(AnalyticsKeyword.topic_id == topic_id)
+    return query.order_by(AnalyticsKeyword.trend_score.desc()).all()
+
+
+@router.get("/market/opportunities", response_model=List[MarketOpportunityResponse])
+def get_market_opportunities(db: Session = Depends(get_db)):
+    """
+    Fetch active/emerging opportunities ordered by opportunity_score descending.
+    """
+    return db.query(AnalyticsTopic).filter(
+        AnalyticsTopic.status.in_(["active", "emerging"])
+    ).order_by(AnalyticsTopic.opportunity_score.desc()).all()
+
+
+@router.get("/market/forecast", response_model=List[MarketForecastResponse])
+def get_market_forecasts_list(db: Session = Depends(get_db)):
+    """
+    Calculate and fetch forecasts for all active topics.
+    """
+    topics = db.query(AnalyticsTopic).filter(AnalyticsTopic.status != "archived").all()
+    results = []
+    for t in topics:
+        f = calculate_forecasts(db, t.id)
+        results.append(MarketForecastResponse(
+            topic_id=t.id,
+            topic_name=t.topic_name,
+            forecast_7=f["forecast_7"],
+            forecast_30=f["forecast_30"],
+            forecast_90=f["forecast_90"],
+            forecast_score=f["forecast_score"]
+        ))
+    return results
+
+
+@router.post("/market/refresh")
+def refresh_market_intelligence(background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    """
+    Manually triggers the market collection and calculation pipeline.
+    Runs synchronously to ensure database state is updated immediately for client responsiveness.
+    """
+    start_time = time.time()
+    
+    # 1. Collect trends and suggestions
+    trends = collect_market_trends(db)
+    
+    # 2. Cluster keywords and save/update database
+    cluster_and_save_trends(db, trends)
+    
+    # 3. Analyze competitor coverage
+    analyze_competitor_coverage(db)
+    
+    # 4. Calculate opportunity scores and forecasts
+    calculate_opportunity_scores(db)
+    
+    duration_ms = int((time.time() - start_time) * 1000)
+    
+    topics_count = db.query(AnalyticsTopic).filter(AnalyticsTopic.status != "archived").count()
+    keywords_count = db.query(AnalyticsKeyword).count()
+    
+    return {
+        "status": "success",
+        "topics_analyzed": topics_count,
+        "keywords_collected": keywords_count,
+        "duration_ms": duration_ms
+    }
+
+
+@router.post("/market/exports", response_model=OpportunityExportResponse)
+def export_opportunity_topic(req: OpportunityExportRequest, db: Session = Depends(get_db)):
+    """
+    Exports a Topic Opportunity and stores a history snapshot in database.
+    """
+    topic = db.query(AnalyticsTopic).filter(AnalyticsTopic.id == req.topic_id).first()
+    if not topic:
+        raise HTTPException(status_code=404, detail="Topic not found")
+        
+    export_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc)
+    
+    export = AnalyticsOpportunityExport(
+        id=export_id,
+        topic_id=topic.id,
+        market_score=topic.demand_score,
+        competition_score=topic.competition_score,
+        forecast_score=topic.forecast_score,
+        opportunity_score=topic.opportunity_score,
+        exported_at=now
+    )
+    db.add(export)
+    db.commit()
+    db.refresh(export)
+    
+    return export
+
 

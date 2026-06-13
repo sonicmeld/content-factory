@@ -452,3 +452,89 @@ export interface InsightRefreshResponse {
     duration_ms: number;
 }
 
+// Sprint D: Market Intelligence types
+export interface MarketTopic {
+    id: string;
+    topic_name: string;
+    topic_slug: string;
+    fingerprint: string;
+    status: 'active' | 'emerging' | 'declining' | 'archived';
+    trend_score: number;
+    demand_score: number;
+    competition_score: number;
+    forecast_score: number;
+    opportunity_score: number;
+    last_calculated_at: string;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface MarketKeyword {
+    id: string;
+    topic_id: string;
+    keyword: string;
+    trend_score: number;
+    search_volume: number;
+    competition_score: number;
+    created_at: string;
+}
+
+export interface MarketTrend {
+    id: string;
+    keyword_id?: string;
+    topic_id?: string;
+    source: string;
+    trend_score: number;
+    growth_rate: number;
+    region?: string;
+    collected_at: string;
+    keyword?: string;
+}
+
+export interface MarketOpportunity {
+    id: string;
+    topic_name: string;
+    topic_slug: string;
+    status: string;
+    demand_score: number;
+    competition_score: number;
+    forecast_score: number;
+    opportunity_score: number;
+}
+
+export interface MarketForecast {
+    topic_id: string;
+    topic_name: string;
+    forecast_7: number;
+    forecast_30: number;
+    forecast_90: number;
+    forecast_score: number;
+}
+
+export interface OpportunityExport {
+    id: string;
+    topic_id: string;
+    market_score: number;
+    competition_score: number;
+    forecast_score: number;
+    opportunity_score: number;
+    exported_at: string;
+}
+
+export interface TopicOpportunitiesDetail {
+    topic_id: string;
+    topic_name: string;
+    opportunity_score: number;
+    demand_score: number;
+    competition_score: number;
+    forecast_score: number;
+    status: string;
+    forecast_history: {
+        forecast_7: number;
+        forecast_30: number;
+        forecast_90: number;
+    };
+    exports: OpportunityExport[];
+}
+
+

@@ -14,6 +14,7 @@ import {
     Tv2,
     BarChart3,
     Plug,
+    Compass,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useQuery } from '@tanstack/react-query';
@@ -38,6 +39,7 @@ const domainGroups: DomainGroup[] = [
         icon: BarChart3,
         items: [
             { label: 'Analytics Hub', icon: TrendingUp, path: '/analytics' },
+            { label: 'Market Intelligence', icon: Compass, path: '/analytics/market' },
         ],
     },
     {

@@ -638,6 +638,89 @@ class InsightStatusUpdateRequest(BaseModel):
     status: str
 
 
+class MarketTopicResponse(BaseModel):
+    id: str
+    topic_name: str
+    topic_slug: str
+    fingerprint: str
+    status: str
+    trend_score: float
+    demand_score: float
+    competition_score: float
+    forecast_score: float
+    opportunity_score: float
+    last_calculated_at: datetime
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MarketKeywordResponse(BaseModel):
+    id: str
+    topic_id: str
+    keyword: str
+    trend_score: float
+    search_volume: float
+    competition_score: float
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MarketTrendResponse(BaseModel):
+    id: str
+    keyword_id: Optional[str] = None
+    topic_id: Optional[str] = None
+    source: str
+    trend_score: float
+    growth_rate: float
+    region: Optional[str] = None
+    collected_at: datetime
+    keyword: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MarketOpportunityResponse(BaseModel):
+    id: str
+    topic_name: str
+    topic_slug: str
+    status: str
+    demand_score: float
+    competition_score: float
+    forecast_score: float
+    opportunity_score: float
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MarketForecastResponse(BaseModel):
+    topic_id: str
+    topic_name: str
+    forecast_7: float
+    forecast_30: float
+    forecast_90: float
+    forecast_score: float
+
+
+class OpportunityExportResponse(BaseModel):
+    id: str
+    topic_id: str
+    market_score: float
+    competition_score: float
+    forecast_score: float
+    opportunity_score: float
+    exported_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class OpportunityExportRequest(BaseModel):
+    topic_id: str
+
+
+
 
 
 

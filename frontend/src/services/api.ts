@@ -458,5 +458,44 @@ export const refreshChannelInsights = (channelId: string) =>
 export const updateInsightStatus = (insightId: string, status: string) =>
     api.post<{ message: string; status: string }>(`/analytics/insights/${insightId}/status`, { status }).then(res => res.data);
 
+// Sprint D: Market Intelligence APIs
+import type {
+    MarketTopic,
+    MarketKeyword,
+    MarketTrend,
+    MarketOpportunity,
+    MarketForecast,
+    OpportunityExport,
+    TopicOpportunitiesDetail
+} from '../types';
+
+export const getMarketTrends = () =>
+    api.get<MarketTrend[]>('/analytics/market/trends').then(res => res.data);
+
+export const getMarketTopics = (params?: { page?: number; search?: string; sort?: string }) =>
+    api.get<MarketTopic[]>('/analytics/market/topics', { params }).then(res => res.data);
+
+export const getMarketTopic = (id: string) =>
+    api.get<MarketTopic>(`/analytics/market/topics/${id}`).then(res => res.data);
+
+export const getMarketTopicOpportunities = (id: string) =>
+    api.get<TopicOpportunitiesDetail>(`/analytics/market/topics/${id}/opportunities`).then(res => res.data);
+
+export const getMarketKeywords = (topicId?: string) =>
+    api.get<MarketKeyword[]>('/analytics/market/keywords', { params: { topic_id: topicId } }).then(res => res.data);
+
+export const getMarketOpportunities = () =>
+    api.get<MarketOpportunity[]>('/analytics/market/opportunities').then(res => res.data);
+
+export const getMarketForecast = () =>
+    api.get<MarketForecast[]>('/analytics/market/forecast').then(res => res.data);
+
+export const refreshMarketIntelligence = () =>
+    api.post<{ status: string; topics_analyzed: number; keywords_collected: number; duration_ms: number }>('/analytics/market/refresh').then(res => res.data);
+
+export const exportMarketOpportunity = (topicId: string) =>
+    api.post<OpportunityExport>('/analytics/market/exports', { topic_id: topicId }).then(res => res.data);
+
 export default api;
+
 

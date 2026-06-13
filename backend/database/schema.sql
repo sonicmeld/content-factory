@@ -324,6 +324,59 @@ CREATE TABLE IF NOT EXISTS analytics_sync_logs (
     status TEXT NOT NULL
 );
 
+-- Market Intelligence & Opportunity Mapping Tables (Sprint D)
+CREATE TABLE IF NOT EXISTS analytics_topics (
+    id TEXT PRIMARY KEY,
+    topic_name TEXT NOT NULL,
+    topic_slug TEXT UNIQUE NOT NULL,
+    fingerprint TEXT UNIQUE NOT NULL,
+    status TEXT DEFAULT 'active',
+    trend_score REAL DEFAULT 0,
+    demand_score REAL DEFAULT 0,
+    competition_score REAL DEFAULT 0,
+    forecast_score REAL DEFAULT 0,
+    opportunity_score REAL DEFAULT 0,
+    last_calculated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS analytics_keywords (
+    id TEXT PRIMARY KEY,
+    topic_id TEXT NOT NULL,
+    keyword TEXT NOT NULL,
+    trend_score REAL DEFAULT 0,
+    search_volume REAL DEFAULT 0,
+    competition_score REAL DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(topic_id) REFERENCES analytics_topics(id)
+);
+
+CREATE TABLE IF NOT EXISTS analytics_market_trends (
+    id TEXT PRIMARY KEY,
+    keyword_id TEXT,
+    topic_id TEXT,
+    source TEXT NOT NULL,
+    trend_score REAL DEFAULT 0,
+    growth_rate REAL DEFAULT 0,
+    region TEXT,
+    collected_at DATETIME NOT NULL,
+    FOREIGN KEY(keyword_id) REFERENCES analytics_keywords(id),
+    FOREIGN KEY(topic_id) REFERENCES analytics_topics(id)
+);
+
+CREATE TABLE IF NOT EXISTS analytics_opportunity_exports (
+    id TEXT PRIMARY KEY,
+    topic_id TEXT NOT NULL,
+    market_score REAL,
+    competition_score REAL,
+    forecast_score REAL,
+    opportunity_score REAL,
+    exported_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(topic_id) REFERENCES analytics_topics(id)
+);
+
+
 
 
 
