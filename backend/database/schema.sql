@@ -292,6 +292,18 @@ CREATE TABLE IF NOT EXISTS analytics_insights (
     expires_at DATETIME NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS companion_runtimes (
+    id TEXT PRIMARY KEY,
+    runtime_name TEXT UNIQUE NOT NULL,
+    client_id TEXT NOT NULL UNIQUE,
+    api_key_hash TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'offline',
+    is_revoked INTEGER NOT NULL DEFAULT 0,
+    last_seen_at DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 
 
 

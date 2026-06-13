@@ -548,5 +548,37 @@ class GoogleTrendsSnapshotResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class CompanionRegisterRequest(BaseModel):
+    runtime_name: str
+    client_id: str
+
+
+class CompanionRegisterResponse(BaseModel):
+    runtime_id: str
+    api_key: str
+
+
+class CompanionMeResponse(BaseModel):
+    runtime_name: str
+    status: str
+    last_seen_at: Optional[datetime] = None
+    client_id: str
+    is_revoked: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CompanionRuntimeResponse(BaseModel):
+    id: str
+    runtime_name: str
+    client_id: str
+    status: str
+    is_revoked: int
+    last_seen_at: Optional[datetime] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 
 

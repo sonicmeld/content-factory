@@ -80,6 +80,7 @@ from api.connectors import router as connectors_router
 from api.settings import router as settings_router
 from api.prompt_experts import router as prompt_experts_router
 from api.analytics import router as analytics_router
+from api.companion import router as companion_router
 
 app.include_router(channels_router)
 app.include_router(gcp_profiles_router)
@@ -105,6 +106,7 @@ app.include_router(connectors_router)
 app.include_router(settings_router)
 app.include_router(prompt_experts_router)
 app.include_router(analytics_router)
+app.include_router(companion_router)
 app.include_router(health.router)
 
 

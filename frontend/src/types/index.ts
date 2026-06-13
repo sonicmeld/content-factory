@@ -286,4 +286,14 @@ export interface AssetInbox {
     created_at: string;
 }
 
+export interface CompanionRuntime {
+    id: string;
+    runtime_name: string;
+    client_id: string;
+    status: 'online' | 'offline' | 'revoked';
+    is_revoked: number;
+    last_seen_at?: string;
+    created_at: string;
+}
+
 

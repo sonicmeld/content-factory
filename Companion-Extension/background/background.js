@@ -1,12 +1,75 @@
-// Companion Extension - Background Service Worker
-// Manages background automation tasks, Low-level CDP Clicks, and file download/upload routing
-
 import { ClientManager } from '../core/client-manager.js';
 import { UploadClient } from '../core/upload-client.js';
 
 chrome.sidePanel
   .setPanelBehavior({ openPanelOnActionClick: true })
   .catch((error) => console.error("[Companion] SidePanel error:", error));
+
+// Heartbeat function to send periodic ping to backend
+async function sendHeartbeat() {
+  try {
+    const settings = await ClientManager.getSettings();
+    if (!settings.api_key) {
+      await ClientManager.registerIfNeeded();
+      return;
+    }
+
+    const serverUrl = settings.server_url.replace(/\/$/, '');
+    const heartbeatUrl = `${serverUrl}/api/companion/heartbeat`;
+
+    const headers = {
+      'Content-Type': 'application/json',
+      'X-Client-Id': settings.client_id,
+      'Authorization': `Bearer ${settings.api_key}`
+    };
+
+    const response = await fetch(heartbeatUrl, {
+      method: 'POST',
+      headers
+    });
+
+    if (response.status === 401) {
+      console.warn('[Companion] Heartbeat unauthorized (401). Invaliding API key to trigger re-registration.');
+      await ClientManager.saveSettings({ api_key: '' });
+      await ClientManager.registerIfNeeded();
+    } else if (!response.ok) {
+      console.warn(`[Companion] Heartbeat failed with status: ${response.status}`);
+    } else {
+      console.log('[Companion] Heartbeat logged successfully.');
+    }
+  } catch (err) {
+    console.warn('[Companion] Heartbeat request failed:', err.message);
+  }
+}
+
+// Set up Chrome Alarms for robust background scheduling (avoids worker sleep issues)
+chrome.alarms.create('companion_heartbeat', { periodInMinutes: 1.0 });
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === 'companion_heartbeat') {
+    sendHeartbeat();
+  }
+});
+
+// Trigger heartbeat on initial startup/install
+chrome.runtime.onInstalled.addListener(async () => {
+  await sendHeartbeat();
+});
+
+chrome.runtime.onStartup.addListener(async () => {
+  await sendHeartbeat();
+});
+
+// Handle custom trigger from side panel to force instant registration / heartbeat check
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'FORCE_HEARTBEAT') {
+    (async () => {
+      await sendHeartbeat();
+      sendResponse({ ok: true });
+    })();
+    return true;
+  }
+});
 
 // Handle native clicks via Chrome DevTools Protocol (CDP)
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

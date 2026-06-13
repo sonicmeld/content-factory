@@ -363,5 +363,13 @@ export const approvePromptDraft = (id: string, data: {
 export const discardPromptDraft = (id: string) =>
     api.post<{ message: string }>(`/prompt-experts/drafts/${id}/discard`).then(res => res.data);
 
+import type { CompanionRuntime } from '../types';
+
+export const getCompanionRuntimes = () =>
+    api.get<CompanionRuntime[]>('/companion/runtimes').then(res => res.data);
+
+export const revokeCompanionRuntime = (id: string) =>
+    api.post<{ status: string }>(`/companion/runtimes/${id}/revoke`).then(res => res.data);
+
 export default api;
 

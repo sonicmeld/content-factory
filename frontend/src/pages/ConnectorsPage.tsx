@@ -33,11 +33,13 @@ import {
     updateExternalAccount,
     deleteExternalAccount,
     getConnectorJobs,
-    getProviders
+    getProviders,
+    getCompanionRuntimes,
+    revokeCompanionRuntime
 } from '../services/api';
 import type { AssetInbox } from '../types';
 
-type TabType = 'inbox' | 'accounts' | 'jobs' | 'providers';
+type TabType = 'inbox' | 'accounts' | 'jobs' | 'providers' | 'runtimes';
 
 export default function ConnectorsPage() {
     const queryClient = useQueryClient();
@@ -87,6 +89,25 @@ export default function ConnectorsPage() {
     const { data: providersList = [] } = useQuery({
         queryKey: ['connector-providers'],
         queryFn: getProviders
+    });
+
+    // Query companion runtimes
+    const { data: companionRuntimes = [], refetch: refetchRuntimes } = useQuery({
+        queryKey: ['companion-runtimes'],
+        queryFn: getCompanionRuntimes,
+        refetchInterval: activeTab === 'runtimes' ? 5000 : false
+    });
+
+    // Revoke companion runtime mutation
+    const revokeRuntimeMutation = useMutation({
+        mutationFn: (id: string) => revokeCompanionRuntime(id),
+        onSuccess: () => {
+            toast.success('Companion runtime revoked successfully');
+            refetchRuntimes();
+        },
+        onError: () => {
+            toast.error('Failed to revoke companion runtime');
+        }
     });
 
     // Mutations
@@ -280,6 +301,17 @@ export default function ConnectorsPage() {
                 >
                     <Layers className="w-4.5 h-4.5" />
                     <span>Providers Registry</span>
+                </button>
+                <button
+                    onClick={() => setActiveTab('runtimes')}
+                    className={`flex items-center gap-2 px-5 py-3.5 border-b-2 text-sm font-semibold transition-all shrink-0 ${
+                        activeTab === 'runtimes'
+                            ? 'border-primary text-primary bg-primary/5 rounded-t-lg'
+                            : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-secondary/20'
+                    }`}
+                >
+                    <Cpu className="w-4.5 h-4.5" />
+                    <span>Companion Runtimes</span>
                 </button>
             </div>
 
@@ -748,6 +780,113 @@ export default function ConnectorsPage() {
                                 </div>
                             ))}
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* TAB CONTENT: COMPANION RUNTIMES */}
+            {activeTab === 'runtimes' && (
+                <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
+                    <div className="px-6 py-4 border-b border-border bg-secondary/30 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Cpu className="w-5 h-5 text-indigo-500" />
+                            <h3 className="font-bold text-lg">Connected Companion Runtimes</h3>
+                        </div>
+                        <button
+                            onClick={() => refetchRuntimes()}
+                            className="text-xs bg-secondary hover:bg-secondary/80 border border-border px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors"
+                        >
+                            Refresh list
+                        </button>
+                    </div>
+                    
+                    <div className="p-0 overflow-x-auto">
+                        {companionRuntimes.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center text-center p-16 bg-card/10">
+                                <Cpu className="w-12 h-12 text-muted-foreground/60 mb-4" />
+                                <h3 className="font-bold text-lg text-foreground">No companion runtimes registered</h3>
+                                <p className="text-sm text-muted-foreground mt-1 max-w-sm">
+                                    Open the Companion Chrome Extension to automatically pair your browser profile with the server.
+                                </p>
+                            </div>
+                        ) : (
+                            <table className="w-full text-left border-collapse text-sm">
+                                <thead>
+                                    <tr className="border-b border-border/80 bg-secondary/25">
+                                        <th className="p-4 font-bold text-muted-foreground">Runtime Name</th>
+                                        <th className="p-4 font-bold text-muted-foreground">Client ID (UUID)</th>
+                                        <th className="p-4 font-bold text-muted-foreground">Status</th>
+                                        <th className="p-4 font-bold text-muted-foreground">Last Seen</th>
+                                        <th className="p-4 font-bold text-muted-foreground">Registered At</th>
+                                        <th className="p-4 font-bold text-muted-foreground text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {companionRuntimes.map((runtime) => {
+                                        const dateRegistered = format(new Date(runtime.created_at), 'MMM d, yyyy h:mm a');
+                                        const dateLastSeen = runtime.last_seen_at
+                                            ? format(new Date(runtime.last_seen_at), 'MMM d, h:mm:ss a')
+                                            : 'Never';
+
+                                        let statusBadge = (
+                                            <span className="px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-gray-500/10 text-gray-400 border border-gray-500/20">
+                                                Offline
+                                            </span>
+                                        );
+
+                                        if (runtime.is_revoked === 1 || runtime.status === 'revoked') {
+                                            statusBadge = (
+                                                <span className="px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-red-500/10 text-red-400 border border-red-500/20">
+                                                    Revoked
+                                                </span>
+                                            );
+                                        } else if (runtime.status === 'online') {
+                                            statusBadge = (
+                                                <span className="px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5 w-fit">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                    Online
+                                                </span>
+                                            );
+                                        }
+
+                                        return (
+                                            <tr key={runtime.id} className="border-b border-border/40 hover:bg-secondary/5 transition-colors">
+                                                <td className="p-4 font-bold text-foreground font-mono">
+                                                    {runtime.runtime_name}
+                                                </td>
+                                                <td className="p-4 font-mono text-xs text-muted-foreground">
+                                                    {runtime.client_id}
+                                                </td>
+                                                <td className="p-4">
+                                                    {statusBadge}
+                                                </td>
+                                                <td className="p-4 text-xs text-muted-foreground">
+                                                    {dateLastSeen}
+                                                </td>
+                                                <td className="p-4 text-xs text-muted-foreground">
+                                                    {dateRegistered}
+                                                </td>
+                                                <td className="p-4 text-right">
+                                                    {runtime.is_revoked !== 1 && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                if (confirm(`Revoke companion runtime "${runtime.runtime_name}"? It will no longer be allowed to communicate with this server.`)) {
+                                                                    revokeRuntimeMutation.mutate(runtime.id);
+                                                                }
+                                                            }}
+                                                            className="text-red-400 hover:text-red-300 font-semibold text-xs border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 px-3 py-1.5 rounded-xl transition-all"
+                                                        >
+                                                            Revoke
+                                                        </button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        )}
                     </div>
                 </div>
             )}

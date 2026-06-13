@@ -32,21 +32,32 @@ export class SettingsManager {
 
     // 2. Save settings
     btnSaveSettings.addEventListener('click', async () => {
-      const serverUrl = cfgServerUrl.value.trim() || 'http://localhost:8001';
+      const serverUrl = cfgServerUrl.value.trim() || 'http://localhost';
       const apiKey = cfgApiKey.value.trim();
       const runtimeName = cfgRuntimeName.value;
       const footageFolder = cfgFootageFolder.value.trim() || 'ContentFactory/Footage';
 
+      const currentSettings = await ClientManager.getSettings();
+      const isReRegistrationNeeded = currentSettings.server_url !== serverUrl || currentSettings.runtime_name !== runtimeName;
+
       await ClientManager.saveSettings({
         server_url: serverUrl,
-        api_key: apiKey,
         runtime_name: runtimeName,
-        footage_folder: footageFolder
+        footage_folder: footageFolder,
+        ...(isReRegistrationNeeded ? { api_key: '' } : (apiKey ? { api_key: apiKey } : {}))
       });
 
       if (statusRuntime) {
         statusRuntime.textContent = runtimeName;
       }
+
+      logFn(`Settings saved. Checking auto-registration...`, 'info');
+      await ClientManager.registerIfNeeded();
+      
+      // Force instantaneous heartbeat update
+      chrome.runtime.sendMessage({ type: 'FORCE_HEARTBEAT' }, () => {
+        if (chrome.runtime.lastError) {} // Suppress callback error if side panel is standalone
+      });
 
       logFn(`Settings saved successfully! Runtime Name: ${runtimeName}`, 'success');
       alert('Settings saved!');
@@ -54,17 +65,23 @@ export class SettingsManager {
 
     // 3. Test Connection
     btnTestConn.addEventListener('click', async () => {
-      const url = cfgServerUrl.value.trim() || 'http://localhost:8001';
+      const url = cfgServerUrl.value.trim() || 'http://localhost';
       const cleanUrl = url.replace(/\/$/, '');
-      const testEndpoint = `${cleanUrl}/api/channels`; // Test getting channels to verify API access
+      const testEndpoint = `${cleanUrl}/api/companion/me`;
 
       logFn(`Testing connection to ${cleanUrl}...`, 'info');
       
+      const settings = await ClientManager.getSettings();
       const headers = {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'X-Client-Id': settings.client_id
       };
-      if (cfgApiKey.value.trim()) {
-        headers['Authorization'] = `Bearer ${cfgApiKey.value.trim()}`;
+      
+      const apiKeyVal = cfgApiKey.value.trim() || settings.api_key;
+      if (apiKeyVal) {
+        headers['Authorization'] = `Bearer ${apiKeyVal}`;
+      } else {
+        logFn('Warning: Testing connection without an API key (registration may be required).', 'warn');
       }
 
       try {
@@ -80,8 +97,9 @@ export class SettingsManager {
         clearTimeout(timeoutId);
 
         if (response.ok) {
-          logFn(`Connection success! Server returned HTTP ${response.status}`, 'success');
-          alert('Connection successful!');
+          const companionMe = await response.json();
+          logFn(`Connection success! Server verified runtime: ${companionMe.runtime_name} (${companionMe.status})`, 'success');
+          alert(`Connection successful! Verified as: ${companionMe.runtime_name}`);
         } else {
           logFn(`Connection failed: HTTP ${response.status}`, 'error');
           alert(`Failed: Server returned HTTP ${response.status}`);

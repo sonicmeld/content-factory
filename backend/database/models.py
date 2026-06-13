@@ -458,4 +458,18 @@ class AnalyticsInsight(Base):
     expires_at = Column(DateTime, nullable=False)
 
 
+class CompanionRuntime(Base):
+    __tablename__ = "companion_runtimes"
+
+    id = Column(String, primary_key=True)
+    runtime_name = Column(String, unique=True, nullable=False)
+    client_id = Column(String, unique=True, nullable=False)
+    api_key_hash = Column(String, nullable=False)
+    status = Column(String, nullable=False, default="offline")
+    is_revoked = Column(Integer, default=0, nullable=False)   # 1 = revoked, 0 = active
+    last_seen_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
+
+
 
