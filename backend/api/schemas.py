@@ -606,5 +606,38 @@ class SyncActivityLog(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class AnalyticsInsightResponse(BaseModel):
+    id: str
+    channel_id: Optional[str] = None
+    insight_source: str
+    insight_type: str
+    severity: str
+    status: str
+    entity_type: Optional[str] = None
+    entity_id: Optional[str] = None
+    engine_version: str
+    fingerprint: str
+    title: str
+    description: str
+    score: int
+    evidence_json: Optional[str] = None
+    first_detected_at: datetime
+    last_detected_at: datetime
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class InsightRefreshResponse(BaseModel):
+    generated: int
+    removed: int
+    duration_ms: int
+
+
+class InsightStatusUpdateRequest(BaseModel):
+    status: str
+
+
+
 
 

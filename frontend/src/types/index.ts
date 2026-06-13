@@ -383,6 +383,9 @@ export interface ExplorerSummaryResponse {
         last_successful_sync_at?: string;
         last_failed_sync_at?: string;
     };
+    insights?: {
+        active_count: number;
+    };
     meta: {
         collector_version: string;
         generated_at: string;
@@ -414,6 +417,7 @@ export interface ComparisonChannelMeta {
     subscribers: number;
     views: number;
     video_count: number;
+    active_insights_count: number;
 }
 
 export interface ComparisonResponse {
@@ -421,3 +425,30 @@ export interface ComparisonResponse {
     views_timeline: any[];
     channels: ComparisonChannelMeta[];
 }
+
+export interface AnalyticsInsight {
+    id: string;
+    channel_id?: string;
+    insight_source: string;
+    insight_type: string;
+    severity: 'Critical' | 'High' | 'Medium' | 'Low';
+    status: 'active' | 'resolved' | 'dismissed' | 'archived';
+    entity_type?: 'channel' | 'video' | 'market';
+    entity_id?: string;
+    engine_version: string;
+    fingerprint: string;
+    title: string;
+    description: string;
+    score: number;
+    evidence_json?: string;
+    first_detected_at: string;
+    last_detected_at: string;
+    created_at: string;
+}
+
+export interface InsightRefreshResponse {
+    generated: number;
+    removed: number;
+    duration_ms: number;
+}
+

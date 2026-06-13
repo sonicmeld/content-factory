@@ -5,7 +5,10 @@ import {
     getChannelSummary, 
     getChannelTimeline, 
     getChannelVideos, 
-    syncAnalyticsChannel 
+    syncAnalyticsChannel,
+    getChannelInsights,
+    refreshChannelInsights,
+    updateInsightStatus
 } from '../services/api';
 import { 
     TrendingUp, 
@@ -22,7 +25,13 @@ import {
     Award,
     Zap,
     Cpu,
-    ArrowRight
+    ArrowRight,
+    Eye,
+    ThumbsUp,
+    MessageSquare,
+    Trash2,
+    Sparkles,
+    ExternalLink
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { 
@@ -34,6 +43,7 @@ import {
     Tooltip, 
     ResponsiveContainer 
 } from 'recharts';
+
 
 type ExplorerTab = 'overview' | 'growth' | 'videos' | 'top_videos' | 'pattern' | 'diagnostics' | 'insights';
 
@@ -48,6 +58,7 @@ export default function AnalyticsChannelExplorer() {
     const [videoSort, setVideoSort] = useState('newest');
     const [videoPage, setVideoPage] = useState(1);
     const videoLimit = 10;
+    const [insightFilter, setInsightFilter] = useState<'all' | 'risks' | 'growth' | 'opportunities'>('all');
 
     // Fetch Summary (First paint entrypoint - staleTime 5m)
     const { data: summary, isLoading: isSummaryLoading } = useQuery({
@@ -109,6 +120,41 @@ export default function AnalyticsChannelExplorer() {
             toast.error(err.response?.data?.detail || "Failed to trigger sync");
         }
     });
+
+    // Fetch Insights (Lazy load on 'insights' tab - staleTime 5m)
+    const { data: insights = [], isLoading: isInsightsLoading } = useQuery({
+        queryKey: ['channelInsights', id],
+        queryFn: () => getChannelInsights(id!),
+        enabled: activeTab === 'insights' && !!id,
+        staleTime: 5 * 60 * 1000
+    });
+
+    // Refresh Insights mutation
+    const refreshInsightsMutation = useMutation({
+        mutationFn: (channelId: string) => refreshChannelInsights(channelId),
+        onSuccess: (data) => {
+            toast.success(`Insights refreshed: ${data.generated} active, ${data.removed} archived in ${data.duration_ms}ms`);
+            queryClient.invalidateQueries({ queryKey: ['channelInsights', id] });
+            queryClient.invalidateQueries({ queryKey: ['channelSummary', id] });
+        },
+        onError: (err: any) => {
+            toast.error(err.response?.data?.detail || "Failed to refresh insights");
+        }
+    });
+
+    // Dismiss Insight mutation
+    const dismissInsightMutation = useMutation({
+        mutationFn: ({ insightId, status }: { insightId: string, status: string }) => updateInsightStatus(insightId, status),
+        onSuccess: () => {
+            toast.success("Insight dismissed successfully");
+            queryClient.invalidateQueries({ queryKey: ['channelInsights', id] });
+            queryClient.invalidateQueries({ queryKey: ['channelSummary', id] });
+        },
+        onError: (err: any) => {
+            toast.error(err.response?.data?.detail || "Failed to dismiss insight");
+        }
+    });
+
 
     const [growthMetric, setGrowthMetric] = useState<'subscribers' | 'views' | 'watch_time'>('views');
 
@@ -686,50 +732,223 @@ export default function AnalyticsChannelExplorer() {
                     </div>
                 )}
 
-                {/* 7. INSIGHTS ROADMAP TAB */}
-                {activeTab === 'insights' && (
-                    <div className="bg-secondary/5 border border-border p-8 rounded-xl relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-600/5 rounded-full blur-3xl pointer-events-none" />
+                {/* 7. LIVE INSIGHT ENGINE TAB */}
+                {activeTab === 'insights' && (() => {
+                    const activeInsights = insights.filter(ins => ins.status === 'active');
+                    const criticalCount = activeInsights.filter(ins => ins.severity === 'Critical').length;
+                    const highCount = activeInsights.filter(ins => ins.severity === 'High').length;
+                    const mediumCount = activeInsights.filter(ins => ins.severity === 'Medium').length;
+                    const lowCount = activeInsights.filter(ins => ins.severity === 'Low').length;
+
+                    const getInsightAge = (firstDetectedStr: string) => {
+                        const firstDetected = new Date(firstDetectedStr);
+                        const now = new Date();
+                        const diffMs = now.getTime() - firstDetected.getTime();
+                        const diffMins = Math.floor(diffMs / (1000 * 60));
+                        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
                         
-                        <div className="max-w-2xl space-y-8 relative z-10">
-                            <div className="space-y-2">
-                                <h3 className="text-xl font-extrabold text-indigo-400 flex items-center gap-2">
-                                    <Cpu className="w-5 h-5" /> Performance Insight Engine
-                                </h3>
-                                <p className="text-xs text-muted-foreground">
-                                    Modul AI terpusat yang menganalisis snapshot performa historis, efisiensi metadata, dan pola posting untuk memberikan strategi optimasi.
-                                </p>
-                            </div>
+                        if (diffDays > 0) return `Detected ${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+                        if (diffHours > 0) return `Detected ${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+                        if (diffMins > 0) return `Detected ${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+                        return 'Detected just now';
+                    };
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-                                <div className="bg-secondary/15 border border-border/40 p-5 rounded-lg space-y-3">
-                                    <h4 className="font-extrabold text-xs text-foreground uppercase tracking-wider border-b border-border/40 pb-2">
-                                        Sprint C Roadmap
-                                    </h4>
-                                    <ul className="space-y-2 text-xs text-muted-foreground">
-                                        <li className="flex items-center gap-2"><ArrowRight className="w-3.5 h-3.5 text-indigo-500" /> Performance Insights (AI diagnosis)</li>
-                                        <li className="flex items-center gap-2"><ArrowRight className="w-3.5 h-3.5 text-indigo-500" /> Growth Prediction model</li>
-                                        <li className="flex items-center gap-2"><ArrowRight className="w-3.5 h-3.5 text-indigo-500" /> Thumbnail CTR Intelligence</li>
-                                        <li className="flex items-center gap-2"><ArrowRight className="w-3.5 h-3.5 text-indigo-500" /> Content Gap Analysis</li>
-                                        <li className="flex items-center gap-2"><ArrowRight className="w-3.5 h-3.5 text-indigo-500" /> Posting Time Recommendation</li>
-                                    </ul>
+                    const getSeverityStyles = (severity: string) => {
+                        switch (severity) {
+                            case 'Critical':
+                                return 'bg-red-500/10 text-red-400 border-red-500/20';
+                            case 'High':
+                                return 'bg-orange-500/10 text-orange-400 border-orange-500/20';
+                            case 'Medium':
+                                return 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20';
+                            case 'Low':
+                                return 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20';
+                            default:
+                                return 'bg-secondary/20 text-muted-foreground border-border';
+                        }
+                    };
+
+                    const handleDeepLink = (entityId: string, title: string) => {
+                        const videoTitle = title.replace(/^(Low CTR Thumbnail:\s*|High Growth Opportunity:\s*)/i, '');
+                        setVideoSearch(videoTitle);
+                        setVideoSort('newest');
+                        setVideoPage(1);
+                        setActiveTab('videos');
+                        toast.info(`Filtering videos tab for: "${videoTitle}"`);
+                    };
+
+                    const filteredInsights = activeInsights.filter(ins => {
+                        if (insightFilter === 'risks') return ['growth_decline', 'thumbnail_warning', 'subscriber_decline'].includes(ins.insight_type);
+                        if (insightFilter === 'growth') return ['competitor_outperforming', 'upload_frequency', 'subscriber_acceleration'].includes(ins.insight_type);
+                        if (insightFilter === 'opportunities') return ['content_opportunity', 'growth_opportunity'].includes(ins.insight_type);
+                        return true;
+                    });
+
+                    return (
+                        <div className="space-y-6">
+                            
+                            {/* Summary Widget & Refresh Bar */}
+                            <div className="bg-secondary/15 border border-border p-6 rounded-xl flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
+                                
+                                <div className="flex flex-col sm:flex-row items-center gap-6 relative z-10">
+                                    <div className="p-3 bg-indigo-600/10 border border-indigo-500/20 rounded-xl text-indigo-400">
+                                        <Cpu className="w-8 h-8" />
+                                    </div>
+                                    <div className="space-y-1 text-center sm:text-left">
+                                        <h3 className="text-lg font-black tracking-tight text-indigo-400 flex items-center gap-2 justify-center sm:justify-start">
+                                            Performance Insight Engine <span className="text-xs font-mono bg-indigo-500/15 px-2 py-0.5 rounded text-indigo-300">v1.0</span>
+                                        </h3>
+                                        <p className="text-xs text-muted-foreground">
+                                            Deterministis rule-based engine yang memindai channel metrics, upload frequency, CTR, competitor median, dan growth opportunities.
+                                        </p>
+                                    </div>
                                 </div>
 
-                                <div className="bg-secondary/15 border border-border/40 p-5 rounded-lg space-y-3">
-                                    <h4 className="font-extrabold text-xs text-foreground uppercase tracking-wider border-b border-border/40 pb-2">
-                                        Sprint D Roadmap
-                                    </h4>
-                                    <ul className="space-y-2 text-xs text-muted-foreground">
-                                        <li className="flex items-center gap-2"><ArrowRight className="w-3.5 h-3.5 text-emerald-500" /> Market Intelligence & Google Trends</li>
-                                        <li className="flex items-center gap-2"><ArrowRight className="w-3.5 h-3.5 text-emerald-500" /> Competitor Radar alerts</li>
-                                        <li className="flex items-center gap-2"><ArrowRight className="w-3.5 h-3.5 text-emerald-500" /> Topic Trend Forecasting</li>
-                                        <li className="flex items-center gap-2"><ArrowRight className="w-3.5 h-3.5 text-emerald-500" /> Video Opportunity Detection</li>
-                                    </ul>
+                                <button 
+                                    onClick={() => refreshInsightsMutation.mutate(channel.id)}
+                                    disabled={refreshInsightsMutation.isPending || isInsightsLoading}
+                                    className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-indigo-600/20 transition-all z-10 shrink-0"
+                                >
+                                    <RefreshCw className={`w-3.5 h-3.5 ${refreshInsightsMutation.isPending ? 'animate-spin' : ''}`} />
+                                    Refresh Insights
+                                </button>
+                            </div>
+
+                            {/* Severity Metrics Cards */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <div className="bg-red-500/5 border border-red-500/10 p-4 rounded-xl text-center">
+                                    <p className="text-2xl font-black font-mono text-red-400">{criticalCount}</p>
+                                    <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1">Critical Alerts</p>
+                                </div>
+                                <div className="bg-orange-500/5 border border-orange-500/10 p-4 rounded-xl text-center">
+                                    <p className="text-2xl font-black font-mono text-orange-400">{highCount}</p>
+                                    <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1">High Risk</p>
+                                </div>
+                                <div className="bg-yellow-500/5 border border-yellow-500/10 p-4 rounded-xl text-center">
+                                    <p className="text-2xl font-black font-mono text-yellow-400">{mediumCount}</p>
+                                    <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1">Medium Warning</p>
+                                </div>
+                                <div className="bg-indigo-500/5 border border-indigo-500/10 p-4 rounded-xl text-center">
+                                    <p className="text-2xl font-black font-mono text-indigo-400">{lowCount}</p>
+                                    <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1">Low Priority</p>
                                 </div>
                             </div>
+
+                            {/* Filter tabs */}
+                            <div className="flex border-b border-border gap-2">
+                                {(['all', 'risks', 'growth', 'opportunities'] as const).map((filterType) => {
+                                    const filterCounts = {
+                                        all: activeInsights.length,
+                                        risks: activeInsights.filter(ins => ['growth_decline', 'thumbnail_warning', 'subscriber_decline'].includes(ins.insight_type)).length,
+                                        growth: activeInsights.filter(ins => ['competitor_outperforming', 'upload_frequency', 'subscriber_acceleration'].includes(ins.insight_type)).length,
+                                        opportunities: activeInsights.filter(ins => ['content_opportunity', 'growth_opportunity'].includes(ins.insight_type)).length,
+                                    };
+                                    return (
+                                        <button
+                                            key={filterType}
+                                            onClick={() => setInsightFilter(filterType)}
+                                            className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 ${
+                                                insightFilter === filterType 
+                                                    ? 'border-indigo-500 text-indigo-400' 
+                                                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                                            }`}
+                                        >
+                                            <span className="capitalize">{filterType}</span>
+                                            <span className="bg-secondary/40 text-[10px] px-1.5 py-0.5 rounded-full font-mono text-muted-foreground">
+                                                {filterCounts[filterType]}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Loading State */}
+                            {isInsightsLoading && (
+                                <div className="flex flex-col items-center justify-center py-12 gap-2">
+                                    <RefreshCw className="w-6 h-6 animate-spin text-indigo-500" />
+                                    <p className="text-xs text-muted-foreground">Evaluating performance rules...</p>
+                                </div>
+                            )}
+
+                            {/* Empty State */}
+                            {!isInsightsLoading && filteredInsights.length === 0 && (
+                                <div className="border border-dashed border-border rounded-xl p-12 text-center space-y-2">
+                                    <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto" />
+                                    <h4 className="font-extrabold text-sm">No Active Insights found</h4>
+                                    <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                                        All parameters are within acceptable thresholds for this filter. Click "Refresh Insights" or sync your channel metrics to run the engine again.
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Insights Grid */}
+                            {!isInsightsLoading && filteredInsights.length > 0 && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {filteredInsights.map((insight) => (
+                                        <div 
+                                            key={insight.id}
+                                            className={`bg-secondary/5 border rounded-xl p-5 flex flex-col justify-between gap-4 transition-all relative overflow-hidden group hover:bg-secondary/10 ${getSeverityStyles(insight.severity)}`}
+                                        >
+                                            {/* Score pill */}
+                                            {insight.score > 0 && (
+                                                <div className="absolute top-4 right-4 flex items-center gap-1 font-mono font-bold text-xs bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 px-2 py-0.5 rounded-full">
+                                                    <Zap className="w-3.5 h-3.5 fill-indigo-300/30" /> Score: {insight.score}
+                                                </div>
+                                            )}
+
+                                            <div className="space-y-2">
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border ${
+                                                        insight.severity === 'Critical' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                                                        insight.severity === 'High' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
+                                                        insight.severity === 'Medium' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' :
+                                                        'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
+                                                    }`}>
+                                                        {insight.severity}
+                                                    </span>
+                                                    <span className="text-[10px] text-muted-foreground font-mono">
+                                                        {insight.insight_source}
+                                                    </span>
+                                                </div>
+
+                                                <h4 className="font-extrabold text-sm text-foreground">{insight.title}</h4>
+                                                <p className="text-xs text-muted-foreground leading-relaxed">{insight.description}</p>
+                                            </div>
+
+                                            {/* Footer Actions */}
+                                            <div className="flex items-center justify-between border-t border-border/20 pt-3 mt-1">
+                                                <span className="text-[10px] text-muted-foreground font-mono flex items-center gap-1">
+                                                    <Clock className="w-3 h-3" /> {getInsightAge(insight.first_detected_at)}
+                                                </span>
+                                                
+                                                <div className="flex items-center gap-2">
+                                                    {insight.entity_type === 'video' && insight.entity_id && (
+                                                        <button
+                                                            onClick={() => handleDeepLink(insight.entity_id!, insight.title)}
+                                                            className="flex items-center gap-1 bg-secondary/50 hover:bg-secondary border border-border px-2.5 py-1 rounded-lg text-[10px] font-bold text-muted-foreground hover:text-foreground transition-all"
+                                                        >
+                                                            <ExternalLink className="w-3 h-3" /> View Video
+                                                        </button>
+                                                    )}
+                                                    
+                                                    <button
+                                                        onClick={() => dismissInsightMutation.mutate({ insightId: insight.id, status: 'dismissed' })}
+                                                        disabled={dismissInsightMutation.isPending}
+                                                        className="flex items-center gap-1 bg-secondary/50 hover:bg-red-500/10 border border-border hover:border-red-500/20 px-2.5 py-1 rounded-lg text-[10px] font-bold text-muted-foreground hover:text-red-400 transition-all"
+                                                    >
+                                                        <Trash2 className="w-3 h-3" /> Dismiss
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
-                    </div>
-                )}
+                    );
+                })()}
 
             </div>
         </div>

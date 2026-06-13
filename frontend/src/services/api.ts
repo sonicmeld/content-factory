@@ -381,7 +381,9 @@ import type {
     AnalyticsVideo,
     ExplorerSummaryResponse,
     TimelineResponse,
-    ComparisonResponse
+    ComparisonResponse,
+    AnalyticsInsight,
+    InsightRefreshResponse
 } from '../types';
 export type { AnalyticsSyncStatus } from '../types';
 
@@ -402,7 +404,7 @@ export const observeAnalyticsChannel = (data: {
     external_channel_id: string; 
     analytics_type: 'owned' | 'competitor' | 'observed'; 
     channel_id?: string 
-}) =>
+    }) =>
     api.post<AnalyticsChannel>('/analytics/channels/observe', data).then(res => res.data);
 
 export const syncAnalyticsChannel = (channelId: string) =>
@@ -443,6 +445,18 @@ export const getChannelVideos = (channelId: string, params?: { sort?: string; qu
 
 export const compareChannels = (channelIds: string) =>
     api.get<ComparisonResponse>('/analytics/compare', { params: { channel_ids: channelIds } }).then(res => res.data);
+
+export const getChannelInsights = (channelId: string) =>
+    api.get<AnalyticsInsight[]>(`/analytics/channels/${channelId}/insights`).then(res => res.data);
+
+export const getChannelOpportunities = (channelId: string) =>
+    api.get<AnalyticsInsight[]>(`/analytics/channels/${channelId}/opportunities`).then(res => res.data);
+
+export const refreshChannelInsights = (channelId: string) =>
+    api.post<InsightRefreshResponse>(`/analytics/channels/${channelId}/refresh-insights`).then(res => res.data);
+
+export const updateInsightStatus = (insightId: string, status: string) =>
+    api.post<{ message: string; status: string }>(`/analytics/insights/${insightId}/status`, { status }).then(res => res.data);
 
 export default api;
 

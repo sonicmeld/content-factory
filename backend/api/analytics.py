@@ -26,7 +26,9 @@ from api.schemas import (
     AnalyticsInsightResponse,
     GoogleTrendsSnapshotResponse,
     AnalyticsSyncStatus,
-    SyncActivityLog
+    SyncActivityLog,
+    InsightRefreshResponse,
+    InsightStatusUpdateRequest
 )
 from services.analytics.collector import sync_channel, get_any_youtube_client
 from services.analytics.explorer import (
@@ -413,9 +415,40 @@ def get_channel_videos(
 
 @router.get("/channels/{channel_id}/insights", response_model=List[AnalyticsInsightResponse])
 def get_channel_insights(channel_id: str, db: Session = Depends(get_db)):
+    insights = db.query(AnalyticsInsight).filter(
+        AnalyticsInsight.channel_id == channel_id,
+        AnalyticsInsight.status == "active"
+    ).all()
+    
+    # Sort order: Critical (0), High (1), Medium (2), Low (3)
+    severity_order = {"Critical": 0, "High": 1, "Medium": 2, "Low": 3}
+    insights.sort(key=lambda x: (severity_order.get(x.severity, 4), -x.score))
+    return insights
+
+@router.get("/channels/{channel_id}/opportunities", response_model=List[AnalyticsInsightResponse])
+def get_channel_opportunities(channel_id: str, db: Session = Depends(get_db)):
     return db.query(AnalyticsInsight).filter(
-        (AnalyticsInsight.analytics_channel_id == channel_id) | (AnalyticsInsight.analytics_channel_id == None)
-    ).order_by(AnalyticsInsight.created_at.desc()).all()
+        AnalyticsInsight.channel_id == channel_id,
+        AnalyticsInsight.status == "active",
+        AnalyticsInsight.insight_type.in_(["content_opportunity", "growth_opportunity"])
+    ).order_by(AnalyticsInsight.score.desc()).all()
+
+@router.post("/channels/{channel_id}/refresh-insights", response_model=InsightRefreshResponse)
+def refresh_channel_insights(channel_id: str, db: Session = Depends(get_db)):
+    from services.analytics.insight_engine import generate_channel_insights
+    return generate_channel_insights(db, channel_id)
+
+@router.post("/insights/{insight_id}/status")
+def update_insight_status(insight_id: str, req: InsightStatusUpdateRequest, db: Session = Depends(get_db)):
+    insight = db.query(AnalyticsInsight).filter(AnalyticsInsight.id == insight_id).first()
+    if not insight:
+        raise HTTPException(status_code=404, detail="Insight not found")
+    if req.status not in ("active", "resolved", "dismissed", "archived"):
+        raise HTTPException(status_code=400, detail="Invalid status")
+    insight.status = req.status
+    db.commit()
+    return {"message": "Status updated successfully", "status": insight.status}
+
 
 @router.get("/market-trends", response_model=List[GoogleTrendsSnapshotResponse])
 def get_market_trends(query: Optional[str] = None, geo: Optional[str] = None, db: Session = Depends(get_db)):
@@ -567,6 +600,12 @@ def get_channel_summary_route(channel_id: str, db: Session = Depends(get_db)):
     
     # Get publishing pattern
     publishing_pattern = get_publishing_pattern(db, channel_id)
+
+    # Fetch active insights count
+    active_insight_count = db.query(AnalyticsInsight).filter(
+        AnalyticsInsight.channel_id == channel_id,
+        AnalyticsInsight.status == "active"
+    ).count()
     
     # Structure versioned summary
     return {
@@ -587,6 +626,9 @@ def get_channel_summary_route(channel_id: str, db: Session = Depends(get_db)):
         "overview": overview,
         "publishing_pattern": publishing_pattern,
         "diagnostics": diagnostics,
+        "insights": {
+            "active_count": active_insight_count
+        },
         "meta": {
             "collector_version": "Analytics Collector v1.0",
             "generated_at": datetime.now(timezone.utc).isoformat()

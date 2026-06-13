@@ -381,6 +381,16 @@ def sync_channel(db: Session, analytics_channel_id: str):
     if not channel:
         raise ValueError(f"AnalyticsChannel {analytics_channel_id} not found")
     if channel.is_own:
-        return sync_owned_channel(db, analytics_channel_id)
+        res = sync_owned_channel(db, analytics_channel_id)
     else:
-        return sync_competitor_channel(db, analytics_channel_id)
+        res = sync_competitor_channel(db, analytics_channel_id)
+        
+    # Trigger generating insights manually/automatically on sync
+    try:
+        from services.analytics.insight_engine import generate_channel_insights
+        generate_channel_insights(db, analytics_channel_id)
+    except Exception as insight_err:
+        # Prevent insight engine errors from breaking core synchronization
+        print(f"Failed to generate insights after sync: {insight_err}")
+        
+    return res

@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 from sqlalchemy import func
 from sqlalchemy.orm import Session
-from database.models import AnalyticsChannel, AnalyticsVideo, AnalyticsSnapshot
+from database.models import AnalyticsChannel, AnalyticsVideo, AnalyticsSnapshot, AnalyticsInsight
 
 def get_channel_timeline(db: Session, channel_id: str, range_days: str = "30"):
     query = db.query(AnalyticsSnapshot).filter(
@@ -169,6 +169,12 @@ def compare_channels_data(db: Session, channel_ids: List[str]):
         subscribers = snapshot.subscribers if snapshot else 0
         views = snapshot.views if snapshot else 0
         
+        # Query active insights count
+        active_insights_count = db.query(AnalyticsInsight).filter(
+            AnalyticsInsight.channel_id == ch_id,
+            AnalyticsInsight.status == "active"
+        ).count()
+
         channels_meta.append({
             "id": ch_id,
             "channel_name": channel.channel_name,
@@ -176,7 +182,8 @@ def compare_channels_data(db: Session, channel_ids: List[str]):
             "analytics_type": channel.analytics_type,
             "subscribers": subscribers,
             "views": views,
-            "video_count": video_count
+            "video_count": video_count,
+            "active_insights_count": active_insights_count
         })
         
         # Load snapshots for timeline alignment

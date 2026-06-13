@@ -210,6 +210,13 @@ export default function AnalyticsCompare() {
                                                     <p className="font-bold font-mono text-sm mt-0.5">{ch.video_count || 0}</p>
                                                 </div>
                                             </div>
+
+                                            <div className="mt-3.5 border-t border-border/40 pt-2 flex items-center justify-between">
+                                                <span className="text-[10px] text-muted-foreground uppercase font-bold">Active Insights</span>
+                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${ch.active_insights_count > 0 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/25' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/25'}`}>
+                                                    {ch.active_insights_count} active
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
                                 ))}

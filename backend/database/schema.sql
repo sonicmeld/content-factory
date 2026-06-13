@@ -284,19 +284,24 @@ CREATE TABLE IF NOT EXISTS google_trends_snapshots (
 
 CREATE TABLE IF NOT EXISTS analytics_insights (
     id TEXT PRIMARY KEY,
-    analytics_channel_id TEXT,
-    scope TEXT NOT NULL,
+    channel_id TEXT,
+    insight_source TEXT NOT NULL,
     insight_type TEXT NOT NULL,
-    insight_version INTEGER DEFAULT 1,
-    payload_version INTEGER DEFAULT 1,
-    confidence_score REAL DEFAULT 1.0,
+    severity TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active',
+    entity_type TEXT,
+    entity_id TEXT,
+    engine_version TEXT NOT NULL DEFAULT '1.0',
+    fingerprint TEXT NOT NULL,
     title TEXT NOT NULL,
-    summary TEXT NOT NULL,
-    payload_json TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    generated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    expires_at DATETIME NOT NULL
+    description TEXT NOT NULL,
+    score INTEGER NOT NULL DEFAULT 0,
+    evidence_json TEXT,
+    first_detected_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    last_detected_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+CREATE INDEX IF NOT EXISTS idx_analytics_insights_fingerprint ON analytics_insights (fingerprint);
 
 CREATE TABLE IF NOT EXISTS companion_runtimes (
     id TEXT PRIMARY KEY,

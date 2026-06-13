@@ -450,18 +450,23 @@ class AnalyticsInsight(Base):
     __tablename__ = "analytics_insights"
 
     id = Column(String, primary_key=True)
-    analytics_channel_id = Column(String, nullable=True)
-    scope = Column(String, nullable=False)  # 'channel', 'market', 'competitor', 'global'
-    insight_type = Column(String, nullable=False)  # 'descriptive', 'predictive'
-    insight_version = Column(Integer, default=1)
-    payload_version = Column(Integer, default=1)
-    confidence_score = Column(Float, default=1.0)
+    channel_id = Column(String, nullable=True)
+    insight_source = Column(String, nullable=False, default="channel_engine")  # e.g., 'growth_engine', 'thumbnail_engine', etc.
+    insight_type = Column(String, nullable=False)
+    severity = Column(String, nullable=False)  # 'Critical' | 'High' | 'Medium' | 'Low'
+    status = Column(String, nullable=False, default="active")  # 'active' | 'resolved' | 'dismissed' | 'archived'
+    entity_type = Column(String, nullable=True)  # 'channel' | 'video' | 'market'
+    entity_id = Column(String, nullable=True)
+    engine_version = Column(String, nullable=False, default="1.0")
+    fingerprint = Column(String, index=True, nullable=False)
     title = Column(String, nullable=False)
-    summary = Column(String, nullable=False)
-    payload_json = Column(Text, nullable=False)
+    description = Column(Text, nullable=False)
+    score = Column(Integer, default=0, nullable=False)
+    evidence_json = Column(Text, nullable=True)
+    first_detected_at = Column(DateTime, default=func.now())
+    last_detected_at = Column(DateTime, default=func.now())
     created_at = Column(DateTime, default=func.now())
-    generated_at = Column(DateTime, default=func.now())
-    expires_at = Column(DateTime, nullable=False)
+
 
 
 class CompanionRuntime(Base):
