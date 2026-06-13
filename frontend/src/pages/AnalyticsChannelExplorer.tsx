@@ -25,12 +25,7 @@ import {
     Award,
     Zap,
     Cpu,
-    ArrowRight,
-    Eye,
-    ThumbsUp,
-    MessageSquare,
     Trash2,
-    Sparkles,
     ExternalLink
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -769,7 +764,7 @@ export default function AnalyticsChannelExplorer() {
                         }
                     };
 
-                    const handleDeepLink = (entityId: string, title: string) => {
+                    const handleDeepLink = (_entityId: string, title: string) => {
                         const videoTitle = title.replace(/^(Low CTR Thumbnail:\s*|High Growth Opportunity:\s*)/i, '');
                         setVideoSearch(videoTitle);
                         setVideoSort('newest');
