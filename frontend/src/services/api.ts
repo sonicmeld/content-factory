@@ -374,7 +374,7 @@ export const discardPromptDraft = (id: string) =>
     api.post<{ message: string }>(`/prompt-experts/drafts/${id}/discard`).then(res => res.data);
 
 import type { CompanionRuntime, AnalyticsChannel, AnalyticsOverview, SyncActivityLog } from '../types';
-export { AnalyticsSyncStatus } from '../types';
+export type { AnalyticsSyncStatus } from '../types';
 
 export const getCompanionRuntimes = () =>
     api.get<CompanionRuntime[]>('/companion/runtimes').then(res => res.data);

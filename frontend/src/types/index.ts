@@ -296,13 +296,7 @@ export interface CompanionRuntime {
     created_at: string;
 }
 
-export enum AnalyticsSyncStatus {
-    PENDING = "PENDING",
-    SYNCING = "SYNCING",
-    SUCCESS = "SUCCESS",
-    FAILED = "FAILED",
-    DISABLED = "DISABLED"
-}
+export type AnalyticsSyncStatus = 'PENDING' | 'SYNCING' | 'SUCCESS' | 'FAILED' | 'DISABLED';
 
 export interface AnalyticsChannel {
     id: string;

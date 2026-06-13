@@ -21,18 +21,13 @@ import {
     Archive, 
     Eye, 
     Link2, 
-    Users, 
     CheckCircle2, 
     AlertCircle, 
     Clock, 
     Database, 
-    Calendar, 
     ShieldAlert, 
     Globe, 
-    Search, 
     X,
-    Cpu, 
-    ArrowRight, 
     History, 
     UserCheck, 
     LayoutGrid 
@@ -550,7 +545,6 @@ export default function AnalyticsHub() {
                             <div className="space-y-4">
                                 {channels.map(channel => {
                                     const linkedLink = workspaceLinks.find(wl => wl.analytics_channel_id === channel.id);
-                                    const linkedLocalChannel = localChannels.find(lc => lc.id === linkedLink?.channel_id);
 
                                     return (
                                         <div key={channel.id} className="bg-secondary/20 border border-border p-4 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-border transition-all">
