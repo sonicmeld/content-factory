@@ -588,4 +588,10 @@ export const toggleYoutubeAnalytics = (accountId: string, enabled: boolean) =>
 export const syncYoutubeAccounts = () =>
     api.post<YoutubeSyncResult>('/youtube-identity/sync').then(res => res.data);
 
+export const connectYoutubeIdentity = (workspaceId: string, gcpProfileId: string) =>
+    api.post<{ url: string }>(`/youtube-identity/connect?workspace_id=${workspaceId}&gcp_profile_id=${gcpProfileId}`).then(res => res.data);
+
+export const deleteYoutubeIdentity = (accountId: string) =>
+    api.delete<{ status: string; message: string }>(`/youtube-identity/accounts/${accountId}`).then(res => res.data);
+
 export default api;

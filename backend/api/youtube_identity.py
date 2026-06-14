@@ -77,6 +77,44 @@ def toggle_analytics_binding(
     )
 
 
+@router.post("/connect")
+def connect_youtube_identity(
+    workspace_id: str,
+    gcp_profile_id: str,
+    db: Session = Depends(get_db)
+):
+    from services import oauth_service
+    from fastapi import HTTPException
+    try:
+        url = oauth_service.generate_identity_auth_url(db, gcp_profile_id, workspace_id)
+        return {"url": url}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/accounts/{account_id}")
+def delete_youtube_account(
+    account_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Menghapus YouTube Account dari Identity Layer dan mencabut token OAuth yang terkait.
+    """
+    from database.models import YoutubeAccount, OAuthToken
+    account = db.query(YoutubeAccount).filter(YoutubeAccount.id == account_id).first()
+    if not account:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    # Hapus token terkait
+    token = db.query(OAuthToken).filter(OAuthToken.youtube_account_id == account.id).first()
+    if token:
+        db.delete(token)
+
+    db.delete(account)
+    db.commit()
+    return {"status": "success", "message": "YouTube Account deleted"}
+
 @router.post("/sync", response_model=YoutubeSyncResponse)
 def sync_channels_to_youtube_accounts(
     db: Session = Depends(get_db),
@@ -95,3 +133,4 @@ def sync_channels_to_youtube_accounts(
         updated=result["updated"],
         message=f"Sync complete: {result['created']} created, {result['updated']} updated from {result['synced']} channels."
     )
+

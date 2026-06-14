@@ -41,7 +41,8 @@ class OAuthToken(Base):
     __tablename__ = "oauth_tokens"
 
     id = Column(String, primary_key=True)
-    channel_id = Column(String, nullable=False)
+    channel_id = Column(String, nullable=True) # Nullable for Identity Layer
+    youtube_account_id = Column(String, nullable=True) # Identity Layer association
     access_token = Column(String)
     refresh_token = Column(String)
     expires_at = Column(DateTime)

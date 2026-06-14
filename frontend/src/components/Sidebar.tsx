@@ -15,6 +15,7 @@ import {
     BarChart3,
     Plug,
     Compass,
+    Video,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useQuery } from '@tanstack/react-query';
@@ -72,6 +73,7 @@ const domainGroups: DomainGroup[] = [
         domain: 'Platform',
         icon: Settings,
         items: [
+            { label: 'YouTube Accounts', icon: Video, path: '/youtube-accounts' },
             { label: 'Connector Hub', icon: Plug, path: '/connectors' },
             { label: 'Settings', icon: Settings, path: '/settings' },
         ],

@@ -3,6 +3,7 @@ import Layout from './components/Layout';
 import WorkspaceLayout from './components/WorkspaceLayout';
 import Dashboard from './pages/Dashboard';
 import Channels from './pages/Channels';
+import YouTubeAccounts from './pages/YouTubeAccounts';
 import PromptLibraryPage from './pages/PromptLibraryPage';
 import Assets from './pages/Assets';
 import Uploads from './pages/Uploads';
@@ -42,6 +43,7 @@ function App() {
           <Route path="/analytics/compare" element={<AnalyticsCompare />} />
           <Route path="/execution-center" element={<GlobalExecutionCenterPage />} />
           <Route path="/channels" element={<Channels />} />
+          <Route path="/youtube-accounts" element={<YouTubeAccounts />} />
           <Route path="/connectors" element={<ConnectorsPage />} />
           <Route path="/prompts" element={<PromptLibraryPage />} />
           <Route path="/assets" element={<Assets />} />
