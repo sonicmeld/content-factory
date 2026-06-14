@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getChannels, createChannel, updateChannel, deleteChannel, getGCPProfiles, connectOAuth, getGenerationCombos } from '../services/api';
-import { PlusCircle, MonitorPlay, KeyRound, X, Trash2, Edit2, AlertTriangle, Cpu } from 'lucide-react';
+import { getChannels, createChannel, updateChannel, deleteChannel, getGCPProfiles, connectOAuth, getGenerationCombos, getYoutubeAccounts } from '../services/api';
+import { PlusCircle, MonitorPlay, KeyRound, X, Trash2, Edit2, AlertTriangle, Cpu, Power, PowerOff } from 'lucide-react';
 import type { Channel } from '../types';
 import { useNavigate } from 'react-router-dom';
 
@@ -11,8 +11,10 @@ export default function Channels() {
     const { data: channels = [] } = useQuery({ queryKey: ['channels'], queryFn: getChannels });
     const { data: gcpProfiles = [] } = useQuery({ queryKey: ['gcp-profiles'], queryFn: getGCPProfiles });
     const { data: combos = [] } = useQuery({ queryKey: ['generation-combos'], queryFn: () => getGenerationCombos() });
+    const { data: youtubeAccounts = [] } = useQuery({ queryKey: ['youtube-accounts'], queryFn: () => getYoutubeAccounts() });
     
     const [isAddChannelOpen, setIsAddChannelOpen] = useState(false);
+    const [selectedYoutubeAccountId, setSelectedYoutubeAccountId] = useState('');
 
     const [name, setName] = useState('');
     const [slug, setSlug] = useState('');
@@ -22,6 +24,7 @@ export default function Channels() {
     const [isEditChannelOpen, setIsEditChannelOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+    const [isActive, setIsActive] = useState<number>(1);
 
     // Sprint 7A: Generation Studio combo fields
     const [metadataCombo, setMetadataCombo] = useState('');
@@ -41,6 +44,7 @@ export default function Channels() {
             setMetadataCombo('');
             setThumbnailCombo('');
             setFootageCombo('');
+            setIsActive(1);
         }
     });
 
@@ -49,6 +53,13 @@ export default function Channels() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['channels'] });
             setDeleteConfirmId(null);
+        }
+    });
+
+    const toggleActiveMutation = useMutation({
+        mutationFn: ({ id, is_active }: { id: string, is_active: number }) => updateChannel(id, { is_active }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['channels'] });
         }
     });
 
@@ -61,20 +72,22 @@ export default function Channels() {
         setMetadataCombo(channel.metadata_combo || '');
         setThumbnailCombo(channel.thumbnail_combo || '');
         setFootageCombo(channel.footage_combo || '');
+        setIsActive(channel.is_active);
         setIsEditChannelOpen(true);
     };
 
     const handleUpdate = () => {
         if (!editingId || !name || !slug) return;
-        updateMutation.mutate({
-            id: editingId,
-            name,
-            slug,
-            description,
+        updateMutation.mutate({ 
+            id: editingId, 
+            name, 
+            slug, 
+            description, 
             gcp_profile_id: gcpProfileId || undefined,
-            metadata_combo: metadataCombo,
-            thumbnail_combo: thumbnailCombo,
-            footage_combo: footageCombo,
+            metadata_combo: metadataCombo || '',
+            thumbnail_combo: thumbnailCombo || '',
+            footage_combo: footageCombo || '',
+            is_active: isActive
         });
     };
 
@@ -112,6 +125,29 @@ export default function Channels() {
 
     const handleConnectOAuth = (id: string) => {
         connectOAuthMutation.mutate({ channel_id: id });
+    };
+
+    const handleYoutubeAccountSelect = (accountId: string) => {
+        setSelectedYoutubeAccountId(accountId);
+        const account = youtubeAccounts.find((a: any) => a.id === accountId);
+        if (account) {
+            setName(account.youtube_channel_title);
+            
+            // Auto-generate slug from title
+            const generatedSlug = account.youtube_channel_title
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/(^-|-$)+/g, '');
+            setSlug(generatedSlug);
+            
+            if (account.gcp_profile_id) {
+                setGcpProfileId(account.gcp_profile_id);
+            }
+        } else {
+            setName('');
+            setSlug('');
+            setGcpProfileId('');
+        }
     };
 
     const handleSave = () => {
@@ -194,10 +230,17 @@ export default function Channels() {
                                         {connectOAuthMutation.isPending ? 'Connecting...' : 'Connect OAuth'}
                                     </button>
                                 )}
-                                <button onClick={(e) => { e.stopPropagation(); openEditModal(channel); }} className="p-1.5 text-muted-foreground hover:text-blue-400 bg-secondary/50 rounded transition-colors">
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); toggleActiveMutation.mutate({ id: channel.id, is_active: channel.is_active ? 0 : 1 }); }} 
+                                    className={`p-1.5 rounded transition-colors ${channel.is_active ? 'text-green-500 hover:bg-green-500/10 bg-secondary/50' : 'text-muted-foreground hover:text-green-500 hover:bg-green-500/10 bg-secondary/50'}`}
+                                    title={channel.is_active ? 'Disable Channel' : 'Enable Channel'}
+                                >
+                                    {channel.is_active ? <Power className="w-4 h-4" /> : <PowerOff className="w-4 h-4" />}
+                                </button>
+                                <button onClick={(e) => { e.stopPropagation(); openEditModal(channel); }} className="p-1.5 text-muted-foreground hover:text-blue-400 bg-secondary/50 rounded transition-colors" title="Edit Channel">
                                     <Edit2 className="w-4 h-4" />
                                 </button>
-                                <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(channel.id); }} className="p-1.5 text-muted-foreground hover:text-red-400 bg-secondary/50 rounded transition-colors">
+                                <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(channel.id); }} className="p-1.5 text-muted-foreground hover:text-red-400 bg-secondary/50 rounded transition-colors" title="Delete Channel">
                                     <Trash2 className="w-4 h-4" />
                                 </button>
                             </div>
@@ -226,6 +269,25 @@ export default function Channels() {
                         </div>
                         <div className="p-4 space-y-4">
                             <div className="space-y-2">
+                                <label className="text-sm font-medium text-red-400">Select YouTube Account (Identity Layer)</label>
+                                <select 
+                                    value={selectedYoutubeAccountId}
+                                    onChange={e => handleYoutubeAccountSelect(e.target.value)}
+                                    className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-red-500"
+                                >
+                                    <option value="">-- Choose Account --</option>
+                                    {youtubeAccounts.map((acc: any) => (
+                                        <option key={acc.id} value={acc.id}>
+                                            {acc.youtube_channel_title} {acc.youtube_handle ? `(${acc.youtube_handle})` : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* UI Refinement: Name, Slug, and GCP Profile inputs are auto-filled 
+                                from Identity Layer so we comment them out to prevent manual entry,
+                                as per user request to keep the code intact for future needs.
+                            <div className="space-y-2">
                                 <label className="text-sm font-medium">Channel Name</label>
                                 <input 
                                     type="text" 
@@ -245,6 +307,8 @@ export default function Channels() {
                                     className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm"
                                 />
                             </div>
+                            */}
+
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">Description</label>
                                 <textarea 
@@ -254,6 +318,8 @@ export default function Channels() {
                                     className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm min-h-[80px]"
                                 />
                             </div>
+
+                            {/*
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">GCP Profile (Optional)</label>
                                 <select 
@@ -267,6 +333,7 @@ export default function Channels() {
                                     ))}
                                 </select>
                             </div>
+                            */}
                         </div>
                         <div className="p-4 border-t border-border flex justify-end gap-2">
                             <button 
@@ -328,6 +395,17 @@ export default function Channels() {
                                     onChange={e => setDescription(e.target.value)}
                                     className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm min-h-[80px]"
                                 />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Channel Status</label>
+                                <select 
+                                    value={isActive}
+                                    onChange={e => setIsActive(Number(e.target.value))}
+                                    className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-sm"
+                                >
+                                    <option value={1}>Active</option>
+                                    <option value={0}>Inactive</option>
+                                </select>
                             </div>
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">GCP Profile (Optional)</label>

@@ -65,11 +65,11 @@ export default function YouTubeAccountSelector({
                         onChange={e => setActiveAccountId(e.target.value)}
                         disabled={isLoading}
                     >
-                        <option value="">
+                        <option value="" className="bg-card text-foreground">
                             {isLoading ? 'Loading accounts...' : '— Select YouTube Account —'}
                         </option>
                         {accounts.map(account => (
-                            <option key={account.id} value={account.id}>
+                            <option key={account.id} value={account.id} className="bg-card text-foreground">
                                 {account.youtube_channel_title}
                                 {account.youtube_handle ? ` (@${account.youtube_handle.replace('@', '')})` : ''}
                             </option>
