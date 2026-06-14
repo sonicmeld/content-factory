@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Channel, GCPProfile, UploadJob, Asset, Prompt, ContentPackage, ChannelStorageStats, QueueItem, PackageGeneration, PromptContext, GenerationCombo, GenerationReadiness, MetadataVariant, GenerationAsset, MetadataLibraryItem, ExternalAccount, ConnectorJob, AssetInbox } from '../types';
+import type { Channel, GCPProfile, UploadJob, Asset, Prompt, ContentPackage, ChannelStorageStats, QueueItem, PackageGeneration, PromptContext, GenerationCombo, GenerationReadiness, MetadataVariant, GenerationAsset, MetadataLibraryItem, ExternalAccount, ConnectorJob, AssetInbox, AnalyticsEnrichedContext, EnrichedContextPayload } from '../types';
 
 const api = axios.create({
     baseURL: '/api',
@@ -515,7 +515,17 @@ export const getAggregatedAIContext = (exportId: string) =>
 export const updateContextExportStatus = (exportId: string, status: string) =>
     api.patch<any>(`/analytics/context/${exportId}/status`, { status }).then(res => res.data);
 
+export const enrichContext = (exportId: string) =>
+    api.post<EnrichedContextPayload>('/analytics/context/enrich', { export_id: exportId }).then(res => res.data);
+
+export const getEnrichedContext = (id: string) =>
+    api.get<EnrichedContextPayload>(`/analytics/context/enriched/${id}`).then(res => res.data);
+
+export const getEnrichedContextHistory = (workspaceId?: string, status?: string) =>
+    api.get<AnalyticsEnrichedContext[]>('/analytics/context/enriched', { params: { workspace_id: workspaceId, status } }).then(res => res.data);
+
 export default api;
+
 
 
 

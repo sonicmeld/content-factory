@@ -6,9 +6,11 @@ import {
     generatePromptDraft,
     getRecentAnalyticsContexts,
     getAggregatedAIContext,
-    updateContextExportStatus
+    updateContextExportStatus,
+    enrichContext
 } from '../../services/api';
 import { toast } from 'sonner';
+import ContextEnrichmentViewer from './ContextEnrichmentViewer';
 
 interface Props {
     workspaceId: string;
@@ -22,6 +24,22 @@ export default function PromptExpertAssistantTab({ workspaceId, onDraftGenerated
     const [selectedComboId, setSelectedComboId] = useState('');
 
     const [inboxStatus, setInboxStatus] = useState<'new' | 'loaded'>('new');
+    const [enrichingId, setEnrichingId] = useState<string | null>(null);
+    const [enrichedPayload, setEnrichedPayload] = useState<any | null>(null);
+
+    const handleEnrichContext = async (exportId: string) => {
+        setEnrichingId(exportId);
+        try {
+            const result = await enrichContext(exportId);
+            setEnrichedPayload(result);
+            toast.success("Context enriched successfully!");
+            queryClient.invalidateQueries({ queryKey: ['recentAnalyticsContexts'] });
+        } catch (error: any) {
+            toast.error(`Enrichment failed: ${error.response?.data?.detail || error.message}`);
+        } finally {
+            setEnrichingId(null);
+        }
+    };
 
     // Fetch recent exports
     const { data: recentExports = [], isLoading: isExportsLoading } = useQuery({
@@ -309,24 +327,40 @@ export default function PromptExpertAssistantTab({ workspaceId, onDraftGenerated
                                             )}
                                         </div>
 
-                                        <div className="flex items-center gap-2 border-t border-border/15 pt-2.5 justify-between">
-                                            <button
-                                                type="button"
-                                                onClick={() => handleLoadIntoBuilder(item)}
-                                                className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1 shadow-md shadow-indigo-600/15"
-                                            >
-                                                <FileText className="w-3 h-3" /> Load Into Builder
-                                            </button>
-                                            
-                                            <button
-                                                type="button"
-                                                onClick={() => archiveContextMutation.mutate(item.id)}
-                                                disabled={archiveContextMutation.isPending}
-                                                className="text-muted-foreground hover:text-red-400 p-1.5 rounded-lg hover:bg-red-500/5 transition-all disabled:opacity-50"
-                                                title="Archive context"
-                                            >
-                                                <Archive className="w-3.5 h-3.5" />
-                                            </button>
+                                        <div className="flex flex-col gap-2 border-t border-border/15 pt-2.5">
+                                            <div className="flex items-center gap-2 justify-between">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleLoadIntoBuilder(item)}
+                                                    className="flex-1 bg-secondary hover:bg-secondary/80 text-foreground font-bold text-[10px] px-2 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1 border border-border"
+                                                >
+                                                    <FileText className="w-3 h-3" /> Load
+                                                </button>
+                                                
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleEnrichContext(item.id)}
+                                                    disabled={enrichingId === item.id}
+                                                    className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10px] px-2 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1 shadow-md shadow-indigo-600/15 disabled:opacity-50"
+                                                >
+                                                    {enrichingId === item.id ? (
+                                                        <Loader2 className="w-3 h-3 animate-spin" />
+                                                    ) : (
+                                                        <Sparkles className="w-3 h-3" />
+                                                    )}
+                                                    <span>Enrich</span>
+                                                </button>
+                                                
+                                                <button
+                                                    type="button"
+                                                    onClick={() => archiveContextMutation.mutate(item.id)}
+                                                    disabled={archiveContextMutation.isPending}
+                                                    className="text-muted-foreground hover:text-red-400 p-1 rounded-lg hover:bg-red-500/5 transition-all disabled:opacity-50"
+                                                    title="Archive context"
+                                                >
+                                                    <Archive className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 );
@@ -363,6 +397,17 @@ export default function PromptExpertAssistantTab({ workspaceId, onDraftGenerated
                     </div>
                 </div>
             </div>
+            {enrichedPayload && (
+                <ContextEnrichmentViewer
+                    payload={enrichedPayload}
+                    onClose={() => setEnrichedPayload(null)}
+                    onLoadIntoBuilder={(markdown) => {
+                        setInputText(markdown);
+                        setEnrichedPayload(null);
+                        toast.success("Loaded Enriched Context into Builder!");
+                    }}
+                />
+            )}
         </div>
     );
 }

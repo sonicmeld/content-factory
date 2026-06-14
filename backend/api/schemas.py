@@ -757,6 +757,44 @@ class AIContextPayloadResponse(BaseModel):
     aggregated_sources: List[Dict[str, str]]
 
 
+class EnrichContextRequest(BaseModel):
+    export_id: str
+
+
+class EnrichedContextPayloadResponse(BaseModel):
+    context_version: str
+    enrichment_version: str
+    topic_name: str
+    generated_by: str
+    markdown_content: str
+    analytics_context: Dict[str, Any]
+    research_context: Dict[str, Any]
+    audience_context: Dict[str, Any]
+    competitor_context: Dict[str, Any]
+    angle_candidates: List[str]
+    hook_candidates: List[str]
+    outline_candidates: List[Dict[str, Any]]
+    recommendations: Dict[str, Any]
+
+
+class EnrichmentHistoryResponse(BaseModel):
+    id: str
+    export_id: str
+    source_type: str
+    source_reference_id: str
+    workspace_id: Optional[str] = None
+    channel_id: Optional[str] = None
+    topic_name: Optional[str] = None
+    context_version: str
+    enrichment_version: str
+    status: str
+    generated_by: str
+    generated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+
 
 
 

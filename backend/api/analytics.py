@@ -43,8 +43,12 @@ from api.schemas import (
     OpportunityExportRequest,
     ExportContextRequest,
     AnalyticsContextExportResponse,
-    AIContextPayloadResponse
+    AIContextPayloadResponse,
+    EnrichContextRequest,
+    EnrichedContextPayloadResponse,
+    EnrichmentHistoryResponse
 )
+from database.models import AnalyticsEnrichedContext
 from services.analytics.collector import sync_channel, get_any_youtube_client
 from services.analytics.analytics_context_builder import (
     export_topic_context,
@@ -52,6 +56,8 @@ from services.analytics.analytics_context_builder import (
     export_insight_context,
     create_ai_context
 )
+from services.analytics.context_enrichment import enrich_context
+
 from services.analytics.explorer import (
     get_channel_timeline,
     get_publishing_pattern,
@@ -986,6 +992,46 @@ def api_list_recent_contexts(
     return enriched_results
 
 
+@router.post("/context/enrich", response_model=EnrichedContextPayloadResponse)
+def api_enrich_context(req: EnrichContextRequest, db: Session = Depends(get_db)):
+    """
+    Triggers the context enrichment process.
+    """
+    return enrich_context(db, req.export_id)
+
+
+@router.get("/context/enriched", response_model=List[EnrichmentHistoryResponse])
+def api_list_enriched_contexts(
+    workspace_id: Optional[str] = None,
+    status: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Retrieves the history of all enriched contexts, filterable by status and workspace.
+    """
+    query = db.query(AnalyticsEnrichedContext)
+    if status:
+        query = query.filter(AnalyticsEnrichedContext.status == status)
+    else:
+        query = query.filter(AnalyticsEnrichedContext.status != "archived")
+    if workspace_id:
+        query = query.filter(AnalyticsEnrichedContext.workspace_id == workspace_id)
+        
+    return query.order_by(AnalyticsEnrichedContext.generated_at.desc()).all()
+
+
+@router.get("/context/enriched/{id}", response_model=EnrichedContextPayloadResponse)
+def api_get_enriched_context(id: str, db: Session = Depends(get_db)):
+    """
+    Retrieves a single pre-rendered enriched context payload.
+    """
+    enriched = db.query(AnalyticsEnrichedContext).filter(AnalyticsEnrichedContext.id == id).first()
+    if not enriched:
+        raise HTTPException(status_code=404, detail="Enriched context record not found")
+    
+    import json
+    return json.loads(enriched.payload_json)
+
 
 @router.get("/context/{id}", response_model=AIContextPayloadResponse)
 def api_get_aggregated_context(id: str, db: Session = Depends(get_db)):
@@ -1009,6 +1055,9 @@ def api_update_context_status(id: str, req: UpdateContextStatusRequest, db: Sess
     db.commit()
     db.refresh(export)
     return export
+
+
+
 
 
 

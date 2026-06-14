@@ -387,6 +387,29 @@ CREATE TABLE IF NOT EXISTS analytics_context_exports (
     exported_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS analytics_enriched_contexts (
+    id TEXT PRIMARY KEY,
+    export_id TEXT NOT NULL,
+    source_type TEXT NOT NULL,
+    source_reference_id TEXT NOT NULL,
+    workspace_id TEXT,
+    channel_id TEXT,
+    topic_name TEXT,
+    context_version TEXT NOT NULL DEFAULT '2.0',
+    enrichment_version TEXT NOT NULL DEFAULT '1.0',
+    status TEXT NOT NULL DEFAULT 'draft',
+    generated_by TEXT NOT NULL DEFAULT 'heuristic',
+    source_snapshot_json TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    markdown_content TEXT NOT NULL,
+    generated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(export_id) REFERENCES analytics_context_exports(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_analytics_enriched_source ON analytics_enriched_contexts (source_type, source_reference_id);
+CREATE INDEX IF NOT EXISTS idx_analytics_enriched_workspace ON analytics_enriched_contexts (workspace_id);
+
+
 
 
 

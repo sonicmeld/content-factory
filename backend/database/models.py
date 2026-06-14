@@ -567,6 +567,27 @@ class AnalyticsContextExport(Base):
         return {}
 
 
+class AnalyticsEnrichedContext(Base):
+    __tablename__ = "analytics_enriched_contexts"
+
+    id = Column(String, primary_key=True)
+    export_id = Column(String, nullable=False)
+    source_type = Column(String, nullable=False)
+    source_reference_id = Column(String, nullable=False)
+    workspace_id = Column(String, nullable=True)
+    channel_id = Column(String, nullable=True)
+    topic_name = Column(String, nullable=True)
+    context_version = Column(String, nullable=False, default="2.0")
+    enrichment_version = Column(String, nullable=False, default="1.0")
+    status = Column(String, nullable=False, default="draft") # draft | ready | archived | failed
+    generated_by = Column(String, nullable=False, default="heuristic") # heuristic | 9router | openai | claude | gemini
+    source_snapshot_json = Column(Text, nullable=False)
+    payload_json = Column(Text, nullable=False)
+    markdown_content = Column(Text, nullable=False)
+    generated_at = Column(DateTime, default=func.now())
+
+
+
 
 
 

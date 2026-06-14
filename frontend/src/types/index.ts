@@ -587,5 +587,62 @@ export interface AIContextPayload {
     }>;
 }
 
+export interface AnalyticsEnrichedContext {
+    id: string;
+    export_id: string;
+    source_type: string;
+    source_reference_id: string;
+    workspace_id?: string;
+    channel_id?: string;
+    topic_name?: string;
+    context_version: string;
+    enrichment_version: string;
+    status: 'draft' | 'ready' | 'archived' | 'failed';
+    generated_by: string;
+    source_snapshot_json: string;
+    payload_json: string;
+    markdown_content: string;
+    generated_at: string;
+}
+
+export interface EnrichedContextPayload {
+    context_version: string;
+    enrichment_version: string;
+    topic_name: string;
+    generated_by: string;
+    markdown_content: string;
+    analytics_context: AIContextPayload;
+    research_context: {
+        research_notes: string;
+        research_sources: string[];
+    };
+    audience_context: {
+        audience_level: 'Beginner' | 'Intermediate' | 'Advanced';
+        pain_points: string[];
+        goals: string[];
+        common_questions: string[];
+    };
+    competitor_context: {
+        oversaturated_topics: string[];
+        undercovered_topics: string[];
+        content_gaps: string[];
+    };
+    angle_candidates: string[];
+    hook_candidates: string[];
+    outline_candidates: Array<{
+        segment: string;
+        duration: string;
+        description: string;
+    }>;
+    recommendations: {
+        best_angle: string;
+        best_hook: string;
+        recommended_video_length: string;
+        recommended_audience: string;
+        confidence_score: number;
+    };
+}
+
+
 
 
