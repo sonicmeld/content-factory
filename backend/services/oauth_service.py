@@ -48,7 +48,8 @@ def get_client_config(client_id: str, client_secret: str, project_id: str):
 SCOPES = [
     "https://www.googleapis.com/auth/youtube.upload",
     "https://www.googleapis.com/auth/youtube",
-    "https://www.googleapis.com/auth/userinfo.email"
+    "https://www.googleapis.com/auth/userinfo.email",
+    "openid"
 ]
 
 def generate_auth_url(db: Session, channel_id: str) -> str:
