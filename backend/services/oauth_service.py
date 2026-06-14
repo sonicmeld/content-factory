@@ -195,6 +195,51 @@ def handle_callback(db: Session, state: str, code: str):
                 db.commit()
                 db.refresh(account)
                 
+                # 1.5 Auto-register to Analytics Hub
+                from database.models import AnalyticsChannel, AnalyticsChannelIdentity
+                from api.schemas import AnalyticsSyncStatus
+                
+                analytics_channel = db.query(AnalyticsChannel).filter(AnalyticsChannel.external_channel_id == yt_channel_id).first()
+                if not analytics_channel:
+                    analytics_channel = AnalyticsChannel(
+                        id=str(uuid.uuid4()),
+                        external_channel_id=yt_channel_id,
+                        channel_name=yt_title,
+                        channel_handle=yt_handle,
+                        is_own=True,
+                        analytics_type="owned",
+                        sync_status=AnalyticsSyncStatus.PENDING.value,
+                        is_archived=False
+                    )
+                    db.add(analytics_channel)
+                    db.commit()
+                    db.refresh(analytics_channel)
+                else:
+                    analytics_channel.is_own = True
+                    analytics_channel.analytics_type = "owned"
+                    analytics_channel.is_archived = False
+                    if analytics_channel.sync_status == AnalyticsSyncStatus.DISABLED.value:
+                        analytics_channel.sync_status = AnalyticsSyncStatus.PENDING.value
+                    db.commit()
+                    db.refresh(analytics_channel)
+                    
+                # Ensure identity is linked
+                identity_link = db.query(AnalyticsChannelIdentity).filter(
+                    AnalyticsChannelIdentity.analytics_channel_id == analytics_channel.id
+                ).first()
+                
+                if not identity_link:
+                    identity_link = AnalyticsChannelIdentity(
+                        id=str(uuid.uuid4()),
+                        analytics_channel_id=analytics_channel.id,
+                        identity_reference_id=account.id
+                    )
+                    db.add(identity_link)
+                    db.commit()
+                else:
+                    identity_link.identity_reference_id = account.id
+                    db.commit()
+                
                 # 2. Upsert OAuthToken using youtube_account_id
                 token = db.query(OAuthToken).filter(OAuthToken.youtube_account_id == account.id).first()
                 if not token:
