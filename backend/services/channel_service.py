@@ -59,13 +59,29 @@ def create_channel(db: Session, channel_in: ChannelCreate) -> Channel:
         raise HTTPException(status_code=400, detail="Channel with this name/slug already exists")
     
     channel_id = str(uuid.uuid4())
+    channel_data = channel_in.model_dump()
+    youtube_account_id = channel_data.pop("youtube_account_id", None)
+    
     db_channel = Channel(
         id=channel_id,
         slug=slug,
-        **channel_in.model_dump()
+        **channel_data
     )
     
     created_channel = channel_repository.create_channel(db, db_channel)
+    
+    # Link Identity Layer
+    if youtube_account_id:
+        from database.models import YoutubeAccount
+        account = db.query(YoutubeAccount).filter(YoutubeAccount.id == youtube_account_id).first()
+        if account:
+            account.channel_binding_id = channel_id
+            # Also populate youtube_channel_id on the Channel to match
+            created_channel.youtube_channel_id = account.youtube_channel_id
+            created_channel.youtube_channel_title = account.youtube_channel_title
+            created_channel.youtube_handle = account.youtube_handle
+            created_channel.youtube_channel_url = account.youtube_channel_url
+            db.commit()
     
     # Create folder structure
     create_channel_folders(slug, channel_in)
@@ -76,6 +92,13 @@ from datetime import datetime
 
 def populate_oauth_status(db: Session, channel: Channel):
     token = oauth_repository.get_token_by_channel(db, channel.id)
+    if not token:
+        # Check if bound to YoutubeAccount
+        from database.models import YoutubeAccount, OAuthToken
+        account = db.query(YoutubeAccount).filter(YoutubeAccount.channel_binding_id == channel.id).first()
+        if account:
+            token = db.query(OAuthToken).filter(OAuthToken.youtube_account_id == account.id).first()
+
     if not token:
         channel.oauth_status = "OAuth Missing"
     else:
@@ -106,7 +129,23 @@ def update_channel(db: Session, channel_id: str, channel_in: ChannelUpdate) -> C
 
     channel = get_channel(db, channel_id)
     updates = channel_in.model_dump(exclude_unset=True)
-    return channel_repository.update_channel(db, channel, updates)
+    youtube_account_id = updates.pop("youtube_account_id", None)
+    
+    updated_channel = channel_repository.update_channel(db, channel, updates)
+    
+    # Link Identity Layer
+    if youtube_account_id is not None:
+        from database.models import YoutubeAccount
+        account = db.query(YoutubeAccount).filter(YoutubeAccount.id == youtube_account_id).first()
+        if account:
+            account.channel_binding_id = channel_id
+            updated_channel.youtube_channel_id = account.youtube_channel_id
+            updated_channel.youtube_channel_title = account.youtube_channel_title
+            updated_channel.youtube_handle = account.youtube_handle
+            updated_channel.youtube_channel_url = account.youtube_channel_url
+            db.commit()
+            
+    return updated_channel
 
 def delete_channel(db: Session, channel_id: str):
     channel = get_channel(db, channel_id)
