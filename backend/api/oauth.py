@@ -51,9 +51,12 @@ def oauth_callback(state: str, code: str, db: Session = Depends(get_db)):
             <p>Anda dapat menutup tab ini.</p>
 
             <script>
+                if (window.opener) {
+                    window.opener.postMessage({ type: 'oauth_success' }, '*');
+                }
                 setTimeout(() => {
                     window.close();
-                }, 1000);
+                }, 1500);
             </script>
         </body>
         </html>

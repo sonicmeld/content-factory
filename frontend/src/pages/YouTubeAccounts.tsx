@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getYoutubeAccounts, toggleYoutubeAnalytics, deleteYoutubeIdentity, getGCPProfiles, connectYoutubeIdentity, syncYoutubeAccounts } from '../services/api';
 import { Video, Trash2, Power, PowerOff, ShieldCheck, UserPlus, RefreshCw } from 'lucide-react';
@@ -21,6 +21,17 @@ export default function YouTubeAccounts() {
     const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
     const [selectedGcpProfile, setSelectedGcpProfile] = useState('');
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+    useEffect(() => {
+        const handleMessage = (event: MessageEvent) => {
+            if (event.data && event.data.type === 'oauth_success') {
+                queryClient.invalidateQueries({ queryKey: ['youtube-accounts'] });
+                toast.success("YouTube account connected successfully");
+            }
+        };
+        window.addEventListener('message', handleMessage);
+        return () => window.removeEventListener('message', handleMessage);
+    }, [queryClient]);
 
     // Mutations
     const toggleAnalyticsMutation = useMutation({
@@ -45,7 +56,11 @@ export default function YouTubeAccounts() {
             connectYoutubeIdentity(workspaceId, gcpProfileId),
         onSuccess: (data) => {
             setIsAddAccountOpen(false);
-            window.location.href = data.url;
+            const width = 500;
+            const height = 600;
+            const left = window.screenX + (window.outerWidth - width) / 2;
+            const top = window.screenY + (window.outerHeight - height) / 2;
+            window.open(data.url, 'youtube-oauth', `width=${width},height=${height},left=${left},top=${top}`);
         },
         onError: (error: any) => {
             toast.error(error.response?.data?.detail || "Failed to generate OAuth URL");
