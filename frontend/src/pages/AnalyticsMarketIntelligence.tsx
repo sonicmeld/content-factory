@@ -50,10 +50,8 @@ export default function AnalyticsMarketIntelligence() {
     const {
         activeAccountId,
         setActiveAccountId,
-        activeAccount,
         accounts: youtubeAccounts,
         isLoading: isAccountsLoading,
-        hasActiveAccount,
     } = useYoutubeAccount();
 
     // Queries
@@ -402,11 +400,11 @@ export default function AnalyticsMarketIntelligence() {
 
                                     <button
                                         onClick={() => exportTopicMutation.mutate(selectedTopicDetails.topic_id)}
-                                        disabled={exportTopicMutation.isPending || !activeChannelId}
+                                        disabled={exportTopicMutation.isPending || !activeAccountId}
                                         className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-md shadow-indigo-600/10 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:from-muted disabled:to-muted disabled:text-muted-foreground"
                                     >
                                         <Share2 className="w-3.5 h-3.5" />
-                                        {activeChannelId ? "Use In AI Context Builder" : "⚠ Select Analytics Channel First"}
+                                        {activeAccountId ? "Use In AI Context Builder" : "⚠ Select YouTube Account First"}
                                     </button>
 
                                     {/* Forecast Projection */}
@@ -649,11 +647,11 @@ export default function AnalyticsMarketIntelligence() {
 
                                             <button
                                                 onClick={() => exportMutation.mutate(opp.id)}
-                                                disabled={exportMutation.isPending || !activeChannelId}
+                                                disabled={exportMutation.isPending || !activeAccountId}
                                                 className="mt-6 w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white py-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-md shadow-indigo-600/10 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:from-muted disabled:to-muted disabled:text-muted-foreground"
                                             >
                                                 <Share2 className="w-3.5 h-3.5" />
-                                                {activeChannelId ? "Send To AI Context Builder" : "⚠ Select Analytics Channel First"}
+                                                {activeAccountId ? "Send To AI Context Builder" : "⚠ Select YouTube Account First"}
                                             </button>
                                         </div>
                                     ))}

@@ -13,7 +13,6 @@ import {
     TrendingUp, 
     Clock, 
     AlertTriangle,
-    Search,
     ExternalLink,
     Play
 } from 'lucide-react';
@@ -40,7 +39,6 @@ import type { AnalyticsGeneratedDraft, EnrichedContextPayload } from '../types';
 export default function ContextPipelinePage() {
     const queryClient = useQueryClient();
     const navigate = useNavigate();
-    const [selectedWorkspace, setSelectedWorkspace] = useState<string>(''); // empty means all
     const [draftStatusFilter, setDraftStatusFilter] = useState<string>('All');
     
     // Checkbox selection states
@@ -68,28 +66,28 @@ export default function ContextPipelinePage() {
 
     // Fetch Stats & Timeline
     const { data: stats, isLoading: isStatsLoading } = useQuery({
-        queryKey: ['pipelineStats', selectedWorkspace],
-        queryFn: () => getContextPipelineStats(selectedWorkspace || undefined),
+        queryKey: ['pipelineStats'],
+        queryFn: () => getContextPipelineStats(undefined),
         refetchInterval: 12000
     });
 
     // Fetch Inbox Contexts
     const { data: inboxItems = [], isLoading: isInboxLoading } = useQuery({
-        queryKey: ['pipelineInbox', selectedWorkspace],
-        queryFn: () => getContextPipelineInbox(selectedWorkspace || undefined)
+        queryKey: ['pipelineInbox'],
+        queryFn: () => getContextPipelineInbox(undefined)
     });
 
     // Fetch Enriched Contexts
     const { data: enrichedItems = [], isLoading: isEnrichedLoading } = useQuery({
-        queryKey: ['pipelineEnriched', selectedWorkspace],
-        queryFn: () => getContextPipelineEnriched(selectedWorkspace || undefined)
+        queryKey: ['pipelineEnriched'],
+        queryFn: () => getContextPipelineEnriched(undefined)
     });
 
     // Fetch Drafts
     const { data: draftItems = [], isLoading: isDraftsLoading } = useQuery({
-        queryKey: ['pipelineDrafts', selectedWorkspace, draftStatusFilter],
+        queryKey: ['pipelineDrafts', draftStatusFilter],
         queryFn: () => getContextPipelineDrafts(
-            selectedWorkspace || undefined, 
+            undefined, 
             draftStatusFilter === 'All' ? undefined : draftStatusFilter.toLowerCase() === 'loaded' ? 'loaded_to_prompt' : draftStatusFilter.toLowerCase()
         )
     });

@@ -12,7 +12,7 @@
  *   - showSyncButton?: boolean — tampilkan tombol sync (default false)
  *   - onSync?: () => void — callback sync
  */
-import { Youtube, ChevronDown, Wifi, WifiOff, RefreshCw, AlertCircle } from 'lucide-react';
+import { Play, ChevronDown, Wifi, WifiOff, RefreshCw, AlertCircle } from 'lucide-react';
 import type { YoutubeAccount } from '../types';
 
 interface Props {
@@ -42,7 +42,7 @@ export default function YouTubeAccountSelector({
         <div className={`flex items-center gap-2 ${className}`}>
             {/* Icon + Label */}
             <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground whitespace-nowrap">
-                <Youtube className="w-4 h-4 text-red-500" />
+                <Play className="w-4 h-4 text-red-500 fill-red-500" />
                 <span>Active Account:</span>
             </div>
 
