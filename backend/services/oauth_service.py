@@ -330,7 +330,12 @@ def get_valid_credentials(db: Session, channel_id: str) -> google.oauth2.credent
 
     # If not found or no gcp_profile, check Identity Layer
     if not token_record or not gcp_profile_id:
-        account = db.query(YoutubeAccount).filter(YoutubeAccount.channel_binding_id == channel_id).first()
+        # Check if channel_id is actually the YoutubeAccount.id (Analytics Flow)
+        account = db.query(YoutubeAccount).filter(YoutubeAccount.id == channel_id).first()
+        if not account:
+            # Check if channel_id is the legacy channel_binding_id (Upload/Domain Flow)
+            account = db.query(YoutubeAccount).filter(YoutubeAccount.channel_binding_id == channel_id).first()
+            
         if account:
             token_record = db.query(OAuthToken).filter(OAuthToken.youtube_account_id == account.id).first()
             gcp_profile_id = account.gcp_profile_id
