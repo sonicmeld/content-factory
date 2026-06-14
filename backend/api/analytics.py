@@ -869,8 +869,18 @@ def refresh_market_intelligence(background_tasks: BackgroundTasks, db: Session =
     """
     start_time = time.time()
     
-    # 1. Collect trends and suggestions
-    trends = collect_market_trends(db)
+    from database.models import YoutubeAccount
+    # Ambil semua channel yang analytics_enabled = True sebagai sumber niche/keyword
+    active_accounts = db.query(YoutubeAccount).filter(YoutubeAccount.analytics_enabled == True).all()
+    seed_keywords = []
+    for account in active_accounts:
+        if account.youtube_channel_title:
+            # Bersihkan judul (misal: hapus suffix atau ambil kata utama)
+            clean_title = account.youtube_channel_title.split("(@")[0].strip()
+            seed_keywords.append(clean_title)
+
+    # 1. Collect trends and suggestions (fallback ke BOOTSTRAP_KEYWORDS jika tidak ada seed)
+    trends = collect_market_trends(db, seed_keywords if seed_keywords else None)
     
     # 2. Cluster keywords and save/update database
     cluster_and_save_trends(db, trends)
