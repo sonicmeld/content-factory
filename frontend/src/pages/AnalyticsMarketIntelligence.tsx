@@ -9,7 +9,8 @@ import {
     getMarketTopicOpportunities,
     refreshMarketIntelligence,
     exportTopicContext,
-    exportOpportunityContext
+    exportOpportunityContext,
+    getChannels
 } from '../services/api';
 import { 
     TrendingUp, 
@@ -42,6 +43,13 @@ export default function AnalyticsMarketIntelligence() {
     // Detailed view states
     const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
     const [exportedPayload, setExportedPayload] = useState<any | null>(null);
+    const [activeChannelId, setActiveChannelId] = useState<string>('');
+
+    // Fetch workspace channels
+    const { data: channels = [] } = useQuery({
+        queryKey: ['channels'],
+        queryFn: getChannels
+    });
 
     // Queries
     const { data: trends = [], isLoading: isTrendsLoading } = useQuery({
@@ -95,7 +103,7 @@ export default function AnalyticsMarketIntelligence() {
     });
 
     const exportMutation = useMutation({
-        mutationFn: (topicId: string) => exportOpportunityContext(topicId),
+        mutationFn: (topicId: string) => exportOpportunityContext(topicId, activeChannelId || undefined),
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['marketTopicOpportunities', selectedTopicId || ''] });
             setExportedPayload(data);
@@ -107,7 +115,7 @@ export default function AnalyticsMarketIntelligence() {
     });
 
     const exportTopicMutation = useMutation({
-        mutationFn: (topicId: string) => exportTopicContext(topicId),
+        mutationFn: (topicId: string) => exportTopicContext(topicId, activeChannelId || undefined),
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['marketTopicOpportunities', selectedTopicId || ''] });
             setExportedPayload(data);
@@ -139,14 +147,29 @@ export default function AnalyticsMarketIntelligence() {
                         Exclusively monitoring Long-form YouTube metrics, Google Trends, YouTube suggestions, and competitor coverage.
                     </p>
                 </div>
-                <button
-                    onClick={() => refreshMutation.mutate()}
-                    disabled={refreshMutation.isPending}
-                    className="bg-primary text-primary-foreground px-5 py-2.5 rounded-lg font-semibold text-sm hover:bg-primary/90 flex items-center gap-2 transition-all shadow-md shadow-primary/10 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
-                >
-                    <RefreshCw className={`w-4 h-4 ${refreshMutation.isPending ? 'animate-spin' : ''}`} />
-                    Refresh Market Data
-                </button>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                    <div className="flex items-center gap-2 bg-card border border-border px-3 py-1.5 rounded-xl shadow-sm">
+                        <label className="text-xs font-semibold text-foreground">Active Channel:</label>
+                        <select 
+                            className="bg-secondary border border-border/80 rounded-lg px-2.5 py-1 text-xs focus:ring-1 focus:ring-primary focus:outline-none cursor-pointer text-foreground"
+                            value={activeChannelId}
+                            onChange={(e) => setActiveChannelId(e.target.value)}
+                        >
+                            <option value="">-- Select Channel --</option>
+                            {channels.map(ch => (
+                                <option key={ch.id} value={ch.id}>{ch.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <button
+                        onClick={() => refreshMutation.mutate()}
+                        disabled={refreshMutation.isPending}
+                        className="bg-primary text-primary-foreground px-5 py-2.5 rounded-lg font-semibold text-sm hover:bg-primary/90 flex items-center gap-2 transition-all shadow-md shadow-primary/10 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+                    >
+                        <RefreshCw className={`w-4 h-4 ${refreshMutation.isPending ? 'animate-spin' : ''}`} />
+                        Refresh Market Data
+                    </button>
+                </div>
             </div>
 
             {/* Main Tabs */}
@@ -366,11 +389,11 @@ export default function AnalyticsMarketIntelligence() {
 
                                     <button
                                         onClick={() => exportTopicMutation.mutate(selectedTopicDetails.topic_id)}
-                                        disabled={exportTopicMutation.isPending}
-                                        className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-md shadow-indigo-600/10 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
+                                        disabled={exportTopicMutation.isPending || !activeChannelId}
+                                        className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-md shadow-indigo-600/10 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:from-muted disabled:to-muted disabled:text-muted-foreground"
                                     >
                                         <Share2 className="w-3.5 h-3.5" />
-                                        Use In AI Context Builder
+                                        {activeChannelId ? "Use In AI Context Builder" : "⚠ Select Analytics Channel First"}
                                     </button>
 
                                     {/* Forecast Projection */}
@@ -613,11 +636,11 @@ export default function AnalyticsMarketIntelligence() {
 
                                             <button
                                                 onClick={() => exportMutation.mutate(opp.id)}
-                                                disabled={exportMutation.isPending}
-                                                className="mt-6 w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white py-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-md shadow-indigo-600/10 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
+                                                disabled={exportMutation.isPending || !activeChannelId}
+                                                className="mt-6 w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white py-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-md shadow-indigo-600/10 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:from-muted disabled:to-muted disabled:text-muted-foreground"
                                             >
                                                 <Share2 className="w-3.5 h-3.5" />
-                                                Send To AI Context Builder
+                                                {activeChannelId ? "Send To AI Context Builder" : "⚠ Select Analytics Channel First"}
                                             </button>
                                         </div>
                                     ))}
