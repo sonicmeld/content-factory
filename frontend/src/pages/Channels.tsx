@@ -152,10 +152,22 @@ export default function Channels() {
     };
 
     const handleSave = () => {
-        if (!name || !slug) return;
+        let finalName = name;
+        let finalSlug = slug;
+        
+        if (!finalName || !finalSlug) {
+            const account = youtubeAccounts.find((a: any) => a.id === selectedYoutubeAccountId);
+            if (account) {
+                finalName = finalName || account.youtube_channel_title || `Channel ${selectedYoutubeAccountId}`;
+                finalSlug = finalSlug || finalName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+            } else {
+                return; // should not happen if selectedYoutubeAccountId is valid
+            }
+        }
+
         createMutation.mutate({ 
-            name, 
-            slug, 
+            name: finalName, 
+            slug: finalSlug, 
             description, 
             gcp_profile_id: gcpProfileId || undefined,
             youtube_account_id: selectedYoutubeAccountId || undefined
@@ -355,7 +367,7 @@ export default function Channels() {
                             </button>
                             <button 
                                 onClick={handleSave}
-                                disabled={createMutation.isPending || !name || !slug}
+                                disabled={createMutation.isPending || !selectedYoutubeAccountId}
                                 className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md disabled:opacity-50"
                             >
                                 {createMutation.isPending ? "Creating..." : "Create Channel"}
