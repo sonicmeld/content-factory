@@ -14,6 +14,7 @@ class ChannelBase(BaseModel):
     metadata_combo: Optional[str] = None
     thumbnail_combo: Optional[str] = None
     footage_combo: Optional[str] = None
+    youtube_account_id: Optional[str] = None
 
 class ChannelCreate(ChannelBase):
     pass

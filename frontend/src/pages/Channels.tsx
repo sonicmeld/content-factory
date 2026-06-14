@@ -87,7 +87,8 @@ export default function Channels() {
             metadata_combo: metadataCombo || '',
             thumbnail_combo: thumbnailCombo || '',
             footage_combo: footageCombo || '',
-            is_active: isActive
+            is_active: isActive,
+            youtube_account_id: selectedYoutubeAccountId || undefined
         });
     };
 
@@ -152,7 +153,13 @@ export default function Channels() {
 
     const handleSave = () => {
         if (!name || !slug) return;
-        createMutation.mutate({ name, slug, description, gcp_profile_id: gcpProfileId || undefined });
+        createMutation.mutate({ 
+            name, 
+            slug, 
+            description, 
+            gcp_profile_id: gcpProfileId || undefined,
+            youtube_account_id: selectedYoutubeAccountId || undefined
+        });
     };
 
     const renderComboSelect = (value: string, onChange: (v: string) => void, category: string) => {
@@ -218,10 +225,14 @@ export default function Channels() {
                         <div className="pt-4 border-t border-border flex items-center justify-between">
                             <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                                 <KeyRound className="w-4 h-4" />
-                                {channel.oauth_status === 'OAuth Missing' && channel.gcp_profile_id ? 'Ready to Connect' : channel.oauth_status}
+                                {channel.youtube_account_id ? (
+                                    <span className="text-blue-400">Managed by Identity</span>
+                                ) : (
+                                    channel.oauth_status === 'OAuth Missing' && channel.gcp_profile_id ? 'Ready to Connect' : channel.oauth_status
+                                )}
                             </span>
                             <div className="flex items-center gap-2">
-                                {channel.oauth_status !== 'OAuth Connected' && channel.gcp_profile_id && (
+                                {!channel.youtube_account_id && channel.oauth_status !== 'OAuth Connected' && channel.gcp_profile_id && (
                                     <button 
                                         onClick={(e) => { e.stopPropagation(); handleConnectOAuth(channel.id); }}
                                         disabled={connectOAuthMutation.isPending}

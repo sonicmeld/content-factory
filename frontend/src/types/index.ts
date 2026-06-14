@@ -18,6 +18,7 @@ export interface Channel {
     metadata_combo?: string;
     thumbnail_combo?: string;
     footage_combo?: string;
+    youtube_account_id?: string;
 }
 
 export interface GCPProfile {
