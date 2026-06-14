@@ -14,6 +14,7 @@ import AnalyticsHub from './pages/AnalyticsHub';
 import AnalyticsChannelExplorer from './pages/AnalyticsChannelExplorer';
 import AnalyticsCompare from './pages/AnalyticsCompare';
 import AnalyticsMarketIntelligence from './pages/AnalyticsMarketIntelligence';
+import ContextPipelinePage from './pages/ContextPipelinePage';
 
 // Workspace Pages
 import WorkspaceOverview from './pages/workspace/WorkspaceOverview';
@@ -36,6 +37,7 @@ function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/analytics" element={<AnalyticsHub />} />
           <Route path="/analytics/market" element={<AnalyticsMarketIntelligence />} />
+          <Route path="/analytics/context-pipeline" element={<ContextPipelinePage />} />
           <Route path="/analytics/channel/:id" element={<AnalyticsChannelExplorer />} />
           <Route path="/analytics/compare" element={<AnalyticsCompare />} />
           <Route path="/execution-center" element={<GlobalExecutionCenterPage />} />

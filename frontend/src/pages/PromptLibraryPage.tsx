@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useParams } from 'react-router-dom';
+import { useParams, useLocation } from 'react-router-dom';
 import { getGlobalPromptContexts, createGlobalPromptContext, updatePromptContext, deletePromptContext, getChannels } from '../services/api';
 import { Sparkles, PlusCircle, Edit2, Trash2, Loader2, X, FileText, Filter, Cpu, FileEdit } from 'lucide-react';
 import { toast } from 'sonner';
@@ -12,8 +12,11 @@ import GeneratedDraftsTab from '../components/PromptLibrary/GeneratedDraftsTab';
 export default function PromptLibraryPage() {
     const queryClient = useQueryClient();
     const { slug } = useParams();
+    const location = useLocation();
     
-    const [activeTab, setActiveTab] = useState<'contexts' | 'expert' | 'drafts'>('contexts');
+    const [activeTab, setActiveTab] = useState<'contexts' | 'expert' | 'drafts'>(
+        (location.state as any)?.activeTab || 'contexts'
+    );
     const [selectedType, setSelectedType] = useState<string>(''); // empty means all
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingContext, setEditingContext] = useState<PromptContext | null>(null);

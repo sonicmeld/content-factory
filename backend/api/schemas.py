@@ -794,9 +794,53 @@ class EnrichmentHistoryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class GenerateDraftRequest(BaseModel):
+    enriched_context_id: str
 
 
+class AnalyticsDraftResponse(BaseModel):
+    id: str
+    source_export_id: str
+    source_enriched_context_id: str
+    workspace_id: Optional[str] = None
+    channel_id: Optional[str] = None
+    title: Optional[str] = None
+    draft_type: str
+    content_markdown: str
+    context_version: str
+    draft_version: str
+    generated_by: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
 
 
+class DraftStatusUpdateRequest(BaseModel):
+    status: str
 
+
+class BulkActionRequest(BaseModel):
+    ids: List[str]
+    stage: str  # 'inbox' | 'enriched' | 'drafts'
+
+
+class PipelineStatsResponse(BaseModel):
+    new_contexts: int
+    ready_enrichments: int
+    draft_queue: int
+    archived_items: int
+    failed_enrichments: int
+    loaded_to_prompt_count: int
+    total_contexts: int
+    total_enrichments: int
+    total_drafts: int
+
+
+class ActivityTimelineItem(BaseModel):
+    id: str
+    event_type: str  # e.g., 'Context Exported', 'Context Enriched', etc.
+    title: str
+    timestamp: datetime
 

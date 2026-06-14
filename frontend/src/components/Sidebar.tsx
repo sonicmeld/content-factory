@@ -40,6 +40,7 @@ const domainGroups: DomainGroup[] = [
         items: [
             { label: 'Analytics Hub', icon: TrendingUp, path: '/analytics' },
             { label: 'Market Intelligence', icon: Compass, path: '/analytics/market' },
+            { label: 'Context Pipeline', icon: Layers, path: '/analytics/context-pipeline' },
         ],
     },
     {

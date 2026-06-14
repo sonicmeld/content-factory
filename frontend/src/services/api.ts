@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Channel, GCPProfile, UploadJob, Asset, Prompt, ContentPackage, ChannelStorageStats, QueueItem, PackageGeneration, PromptContext, GenerationCombo, GenerationReadiness, MetadataVariant, GenerationAsset, MetadataLibraryItem, ExternalAccount, ConnectorJob, AssetInbox, AnalyticsEnrichedContext, EnrichedContextPayload } from '../types';
+import type { Channel, GCPProfile, UploadJob, Asset, Prompt, ContentPackage, ChannelStorageStats, QueueItem, PackageGeneration, PromptContext, GenerationCombo, GenerationReadiness, MetadataVariant, GenerationAsset, MetadataLibraryItem, ExternalAccount, ConnectorJob, AssetInbox, AnalyticsEnrichedContext, EnrichedContextPayload, AnalyticsGeneratedDraft, PipelineStats } from '../types';
 
 const api = axios.create({
     baseURL: '/api',
@@ -521,11 +521,43 @@ export const enrichContext = (exportId: string) =>
 export const getEnrichedContext = (id: string) =>
     api.get<EnrichedContextPayload>(`/analytics/context/enriched/${id}`).then(res => res.data);
 
-export const getEnrichedContextHistory = (workspaceId?: string, status?: string) =>
-    api.get<AnalyticsEnrichedContext[]>('/analytics/context/enriched', { params: { workspace_id: workspaceId, status } }).then(res => res.data);
+export const getContextPipelineInbox = (workspaceId?: string, status?: string) =>
+    api.get<any[]>('/analytics/context-pipeline/inbox', { params: { workspace_id: workspaceId, status } }).then(res => res.data);
+
+export const getContextPipelineEnriched = (workspaceId?: string, status?: string) =>
+    api.get<AnalyticsEnrichedContext[]>('/analytics/context-pipeline/enriched', { params: { workspace_id: workspaceId, status } }).then(res => res.data);
+
+export const getContextPipelineEnrichedDetail = (id: string) =>
+    api.get<EnrichedContextPayload>(`/analytics/context-pipeline/enriched/${id}`).then(res => res.data);
+
+export const generatePipelineDraft = (enrichedContextId: string) =>
+    api.post<AnalyticsGeneratedDraft>('/analytics/context-pipeline/drafts/generate', { enriched_context_id: enrichedContextId }).then(res => res.data);
+
+export const getContextPipelineDrafts = (workspaceId?: string, status?: string) =>
+    api.get<AnalyticsGeneratedDraft[]>('/analytics/context-pipeline/drafts', { params: { workspace_id: workspaceId, status } }).then(res => res.data);
+
+export const getContextPipelineDraftDetail = (id: string) =>
+    api.get<AnalyticsGeneratedDraft>(`/analytics/context-pipeline/drafts/${id}`).then(res => res.data);
+
+export const updatePipelineDraftStatus = (id: string, status: string) =>
+    api.patch<AnalyticsGeneratedDraft>(`/analytics/context-pipeline/drafts/${id}/status`, { status }).then(res => res.data);
+
+export const bulkPipelineArchive = (ids: string[], stage: string) =>
+    api.post<any>('/analytics/context-pipeline/bulk/archive', { ids, stage }).then(res => res.data);
+
+export const bulkPipelineDelete = (ids: string[], stage: string) =>
+    api.post<any>('/analytics/context-pipeline/bulk/delete', { ids, stage }).then(res => res.data);
+
+export const bulkPipelinePurge = (ids: string[], stage: string) =>
+    api.post<any>('/analytics/context-pipeline/bulk/purge', { ids, stage }).then(res => res.data);
+
+export const purgeOldPipelineDrafts = () =>
+    api.post<any>('/analytics/context-pipeline/drafts/purge-old').then(res => res.data);
+
+export const purgeArchivedPipelineDrafts = () =>
+    api.post<any>('/analytics/context-pipeline/drafts/purge-archived').then(res => res.data);
+
+export const getContextPipelineStats = (workspaceId?: string) =>
+    api.get<PipelineStats>('/analytics/context-pipeline/stats', { params: { workspace_id: workspaceId } }).then(res => res.data);
 
 export default api;
-
-
-
-

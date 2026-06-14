@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Sparkles, Loader2, Send, Cpu, Sliders, Inbox, Archive, FileText, Flame, TrendingUp } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { 
     getGenerationCombos, 
     generatePromptDraft,
@@ -19,9 +20,20 @@ interface Props {
 
 export default function PromptExpertAssistantTab({ workspaceId, onDraftGenerated }: Props) {
     const queryClient = useQueryClient();
+    const location = useLocation();
     const [expertType, setExpertType] = useState<'metadata' | 'thumbnail' | 'footage'>('metadata');
     const [inputText, setInputText] = useState('');
     const [selectedComboId, setSelectedComboId] = useState('');
+
+    useEffect(() => {
+        const state = location.state as any;
+        if (state && state.initialInputText) {
+            setInputText(state.initialInputText);
+            // Optional: reset browser history state to avoid reload preloading
+            window.history.replaceState({}, document.title);
+        }
+    }, [location.state]);
+
 
     const [inboxStatus, setInboxStatus] = useState<'new' | 'loaded'>('new');
     const [enrichingId, setEnrichingId] = useState<string | null>(null);

@@ -587,7 +587,20 @@ class AnalyticsEnrichedContext(Base):
     generated_at = Column(DateTime, default=func.now())
 
 
+class AnalyticsGeneratedDraft(Base):
+    __tablename__ = "analytics_generated_drafts"
 
-
-
-
+    id = Column(String, primary_key=True)
+    source_export_id = Column(String, nullable=False)
+    source_enriched_context_id = Column(String, nullable=False)
+    workspace_id = Column(String, nullable=True)
+    channel_id = Column(String, nullable=True)
+    title = Column(String, nullable=True)
+    draft_type = Column(String, nullable=False, default="youtube_longform")
+    content_markdown = Column(Text, nullable=False)
+    context_version = Column(String, nullable=False, default="2.0")
+    draft_version = Column(String, nullable=False, default="1.0")
+    generated_by = Column(String, nullable=False, default="9router")
+    status = Column(String, nullable=False, default="draft") # draft | reviewed | approved | loaded_to_prompt | archived | deleted
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())

@@ -409,9 +409,23 @@ CREATE TABLE IF NOT EXISTS analytics_enriched_contexts (
 CREATE INDEX IF NOT EXISTS idx_analytics_enriched_source ON analytics_enriched_contexts (source_type, source_reference_id);
 CREATE INDEX IF NOT EXISTS idx_analytics_enriched_workspace ON analytics_enriched_contexts (workspace_id);
 
+CREATE TABLE IF NOT EXISTS analytics_generated_drafts (
+    id TEXT PRIMARY KEY,
+    source_export_id TEXT NOT NULL,
+    source_enriched_context_id TEXT NOT NULL,
+    workspace_id TEXT,
+    channel_id TEXT,
+    title TEXT,
+    draft_type TEXT NOT NULL DEFAULT 'youtube_longform',
+    content_markdown TEXT NOT NULL,
+    context_version TEXT NOT NULL DEFAULT '2.0',
+    draft_version TEXT NOT NULL DEFAULT '1.0',
+    generated_by TEXT NOT NULL DEFAULT '9router',
+    status TEXT NOT NULL DEFAULT 'draft',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(source_enriched_context_id) REFERENCES analytics_enriched_contexts(id)
+);
 
-
-
-
-
-
+CREATE INDEX IF NOT EXISTS idx_analytics_generated_drafts_enriched ON analytics_generated_drafts (source_enriched_context_id);
+CREATE INDEX IF NOT EXISTS idx_analytics_generated_drafts_workspace ON analytics_generated_drafts (workspace_id);

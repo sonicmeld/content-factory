@@ -643,6 +643,37 @@ export interface EnrichedContextPayload {
     };
 }
 
+export interface AnalyticsGeneratedDraft {
+    id: string;
+    source_export_id: string;
+    source_enriched_context_id: string;
+    workspace_id?: string;
+    channel_id?: string;
+    title?: string;
+    draft_type: string;
+    content_markdown: string;
+    context_version: string;
+    draft_version: string;
+    generated_by: string;
+    status: 'draft' | 'reviewed' | 'approved' | 'loaded_to_prompt' | 'archived' | 'deleted';
+    created_at: string;
+    updated_at: string;
+}
 
-
-
+export interface PipelineStats {
+    new_contexts: number;
+    ready_enrichments: number;
+    draft_queue: number;
+    archived_items: number;
+    failed_enrichments: number;
+    loaded_to_prompt_count: number;
+    total_contexts: number;
+    total_enrichments: number;
+    total_drafts: number;
+    timeline: Array<{
+        id: string;
+        event_type: string;
+        title: string;
+        timestamp: string;
+    }>;
+}

@@ -20,7 +20,8 @@ from database.models import (
     AnalyticsKeyword,
     AnalyticsMarketTrend,
     AnalyticsOpportunityExport,
-    AnalyticsContextExport
+    AnalyticsContextExport,
+    AnalyticsGeneratedDraft
 )
 from api.schemas import (
     ObserveChannelRequest,
@@ -46,7 +47,13 @@ from api.schemas import (
     AIContextPayloadResponse,
     EnrichContextRequest,
     EnrichedContextPayloadResponse,
-    EnrichmentHistoryResponse
+    EnrichmentHistoryResponse,
+    GenerateDraftRequest,
+    AnalyticsDraftResponse,
+    DraftStatusUpdateRequest,
+    BulkActionRequest,
+    PipelineStatsResponse,
+    ActivityTimelineItem
 )
 from database.models import AnalyticsEnrichedContext
 from services.analytics.collector import sync_channel, get_any_youtube_client
@@ -57,6 +64,8 @@ from services.analytics.analytics_context_builder import (
     create_ai_context
 )
 from services.analytics.context_enrichment import enrich_context
+from services.analytics.draft_generation import generate_draft
+
 
 from services.analytics.explorer import (
     get_channel_timeline,
@@ -1020,6 +1029,307 @@ def api_list_enriched_contexts(
     return query.order_by(AnalyticsEnrichedContext.generated_at.desc()).all()
 
 
+@router.get("/context-pipeline/inbox", response_model=List[AnalyticsContextExportResponse])
+def get_pipeline_inbox(
+    workspace_id: Optional[str] = None,
+    status: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    query = db.query(AnalyticsContextExport)
+    if status:
+        query = query.filter(AnalyticsContextExport.status == status)
+    else:
+        query = query.filter(AnalyticsContextExport.status != "archived")
+    if workspace_id:
+        query = query.filter(AnalyticsContextExport.workspace_id == workspace_id)
+        
+    exports = query.order_by(AnalyticsContextExport.exported_at.desc()).all()
+    
+    enriched_results = []
+    for e in exports:
+        topic_name = "Unknown"
+        opp_score = 0.0
+        forecast_score = 0.0
+        severity = None
+        insight_type = None
+        
+        if e.source_type in ("topic", "opportunity"):
+            t = db.query(AnalyticsTopic).filter(AnalyticsTopic.id == e.source_reference_id).first()
+            if t:
+                topic_name = t.topic_name
+                opp_score = t.opportunity_score
+                forecast_score = t.forecast_score
+        elif e.source_type == "insight":
+            ins = db.query(AnalyticsInsight).filter(AnalyticsInsight.id == e.source_reference_id).first()
+            if ins:
+                topic_name = ins.title
+                severity = ins.severity
+                insight_type = ins.insight_type
+                opp_score = float(ins.score)
+                
+        res = {
+            "id": e.id,
+            "source_type": e.source_type,
+            "source_reference_id": e.source_reference_id,
+            "context_type": e.context_type,
+            "context_version": e.context_version,
+            "status": e.status,
+            "workspace_id": e.workspace_id,
+            "exported_at": e.exported_at,
+            "topic_name": topic_name,
+            "opportunity_score": opp_score,
+            "forecast_score": forecast_score,
+            "severity": severity,
+            "insight_type": insight_type
+        }
+        enriched_results.append(res)
+    return enriched_results
+
+
+@router.get("/context-pipeline/enriched", response_model=List[EnrichmentHistoryResponse])
+def get_pipeline_enriched(
+    workspace_id: Optional[str] = None,
+    status: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    query = db.query(AnalyticsEnrichedContext)
+    if status:
+        query = query.filter(AnalyticsEnrichedContext.status == status)
+    else:
+        query = query.filter(AnalyticsEnrichedContext.status != "deleted")
+    if workspace_id:
+        query = query.filter(AnalyticsEnrichedContext.workspace_id == workspace_id)
+    return query.order_by(AnalyticsEnrichedContext.generated_at.desc()).all()
+
+
+@router.get("/context-pipeline/enriched/{id}", response_model=EnrichedContextPayloadResponse)
+def get_pipeline_enriched_detail(id: str, db: Session = Depends(get_db)):
+    enriched = db.query(AnalyticsEnrichedContext).filter(AnalyticsEnrichedContext.id == id).first()
+    if not enriched:
+        raise HTTPException(status_code=404, detail="Enriched context record not found")
+    import json
+    return json.loads(enriched.payload_json)
+
+
+@router.post("/context-pipeline/drafts/generate", response_model=AnalyticsDraftResponse)
+def api_generate_draft(req: GenerateDraftRequest, db: Session = Depends(get_db)):
+    return generate_draft(db, req.enriched_context_id)
+
+
+@router.get("/context-pipeline/drafts", response_model=List[AnalyticsDraftResponse])
+def get_pipeline_drafts(
+    workspace_id: Optional[str] = None,
+    status: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    query = db.query(AnalyticsGeneratedDraft)
+    if status:
+        query = query.filter(AnalyticsGeneratedDraft.status == status)
+    else:
+        query = query.filter(AnalyticsGeneratedDraft.status != "deleted")
+    if workspace_id:
+        query = query.filter(AnalyticsGeneratedDraft.workspace_id == workspace_id)
+    return query.order_by(AnalyticsGeneratedDraft.created_at.desc()).all()
+
+
+@router.get("/context-pipeline/drafts/{id}", response_model=AnalyticsDraftResponse)
+def get_pipeline_draft_detail(id: str, db: Session = Depends(get_db)):
+    draft = db.query(AnalyticsGeneratedDraft).filter(AnalyticsGeneratedDraft.id == id).first()
+    if not draft:
+        raise HTTPException(status_code=404, detail="Draft record not found")
+    return draft
+
+
+@router.patch("/context-pipeline/drafts/{id}/status", response_model=AnalyticsDraftResponse)
+def update_pipeline_draft_status(id: str, req: DraftStatusUpdateRequest, db: Session = Depends(get_db)):
+    draft = db.query(AnalyticsGeneratedDraft).filter(AnalyticsGeneratedDraft.id == id).first()
+    if not draft:
+        raise HTTPException(status_code=404, detail="Draft record not found")
+        
+    current = draft.status
+    target = req.status
+    allowed = False
+    
+    # Valid transitions: draft ➔ reviewed ➔ approved ➔ loaded_to_prompt ➔ archived
+    if current == "draft" and target in ("reviewed", "archived"):
+        allowed = True
+    elif current == "reviewed" and target in ("approved", "archived"):
+        allowed = True
+    elif current == "approved" and target in ("loaded_to_prompt", "archived"):
+        allowed = True
+    elif current == "loaded_to_prompt" and target == "archived":
+        allowed = True
+    elif target == current:
+        allowed = True
+        
+    if not allowed:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid draft transition from '{current}' to '{target}'. Sequential flow is required."
+        )
+        
+    draft.status = target
+    draft.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(draft)
+    return draft
+
+
+@router.post("/context-pipeline/bulk/archive")
+def bulk_archive(req: BulkActionRequest, db: Session = Depends(get_db)):
+    if req.stage == "inbox":
+        db.query(AnalyticsContextExport).filter(AnalyticsContextExport.id.in_(req.ids)).update({"status": "archived"}, synchronize_session=False)
+    elif req.stage == "enriched":
+        db.query(AnalyticsEnrichedContext).filter(AnalyticsEnrichedContext.id.in_(req.ids)).update({"status": "archived"}, synchronize_session=False)
+    elif req.stage == "drafts":
+        db.query(AnalyticsGeneratedDraft).filter(AnalyticsGeneratedDraft.id.in_(req.ids)).update({"status": "archived"}, synchronize_session=False)
+    db.commit()
+    return {"message": f"Bulk archived {len(req.ids)} items"}
+
+
+@router.post("/context-pipeline/bulk/delete")
+def bulk_delete(req: BulkActionRequest, db: Session = Depends(get_db)):
+    if req.stage == "inbox":
+        # Physical delete for inbox/exports as per architecture revision 1
+        db.query(AnalyticsContextExport).filter(AnalyticsContextExport.id.in_(req.ids)).delete(synchronize_session=False)
+    elif req.stage == "enriched":
+        db.query(AnalyticsEnrichedContext).filter(AnalyticsEnrichedContext.id.in_(req.ids)).update({"status": "deleted"}, synchronize_session=False)
+    elif req.stage == "drafts":
+        db.query(AnalyticsGeneratedDraft).filter(AnalyticsGeneratedDraft.id.in_(req.ids)).update({"status": "deleted"}, synchronize_session=False)
+    db.commit()
+    return {"message": f"Bulk deleted {len(req.ids)} items"}
+
+
+@router.post("/context-pipeline/bulk/purge")
+def bulk_purge(req: BulkActionRequest, db: Session = Depends(get_db)):
+    if req.stage == "inbox":
+        db.query(AnalyticsContextExport).filter(AnalyticsContextExport.id.in_(req.ids)).delete(synchronize_session=False)
+    elif req.stage == "enriched":
+        db.query(AnalyticsEnrichedContext).filter(AnalyticsEnrichedContext.id.in_(req.ids)).delete(synchronize_session=False)
+    elif req.stage == "drafts":
+        db.query(AnalyticsGeneratedDraft).filter(AnalyticsGeneratedDraft.id.in_(req.ids)).delete(synchronize_session=False)
+    db.commit()
+    return {"message": f"Bulk purged {len(req.ids)} items"}
+
+
+@router.post("/context-pipeline/drafts/purge-old")
+def purge_old_drafts(db: Session = Depends(get_db)):
+    cutoff = datetime.utcnow() - timedelta(days=30)
+    deleted_count = db.query(AnalyticsGeneratedDraft).filter(AnalyticsGeneratedDraft.created_at < cutoff).delete(synchronize_session=False)
+    db.commit()
+    return {"message": f"Purged {deleted_count} drafts older than 30 days"}
+
+
+@router.post("/context-pipeline/drafts/purge-archived")
+def purge_archived_drafts(db: Session = Depends(get_db)):
+    deleted_count = db.query(AnalyticsGeneratedDraft).filter(AnalyticsGeneratedDraft.status.in_(["archived", "deleted"])).delete(synchronize_session=False)
+    db.commit()
+    return {"message": f"Purged {deleted_count} archived/deleted drafts"}
+
+
+@router.get("/context-pipeline/stats")
+def get_pipeline_stats(workspace_id: Optional[str] = None, db: Session = Depends(get_db)):
+    exp_query = db.query(AnalyticsContextExport)
+    enr_query = db.query(AnalyticsEnrichedContext)
+    dr_query = db.query(AnalyticsGeneratedDraft)
+    
+    if workspace_id:
+        exp_query = exp_query.filter(AnalyticsContextExport.workspace_id == workspace_id)
+        enr_query = enr_query.filter(AnalyticsEnrichedContext.workspace_id == workspace_id)
+        dr_query = dr_query.filter(AnalyticsGeneratedDraft.workspace_id == workspace_id)
+        
+    total_contexts = exp_query.filter(AnalyticsContextExport.status != "archived").count()
+    new_contexts = exp_query.filter(AnalyticsContextExport.status == "new").count()
+    
+    total_enrichments = enr_query.filter(AnalyticsEnrichedContext.status != "deleted").count()
+    ready_enrichments = enr_query.filter(AnalyticsEnrichedContext.status == "ready").count()
+    failed_enrichments = enr_query.filter(AnalyticsEnrichedContext.status == "failed").count()
+    
+    total_drafts = dr_query.filter(AnalyticsGeneratedDraft.status != "deleted").count()
+    draft_queue = dr_query.filter(AnalyticsGeneratedDraft.status == "draft").count()
+    loaded_to_prompt_count = dr_query.filter(AnalyticsGeneratedDraft.status == "loaded_to_prompt").count()
+    archived_items = dr_query.filter(AnalyticsGeneratedDraft.status == "archived").count()
+    
+    # Reconstruct Activity Timeline from db records
+    timeline = []
+    
+    # 1. Context Exported
+    exports = exp_query.order_by(AnalyticsContextExport.exported_at.desc()).limit(10).all()
+    for e in exports:
+        timeline.append({
+            "id": f"export-{e.id}",
+            "event_type": "Context Exported",
+            "title": f"Context Exported: Source {e.source_type.capitalize()} (Ref: {e.source_reference_id[:8]})",
+            "timestamp": e.exported_at
+        })
+        
+    # 2. Context Enriched
+    enrichments = enr_query.filter(AnalyticsEnrichedContext.status == "ready").order_by(AnalyticsEnrichedContext.generated_at.desc()).limit(10).all()
+    for en in enrichments:
+        timeline.append({
+            "id": f"enrich-{en.id}",
+            "event_type": "Context Enriched",
+            "title": f"Context Enriched: {en.topic_name or 'Topic'}",
+            "timestamp": en.generated_at
+        })
+        
+    # 3. Drafts events
+    drafts = dr_query.order_by(AnalyticsGeneratedDraft.created_at.desc()).limit(20).all()
+    for d in drafts:
+        if d.status == "draft":
+            timeline.append({
+                "id": f"draft-gen-{d.id}",
+                "event_type": "Draft Generated",
+                "title": f"Draft Generated: {d.title or 'Script'}",
+                "timestamp": d.created_at
+            })
+        elif d.status == "reviewed":
+            timeline.append({
+                "id": f"draft-rev-{d.id}",
+                "event_type": "Draft Reviewed",
+                "title": f"Draft Reviewed: {d.title or 'Script'}",
+                "timestamp": d.updated_at
+            })
+        elif d.status == "loaded_to_prompt":
+            timeline.append({
+                "id": f"draft-load-{d.id}",
+                "event_type": "Loaded To Prompt Expert",
+                "title": f"Loaded To Prompt Expert: {d.title or 'Script'}",
+                "timestamp": d.updated_at
+            })
+        elif d.status == "archived":
+            timeline.append({
+                "id": f"draft-arc-{d.id}",
+                "event_type": "Draft Archived",
+                "title": f"Draft Archived: {d.title or 'Script'}",
+                "timestamp": d.updated_at
+            })
+        elif d.status == "deleted":
+            timeline.append({
+                "id": f"draft-del-{d.id}",
+                "event_type": "Draft Deleted",
+                "title": f"Draft Deleted: {d.title or 'Script'}",
+                "timestamp": d.updated_at
+            })
+            
+    # Sort timeline descending by timestamp
+    timeline.sort(key=lambda x: x["timestamp"], reverse=True)
+    timeline = timeline[:15]
+    
+    return {
+        "new_contexts": new_contexts,
+        "ready_enrichments": ready_enrichments,
+        "draft_queue": draft_queue,
+        "archived_items": archived_items,
+        "failed_enrichments": failed_enrichments,
+        "loaded_to_prompt_count": loaded_to_prompt_count,
+        "total_contexts": total_contexts,
+        "total_enrichments": total_enrichments,
+        "total_drafts": total_drafts,
+        "timeline": timeline
+    }
+
+
 @router.get("/context/enriched/{id}", response_model=EnrichedContextPayloadResponse)
 def api_get_enriched_context(id: str, db: Session = Depends(get_db)):
     """
@@ -1035,6 +1345,7 @@ def api_get_enriched_context(id: str, db: Session = Depends(get_db)):
 
 @router.get("/context/{id}", response_model=AIContextPayloadResponse)
 def api_get_aggregated_context(id: str, db: Session = Depends(get_db)):
+
     export = db.query(AnalyticsContextExport).filter(AnalyticsContextExport.id == id).first()
     if not export:
         raise HTTPException(status_code=404, detail="Context export record not found")
