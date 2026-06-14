@@ -109,84 +109,98 @@ export default function YouTubeAccounts() {
                     <p className="text-muted-foreground mt-1">Connect a YouTube account to use Market Intelligence and Context Pipeline.</p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {accounts.map(account => (
-                        <div key={account.id} className="bg-card border border-border rounded-lg overflow-hidden flex flex-col hover:border-primary/50 transition-colors">
-                            <div className="p-5 border-b border-border flex-1">
-                                <div className="flex items-start justify-between mb-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-12 h-12 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center border border-red-500/20">
-                                            <Video className="w-6 h-6" />
-                                        </div>
-                                        <div>
-                                            <h3 className="font-semibold text-lg leading-none">{account.youtube_channel_title}</h3>
-                                            {account.youtube_handle && (
-                                                <p className="text-sm text-muted-foreground mt-1">{account.youtube_handle}</p>
-                                            )}
-                                        </div>
+                <div className="space-y-8">
+                    {Object.entries(
+                        accounts.reduce((acc: Record<string, any[]>, account: any) => {
+                            const email = account.google_account_email || 'Uncategorized / Legacy';
+                            if (!acc[email]) acc[email] = [];
+                            acc[email].push(account);
+                            return acc;
+                        }, {})
+                    ).map(([email, emailAccounts]) => (
+                        <div key={email} className="bg-card border border-border rounded-lg overflow-hidden">
+                            <div className="bg-secondary/50 px-6 py-4 border-b border-border flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-primary/10 text-primary rounded-full flex items-center justify-center">
+                                        <ShieldCheck className="w-5 h-5" />
                                     </div>
-                                </div>
-                                
-                                <div className="space-y-3 mt-6">
-                                    <div className="flex items-center justify-between text-sm">
-                                        <span className="text-muted-foreground flex items-center gap-1.5">
-                                            <ShieldCheck className="w-4 h-4" />
-                                            Identity ID
-                                        </span>
-                                        <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{account.youtube_channel_id}</span>
-                                    </div>
-                                    
-                                    <div className="flex items-center justify-between text-sm">
-                                        <span className="text-muted-foreground">Analytics Status</span>
-                                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                                            account.analytics_enabled ? 'bg-green-500/10 text-green-500' : 'bg-muted text-muted-foreground'
-                                        }`}>
-                                            {account.analytics_enabled ? 'Active' : 'Inactive'}
-                                        </span>
+                                    <div>
+                                        <h2 className="font-semibold text-lg">{email}</h2>
+                                        <p className="text-sm text-muted-foreground">
+                                            {emailAccounts.length} channel{emailAccounts.length !== 1 ? 's' : ''} connected
+                                        </p>
                                     </div>
                                 </div>
                             </div>
                             
-                            <div className="bg-secondary/30 p-3 flex items-center justify-between">
-                                <button
-                                    onClick={() => toggleAnalyticsMutation.mutate({ id: account.id, enabled: !account.analytics_enabled })}
-                                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                                        account.analytics_enabled 
-                                            ? 'text-amber-500 hover:bg-amber-500/10' 
-                                            : 'text-green-500 hover:bg-green-500/10'
-                                    }`}
-                                >
-                                    {account.analytics_enabled ? (
-                                        <><PowerOff className="w-3.5 h-3.5" /> Disable Analytics</>
-                                    ) : (
-                                        <><Power className="w-3.5 h-3.5" /> Enable Analytics</>
-                                    )}
-                                </button>
+                            <div className="divide-y divide-border">
+                                {emailAccounts.map(account => (
+                                    <div key={account.id} className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 hover:bg-secondary/10 transition-colors">
+                                        <div className="flex items-start gap-4">
+                                            <div className="w-12 h-12 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center border border-red-500/20 shrink-0">
+                                                <Video className="w-6 h-6" />
+                                            </div>
+                                            <div>
+                                                <h3 className="font-semibold text-lg">{account.youtube_channel_title}</h3>
+                                                {account.youtube_handle && (
+                                                    <p className="text-sm text-muted-foreground">{account.youtube_handle}</p>
+                                                )}
+                                                <div className="mt-2 flex items-center gap-3 text-xs font-mono text-muted-foreground">
+                                                    <span className="bg-muted px-2 py-1 rounded">ID: {account.youtube_channel_id}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="flex items-center gap-4">
+                                            <div className="flex items-center gap-2">
+                                                <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                                                    account.analytics_enabled ? 'bg-green-500/10 text-green-500' : 'bg-muted text-muted-foreground'
+                                                }`}>
+                                                    {account.analytics_enabled ? 'Analytics Active' : 'Analytics Inactive'}
+                                                </span>
+                                            </div>
+                                            
+                                            <div className="flex items-center gap-2 border-l border-border pl-4">
+                                                <button
+                                                    onClick={() => toggleAnalyticsMutation.mutate({ id: account.id, enabled: !account.analytics_enabled })}
+                                                    className={`p-2 rounded-md transition-colors ${
+                                                        account.analytics_enabled 
+                                                            ? 'text-amber-500 hover:bg-amber-500/10' 
+                                                            : 'text-green-500 hover:bg-green-500/10'
+                                                    }`}
+                                                    title={account.analytics_enabled ? "Disable Analytics" : "Enable Analytics"}
+                                                >
+                                                    {account.analytics_enabled ? <PowerOff className="w-4 h-4" /> : <Power className="w-4 h-4" />}
+                                                </button>
 
-                                {deleteConfirmId === account.id ? (
-                                    <div className="flex items-center gap-2">
-                                        <button 
-                                            onClick={() => deleteMutation.mutate(account.id)}
-                                            className="text-xs font-medium text-white bg-destructive hover:bg-destructive/90 px-2 py-1.5 rounded"
-                                        >
-                                            Confirm
-                                        </button>
-                                        <button 
-                                            onClick={() => setDeleteConfirmId(null)}
-                                            className="text-xs font-medium text-muted-foreground hover:bg-secondary px-2 py-1.5 rounded"
-                                        >
-                                            Cancel
-                                        </button>
+                                                {deleteConfirmId === account.id ? (
+                                                    <div className="flex items-center gap-1 bg-destructive/10 rounded-md p-1">
+                                                        <button 
+                                                            onClick={() => deleteMutation.mutate(account.id)}
+                                                            className="text-xs font-medium text-destructive hover:bg-destructive/20 px-2 py-1 rounded"
+                                                        >
+                                                            Confirm
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => setDeleteConfirmId(null)}
+                                                            className="text-xs font-medium text-muted-foreground hover:bg-background px-2 py-1 rounded"
+                                                        >
+                                                            Cancel
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => setDeleteConfirmId(account.id)}
+                                                        className="text-muted-foreground hover:text-destructive p-2 rounded-md hover:bg-destructive/10 transition-colors"
+                                                        title="Disconnect & Delete"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
-                                ) : (
-                                    <button
-                                        onClick={() => setDeleteConfirmId(account.id)}
-                                        className="text-muted-foreground hover:text-destructive transition-colors p-1.5 rounded-md hover:bg-destructive/10"
-                                        title="Disconnect & Delete"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                )}
+                                ))}
                             </div>
                         </div>
                     ))}

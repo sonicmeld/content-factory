@@ -47,7 +47,8 @@ def get_client_config(client_id: str, client_secret: str, project_id: str):
 
 SCOPES = [
     "https://www.googleapis.com/auth/youtube.upload",
-    "https://www.googleapis.com/auth/youtube"
+    "https://www.googleapis.com/auth/youtube",
+    "https://www.googleapis.com/auth/userinfo.email"
 ]
 
 def generate_auth_url(db: Session, channel_id: str) -> str:
@@ -140,106 +141,121 @@ def handle_callback(db: Session, state: str, code: str):
     
     # Sync YouTube Channel Identity from Google
     google_account_email = None
-    yt_channel_id = None
-    yt_title = "Unknown Channel"
-    yt_handle = None
-    yt_url = None
+    
+    try:
+        oauth2_client = build("oauth2", "v2", credentials=credentials)
+        user_info = oauth2_client.userinfo().get().execute()
+        google_account_email = user_info.get("email")
+    except Exception as e:
+        print(f"Failed to fetch user email: {e}")
     
     try:
         youtube = build("youtube", "v3", credentials=credentials)
         response = youtube.channels().list(part="snippet", mine=True).execute()
         
-        if "items" in response and len(response["items"]) > 0:
-            yt_channel = response["items"][0]
-            yt_channel_id = yt_channel["id"]
+        items = response.get("items", [])
+        if not items:
+            raise HTTPException(status_code=400, detail="No YouTube channels found on this Google Account.")
             
+        from database.models import YoutubeAccount, OAuthToken
+        
+        first_token_data = None
+        
+        for yt_channel in items:
+            yt_channel_id = yt_channel["id"]
             snippet = yt_channel.get("snippet", {})
-            yt_title = snippet.get("title")
+            yt_title = snippet.get("title", "Unknown Channel")
             yt_handle = snippet.get("customUrl")
             yt_url = f"https://youtube.com/channel/{yt_channel_id}"
+            
+            if is_identity_flow:
+                # 1. Upsert YoutubeAccount directly
+                account = db.query(YoutubeAccount).filter(YoutubeAccount.youtube_channel_id == yt_channel_id).first()
+                if not account:
+                    account = YoutubeAccount(
+                        id=str(uuid.uuid4()),
+                        workspace_id=workspace_id,
+                        gcp_profile_id=gcp_profile_id,
+                        youtube_channel_id=yt_channel_id,
+                        youtube_channel_title=yt_title,
+                        youtube_handle=yt_handle,
+                        youtube_channel_url=yt_url,
+                        google_account_email=google_account_email,
+                        analytics_enabled=True,
+                    )
+                    db.add(account)
+                else:
+                    account.youtube_channel_title = yt_title or account.youtube_channel_title
+                    account.youtube_handle = yt_handle or account.youtube_handle
+                    account.youtube_channel_url = yt_url or account.youtube_channel_url
+                    account.google_account_email = google_account_email or account.google_account_email
+                    account.gcp_profile_id = gcp_profile_id
+                
+                db.commit()
+                db.refresh(account)
+                
+                # 2. Upsert OAuthToken using youtube_account_id
+                token = db.query(OAuthToken).filter(OAuthToken.youtube_account_id == account.id).first()
+                if not token:
+                    token = OAuthToken(
+                        id=str(uuid.uuid4()),
+                        youtube_account_id=account.id,
+                        channel_id=None,
+                    )
+                    db.add(token)
+                    
+                token.access_token = credentials.token
+                if credentials.refresh_token:
+                    token.refresh_token = encrypt_token(credentials.refresh_token)
+                if credentials.expiry:
+                    token.expires_at = credentials.expiry.replace(tzinfo=timezone.utc)
+                    
+                db.commit()
+                
+                if not first_token_data:
+                    first_token_data = {
+                        "id": token.id,
+                        "youtube_account_id": account.id,
+                        "access_token": token.access_token
+                    }
+            else:
+                # Legacy Channel Flow (non-destructive)
+                # We only process the first channel for legacy to avoid overwriting the selected workspace channel
+                channel.youtube_channel_id = yt_channel_id
+                channel.youtube_channel_title = yt_title
+                channel.youtube_handle = yt_handle
+                channel.youtube_channel_url = yt_url
+                db.commit()
+                db.refresh(channel)
+                
+                token_data = {
+                    "id": str(uuid.uuid4()),
+                    "channel_id": channel_id,
+                    "access_token": credentials.token,
+                    "refresh_token": encrypt_token(credentials.refresh_token) if credentials.refresh_token else None,
+                    "expires_at": credentials.expiry.replace(tzinfo=timezone.utc) if credentials.expiry else None
+                }
+                oauth_repository.create_or_update_token(db, token_data)
+
+                try:
+                    youtube_identity_service.register_from_channel(
+                        db=db,
+                        channel=channel,
+                        google_account_email=google_account_email,
+                    )
+                except Exception as e:
+                    print(f"[oauth_service] Warning: Failed to register YouTube Identity SSOT: {e}")
+                    
+                first_token_data = token_data
+                break # Only process first channel for legacy flow
+                
+        return first_token_data
+
     except Exception as e:
         print(f"Failed to sync YouTube channel identity: {e}")
-        
-    if not yt_channel_id:
-        raise HTTPException(status_code=400, detail="Could not retrieve YouTube Channel ID from the Google Account.")
-
-    from database.models import YoutubeAccount, OAuthToken
-    
-    if is_identity_flow:
-        # 1. Upsert YoutubeAccount directly
-        account = db.query(YoutubeAccount).filter(YoutubeAccount.youtube_channel_id == yt_channel_id).first()
-        if not account:
-            account = YoutubeAccount(
-                id=str(uuid.uuid4()),
-                workspace_id=workspace_id,
-                gcp_profile_id=gcp_profile_id,
-                youtube_channel_id=yt_channel_id,
-                youtube_channel_title=yt_title,
-                youtube_handle=yt_handle,
-                youtube_channel_url=yt_url,
-                analytics_enabled=True,
-            )
-            db.add(account)
-        else:
-            account.youtube_channel_title = yt_title or account.youtube_channel_title
-            account.youtube_handle = yt_handle or account.youtube_handle
-            account.youtube_channel_url = yt_url or account.youtube_channel_url
-            account.gcp_profile_id = gcp_profile_id
-        
-        db.commit()
-        db.refresh(account)
-        
-        # 2. Upsert OAuthToken using youtube_account_id
-        token = db.query(OAuthToken).filter(OAuthToken.youtube_account_id == account.id).first()
-        if not token:
-            token = OAuthToken(
-                id=str(uuid.uuid4()),
-                youtube_account_id=account.id,
-                channel_id=None,
-            )
-            db.add(token)
-            
-        token.access_token = credentials.token
-        if credentials.refresh_token:
-            token.refresh_token = encrypt_token(credentials.refresh_token)
-        if credentials.expiry:
-            token.expires_at = credentials.expiry.replace(tzinfo=timezone.utc)
-            
-        db.commit()
-        
-        return {
-            "id": token.id,
-            "youtube_account_id": account.id,
-            "access_token": token.access_token
-        }
-    else:
-        # Legacy Channel Flow (non-destructive)
-        channel.youtube_channel_id = yt_channel_id
-        channel.youtube_channel_title = yt_title
-        channel.youtube_handle = yt_handle
-        channel.youtube_channel_url = yt_url
-        db.commit()
-        db.refresh(channel)
-        
-        token_data = {
-            "id": str(uuid.uuid4()),
-            "channel_id": channel_id,
-            "access_token": credentials.token,
-            "refresh_token": encrypt_token(credentials.refresh_token) if credentials.refresh_token else None,
-            "expires_at": credentials.expiry.replace(tzinfo=timezone.utc) if credentials.expiry else None
-        }
-        oauth_repository.create_or_update_token(db, token_data)
-
-        try:
-            youtube_identity_service.register_from_channel(
-                db=db,
-                channel=channel,
-                google_account_email=google_account_email,
-            )
-        except Exception as e:
-            print(f"[oauth_service] Warning: Failed to register YouTube Identity SSOT: {e}")
-            
-        return token_data
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(status_code=400, detail="Could not retrieve YouTube channels from the Google Account.")
 
 def disconnect_oauth(db: Session, channel_id: str):
     token = oauth_repository.get_token_by_channel(db, channel_id)
