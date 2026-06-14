@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Channel, GCPProfile, UploadJob, Asset, Prompt, ContentPackage, ChannelStorageStats, QueueItem, PackageGeneration, PromptContext, GenerationCombo, GenerationReadiness, MetadataVariant, GenerationAsset, MetadataLibraryItem, ExternalAccount, ConnectorJob, AssetInbox, AnalyticsEnrichedContext, EnrichedContextPayload, AnalyticsGeneratedDraft, PipelineStats } from '../types';
+import type { Channel, GCPProfile, UploadJob, Asset, Prompt, ContentPackage, ChannelStorageStats, QueueItem, PackageGeneration, PromptContext, GenerationCombo, GenerationReadiness, MetadataVariant, GenerationAsset, MetadataLibraryItem, ExternalAccount, ConnectorJob, AssetInbox, AnalyticsEnrichedContext, EnrichedContextPayload, AnalyticsGeneratedDraft, PipelineStats, YoutubeAccount, YoutubeSyncResult } from '../types';
 
 const api = axios.create({
     baseURL: '/api',
@@ -559,5 +559,33 @@ export const purgeArchivedPipelineDrafts = () =>
 
 export const getContextPipelineStats = (workspaceId?: string) =>
     api.get<PipelineStats>('/analytics/context-pipeline/stats', { params: { workspace_id: workspaceId } }).then(res => res.data);
+
+// ─────────────────────────────────────────────────────────────
+// YouTube Identity Layer API
+// ─────────────────────────────────────────────────────────────
+
+/** List semua YouTube accounts. Opsional filter by workspace_id. */
+export const getYoutubeAccounts = (workspaceId?: string) =>
+    api.get<YoutubeAccount[]>('/youtube-identity/accounts', {
+        params: workspaceId ? { workspace_id: workspaceId } : {}
+    }).then(res => res.data);
+
+/** List YouTube accounts dengan analytics_enabled=True (untuk selector UI). */
+export const getActiveYoutubeAccounts = (workspaceId?: string) =>
+    api.get<YoutubeAccount[]>('/youtube-identity/accounts/active', {
+        params: workspaceId ? { workspace_id: workspaceId } : {}
+    }).then(res => res.data);
+
+/** Detail satu YouTube account berdasarkan ID. */
+export const getYoutubeAccount = (accountId: string) =>
+    api.get<YoutubeAccount>(`/youtube-identity/accounts/${accountId}`).then(res => res.data);
+
+/** Toggle analytics_enabled untuk satu YouTube account. */
+export const toggleYoutubeAnalytics = (accountId: string, enabled: boolean) =>
+    api.patch<YoutubeAccount>(`/youtube-identity/accounts/${accountId}/analytics`, { enabled }).then(res => res.data);
+
+/** Sync semua channels existing ke youtube_accounts (inisialisasi / idempotent). */
+export const syncYoutubeAccounts = () =>
+    api.post<YoutubeSyncResult>('/youtube-identity/sync').then(res => res.data);
 
 export default api;

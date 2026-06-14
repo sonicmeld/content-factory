@@ -844,3 +844,37 @@ class ActivityTimelineItem(BaseModel):
     title: str
     timestamp: datetime
 
+
+# ─────────────────────────────────────────────────────────────
+# YouTube Identity Layer Schemas
+# ─────────────────────────────────────────────────────────────
+
+class YoutubeAccountResponse(BaseModel):
+    """Representasi lengkap satu YouTube Account dari tabel youtube_accounts (SSOT)."""
+    id: str
+    workspace_id: str
+    gcp_profile_id: Optional[str] = None
+    channel_binding_id: Optional[str] = None
+    google_account_email: Optional[str] = None
+    youtube_channel_id: str
+    youtube_channel_title: str
+    youtube_handle: Optional[str] = None
+    youtube_channel_url: Optional[str] = None
+    analytics_enabled: bool
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class YoutubeAnalyticsToggleRequest(BaseModel):
+    """Request body untuk toggle analytics_enabled pada satu YouTube account."""
+    enabled: bool
+
+
+class YoutubeSyncResponse(BaseModel):
+    """Response dari endpoint POST /youtube-identity/sync."""
+    synced: int
+    created: int
+    updated: int
+    message: str

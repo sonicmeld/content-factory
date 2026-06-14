@@ -677,3 +677,29 @@ export interface PipelineStats {
         timestamp: string;
     }>;
 }
+
+// ─────────────────────────────────────────────────────────────
+// YouTube Identity Layer Types
+// ─────────────────────────────────────────────────────────────
+
+export interface YoutubeAccount {
+    id: string;
+    workspace_id: string;
+    gcp_profile_id?: string;
+    channel_binding_id?: string;
+    google_account_email?: string;
+    youtube_channel_id: string;
+    youtube_channel_title: string;
+    youtube_handle?: string;
+    youtube_channel_url?: string;
+    analytics_enabled: boolean;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface YoutubeSyncResult {
+    synced: number;
+    created: number;
+    updated: number;
+    message: string;
+}

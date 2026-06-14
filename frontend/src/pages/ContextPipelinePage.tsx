@@ -32,8 +32,9 @@ import {
     purgeOldPipelineDrafts,
     purgeArchivedPipelineDrafts,
     getContextPipelineStats,
-    getChannels
 } from '../services/api';
+import YouTubeAccountSelector from '../components/YouTubeAccountSelector';
+import { useYoutubeAccount } from '../hooks/useYoutubeAccount';
 import type { AnalyticsGeneratedDraft, EnrichedContextPayload } from '../types';
 
 export default function ContextPipelinePage() {
@@ -57,11 +58,13 @@ export default function ContextPipelinePage() {
     const [isPurgingAllOld, setIsPurgingAllOld] = useState(false);
     const [isPurgingAllArchived, setIsPurgingAllArchived] = useState(false);
 
-    // Fetch workspace channels
-    const { data: channels = [] } = useQuery({
-        queryKey: ['channels'],
-        queryFn: getChannels
-    });
+    // YouTube Identity SSOT — selector persisten untuk filter pipeline per akun
+    const {
+        activeAccountId,
+        setActiveAccountId,
+        accounts: youtubeAccounts,
+        isLoading: isAccountsLoading,
+    } = useYoutubeAccount();
 
     // Fetch Stats & Timeline
     const { data: stats, isLoading: isStatsLoading } = useQuery({
@@ -332,21 +335,13 @@ export default function ContextPipelinePage() {
                     </p>
                 </div>
                 
-                {/* Workspace selector filter */}
-                <div className="flex items-center gap-2 bg-card border border-border px-3 py-1.5 rounded-xl shadow-sm">
-                    <Search className="w-4 h-4 text-muted-foreground" />
-                    <label className="text-xs font-semibold text-foreground">Workspace Filter:</label>
-                    <select 
-                        className="bg-secondary border border-border/80 rounded-lg px-2 py-1 text-xs focus:ring-1 focus:ring-primary focus:outline-none"
-                        value={selectedWorkspace}
-                        onChange={(e) => setSelectedWorkspace(e.target.value)}
-                    >
-                        <option value="">All Channels</option>
-                        {channels.map(ch => (
-                            <option key={ch.id} value={ch.id}>{ch.name}</option>
-                        ))}
-                    </select>
-                </div>
+                {/* YouTube Account Selector (SSOT) */}
+                <YouTubeAccountSelector
+                    activeAccountId={activeAccountId}
+                    setActiveAccountId={setActiveAccountId}
+                    accounts={youtubeAccounts}
+                    isLoading={isAccountsLoading}
+                />
             </div>
 
             {/* KPI Metrics Header */}

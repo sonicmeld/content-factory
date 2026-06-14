@@ -429,3 +429,29 @@ CREATE TABLE IF NOT EXISTS analytics_generated_drafts (
 
 CREATE INDEX IF NOT EXISTS idx_analytics_generated_drafts_enriched ON analytics_generated_drafts (source_enriched_context_id);
 CREATE INDEX IF NOT EXISTS idx_analytics_generated_drafts_workspace ON analytics_generated_drafts (workspace_id);
+
+-- YouTube Identity Layer (SSOT) — Single Source of Truth untuk identitas akun YouTube.
+-- Multi-GCP: setiap account dapat menggunakan GCP profile berbeda.
+-- oauth_tokens tetap tabel terpisah, di-link via channel_id dari Channel Domain.
+CREATE TABLE IF NOT EXISTS youtube_accounts (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL,
+    gcp_profile_id TEXT,                -- FK ke gcp_profiles (nullable, multi-GCP support)
+    channel_binding_id TEXT,            -- FK ke channels (nullable — bisa exist tanpa channel binding)
+    google_account_email TEXT,
+    youtube_channel_id TEXT UNIQUE NOT NULL,
+    youtube_channel_title TEXT NOT NULL,
+    youtube_handle TEXT,
+    youtube_channel_url TEXT,
+    analytics_enabled INTEGER NOT NULL DEFAULT 1,   -- 1 = enabled, 0 = disabled
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_youtube_accounts_workspace_id ON youtube_accounts (workspace_id);
+CREATE INDEX IF NOT EXISTS idx_youtube_accounts_youtube_channel_id ON youtube_accounts (youtube_channel_id);
+
+-- Note: Column youtube_account_id di analytics_context_exports, analytics_enriched_contexts,
+-- dan analytics_generated_drafts ditambahkan melalui Alembic migration:
+-- a1b2c3d4e5f6_youtube_identity_layer_consolidation.py
+-- Schema.sql hanya berisi CREATE TABLE (idempotent), bukan ALTER TABLE.

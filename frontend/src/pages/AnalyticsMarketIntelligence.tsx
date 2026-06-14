@@ -10,8 +10,10 @@ import {
     refreshMarketIntelligence,
     exportTopicContext,
     exportOpportunityContext,
-    getChannels
+    syncYoutubeAccounts
 } from '../services/api';
+import YouTubeAccountSelector from '../components/YouTubeAccountSelector';
+import { useYoutubeAccount } from '../hooks/useYoutubeAccount';
 import { 
     TrendingUp, 
     Compass, 
@@ -43,13 +45,16 @@ export default function AnalyticsMarketIntelligence() {
     // Detailed view states
     const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
     const [exportedPayload, setExportedPayload] = useState<any | null>(null);
-    const [activeChannelId, setActiveChannelId] = useState<string>('');
 
-    // Fetch workspace channels
-    const { data: channels = [] } = useQuery({
-        queryKey: ['channels'],
-        queryFn: getChannels
-    });
+    // YouTube Identity SSOT — menggantikan activeChannelId lokal + channels dropdown
+    const {
+        activeAccountId,
+        setActiveAccountId,
+        activeAccount,
+        accounts: youtubeAccounts,
+        isLoading: isAccountsLoading,
+        hasActiveAccount,
+    } = useYoutubeAccount();
 
     // Queries
     const { data: trends = [], isLoading: isTrendsLoading } = useQuery({
@@ -103,7 +108,7 @@ export default function AnalyticsMarketIntelligence() {
     });
 
     const exportMutation = useMutation({
-        mutationFn: (topicId: string) => exportOpportunityContext(topicId, activeChannelId || undefined),
+        mutationFn: (topicId: string) => exportOpportunityContext(topicId, activeAccountId || undefined),
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['marketTopicOpportunities', selectedTopicId || ''] });
             setExportedPayload(data);
@@ -115,7 +120,7 @@ export default function AnalyticsMarketIntelligence() {
     });
 
     const exportTopicMutation = useMutation({
-        mutationFn: (topicId: string) => exportTopicContext(topicId, activeChannelId || undefined),
+        mutationFn: (topicId: string) => exportTopicContext(topicId, activeAccountId || undefined),
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['marketTopicOpportunities', selectedTopicId || ''] });
             setExportedPayload(data);
@@ -123,6 +128,17 @@ export default function AnalyticsMarketIntelligence() {
         },
         onError: (err: any) => {
             toast.error(`Failed to send topic: ${err.response?.data?.detail || err.message}`);
+        }
+    });
+
+    const syncMutation = useMutation({
+        mutationFn: syncYoutubeAccounts,
+        onSuccess: (data) => {
+            toast.success(data.message);
+            queryClient.invalidateQueries({ queryKey: ['youtubeActiveAccounts'] });
+        },
+        onError: () => {
+            toast.error('Sync failed. Check channel OAuth status.');
         }
     });
 
@@ -148,19 +164,16 @@ export default function AnalyticsMarketIntelligence() {
                     </p>
                 </div>
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                    <div className="flex items-center gap-2 bg-card border border-border px-3 py-1.5 rounded-xl shadow-sm">
-                        <label className="text-xs font-semibold text-foreground">Active Channel:</label>
-                        <select 
-                            className="bg-secondary border border-border/80 rounded-lg px-2.5 py-1 text-xs focus:ring-1 focus:ring-primary focus:outline-none cursor-pointer text-foreground"
-                            value={activeChannelId}
-                            onChange={(e) => setActiveChannelId(e.target.value)}
-                        >
-                            <option value="">-- Select Channel --</option>
-                            {channels.map(ch => (
-                                <option key={ch.id} value={ch.id}>{ch.name}</option>
-                            ))}
-                        </select>
-                    </div>
+                    {/* YouTube Account Selector (SSOT) — menggantikan dropdown channel lokal */}
+                    <YouTubeAccountSelector
+                        activeAccountId={activeAccountId}
+                        setActiveAccountId={setActiveAccountId}
+                        accounts={youtubeAccounts}
+                        isLoading={isAccountsLoading}
+                        showSyncButton={true}
+                        onSync={() => syncMutation.mutate()}
+                        isSyncing={syncMutation.isPending}
+                    />
                     <button
                         onClick={() => refreshMutation.mutate()}
                         disabled={refreshMutation.isPending}

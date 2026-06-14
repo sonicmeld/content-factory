@@ -363,6 +363,41 @@ class GenerationModel(Base):
     created_at = Column(DateTime, default=func.now())
 
 
+# YouTube Identity Layer — Single Source of Truth untuk identitas akun YouTube.
+# Setiap YoutubeAccount merepresentasikan satu YouTube Channel yang telah melalui OAuth.
+# Multi-GCP: setiap account dapat menggunakan GCP profile berbeda.
+# oauth_tokens tetap tabel terpisah, di-link via channel_id dari Channel Domain.
+class YoutubeAccount(Base):
+    __tablename__ = "youtube_accounts"
+
+    id = Column(String, primary_key=True)
+    workspace_id = Column(String, nullable=False, index=True)
+
+    # GCP Project yang digunakan untuk OAuth channel ini (multi-GCP support)
+    gcp_profile_id = Column(String, nullable=True)
+
+    # Relasi ke Channel Domain (nullable — account bisa exist tanpa channel binding)
+    channel_binding_id = Column(String, nullable=True)
+
+    # Identitas YouTube (diisi dari YouTube Data API saat OAuth callback)
+    google_account_email = Column(String, nullable=True)
+    youtube_channel_id = Column(String, unique=True, nullable=False)
+    youtube_channel_title = Column(String, nullable=False)
+    youtube_handle = Column(String, nullable=True)
+    youtube_channel_url = Column(String, nullable=True)
+
+    # Binding control per domain
+    analytics_enabled = Column(Boolean, default=True, nullable=False)
+
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        Index("idx_youtube_accounts_workspace_id", "workspace_id"),
+        Index("idx_youtube_accounts_youtube_channel_id", "youtube_channel_id"),
+    )
+
+
 class AnalyticsChannel(Base):
     __tablename__ = "analytics_channels"
 
@@ -559,6 +594,7 @@ class AnalyticsContextExport(Base):
     context_version = Column(String, nullable=False, default="1.0")
     status = Column(String, nullable=False, default="new")  # 'new', 'loaded', 'archived'
     workspace_id = Column(String, nullable=True)           # channel/workspace ID
+    youtube_account_id = Column(String, nullable=True)     # FK ke youtube_accounts (SSOT identity)
     exported_at = Column(DateTime, default=func.now())
 
     @property
@@ -576,6 +612,7 @@ class AnalyticsEnrichedContext(Base):
     source_reference_id = Column(String, nullable=False)
     workspace_id = Column(String, nullable=True)
     channel_id = Column(String, nullable=True)
+    youtube_account_id = Column(String, nullable=True)     # FK ke youtube_accounts (SSOT identity)
     topic_name = Column(String, nullable=True)
     context_version = Column(String, nullable=False, default="2.0")
     enrichment_version = Column(String, nullable=False, default="1.0")
@@ -595,6 +632,7 @@ class AnalyticsGeneratedDraft(Base):
     source_enriched_context_id = Column(String, nullable=False)
     workspace_id = Column(String, nullable=True)
     channel_id = Column(String, nullable=True)
+    youtube_account_id = Column(String, nullable=True)     # FK ke youtube_accounts (SSOT identity)
     title = Column(String, nullable=True)
     draft_type = Column(String, nullable=False, default="youtube_longform")
     content_markdown = Column(Text, nullable=False)

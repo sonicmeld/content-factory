@@ -11,6 +11,7 @@ from googleapiclient.discovery import build
 from app.config import settings
 from repositories import oauth_repository, gcp_profile_repository
 from services import channel_service
+from services import youtube_identity_service
 
 # Initialize Fernet
 try:
@@ -113,6 +114,7 @@ def handle_callback(db: Session, state: str, code: str):
     oauth_repository.create_or_update_token(db, token_data)
 
     # Sync YouTube Channel Identity
+    google_account_email = None
     try:
         youtube = build("youtube", "v3", credentials=credentials)
         response = youtube.channels().list(part="snippet", mine=True).execute()
@@ -132,6 +134,18 @@ def handle_callback(db: Session, state: str, code: str):
             db.refresh(channel)
     except Exception as e:
         print(f"Failed to sync YouTube channel identity: {e}")
+    
+    # Auto-register ke YouTube Identity Layer (SSOT)
+    # Dilakukan setelah Channel identity di-sync agar youtube_channel_id tersedia.
+    try:
+        youtube_identity_service.register_from_channel(
+            db=db,
+            channel=channel,
+            google_account_email=google_account_email,
+        )
+    except Exception as e:
+        # Non-fatal: OAuth tetap sukses meskipun SSOT sync gagal
+        print(f"[oauth_service] Warning: Failed to register YouTube Identity SSOT: {e}")
     
     return token_data
 
