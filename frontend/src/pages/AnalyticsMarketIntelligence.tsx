@@ -8,7 +8,8 @@ import {
     getMarketForecast, 
     getMarketTopicOpportunities,
     refreshMarketIntelligence,
-    exportMarketOpportunity 
+    exportTopicContext,
+    exportOpportunityContext
 } from '../services/api';
 import { 
     TrendingUp, 
@@ -94,25 +95,29 @@ export default function AnalyticsMarketIntelligence() {
     });
 
     const exportMutation = useMutation({
-        mutationFn: exportMarketOpportunity,
+        mutationFn: (topicId: string) => exportOpportunityContext(topicId),
         onSuccess: (data) => {
-            queryClient.invalidateQueries({ queryKey: ['marketTopicOpportunities', data.topic_id] });
-            const matchingTopic = topics.find(t => t.id === data.topic_id);
-            const payload = {
-                topic: matchingTopic?.topic_name || "Unknown Topic",
-                market_score: data.market_score,
-                competition_score: data.competition_score,
-                forecast_score: data.forecast_score,
-                opportunity_score: data.opportunity_score,
-                export_id: data.id
-            };
-            setExportedPayload(payload);
-            toast.success('Opportunity exported successfully to Context Package!');
+            queryClient.invalidateQueries({ queryKey: ['marketTopicOpportunities', selectedTopicId || ''] });
+            setExportedPayload(data);
+            toast.success('Opportunity sent successfully to AI Context Builder!');
         },
-        onError: () => {
-            toast.error('Failed to export opportunity');
+        onError: (err: any) => {
+            toast.error(`Failed to send opportunity: ${err.response?.data?.detail || err.message}`);
         }
     });
+
+    const exportTopicMutation = useMutation({
+        mutationFn: (topicId: string) => exportTopicContext(topicId),
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: ['marketTopicOpportunities', selectedTopicId || ''] });
+            setExportedPayload(data);
+            toast.success('Topic sent successfully to AI Context Builder!');
+        },
+        onError: (err: any) => {
+            toast.error(`Failed to send topic: ${err.response?.data?.detail || err.message}`);
+        }
+    });
+
 
     const handleCopyPayload = () => {
         if (exportedPayload) {
@@ -359,6 +364,15 @@ export default function AnalyticsMarketIntelligence() {
                                         </div>
                                     </div>
 
+                                    <button
+                                        onClick={() => exportTopicMutation.mutate(selectedTopicDetails.topic_id)}
+                                        disabled={exportTopicMutation.isPending}
+                                        className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-md shadow-indigo-600/10 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
+                                    >
+                                        <Share2 className="w-3.5 h-3.5" />
+                                        Use In AI Context Builder
+                                    </button>
+
                                     {/* Forecast Projection */}
                                     <div className="space-y-2 border-t border-border/40 pt-4">
                                         <h5 className="text-xs font-extrabold uppercase tracking-wide text-muted-foreground flex items-center gap-1">
@@ -603,7 +617,7 @@ export default function AnalyticsMarketIntelligence() {
                                                 className="mt-6 w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white py-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-md shadow-indigo-600/10 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
                                             >
                                                 <Share2 className="w-3.5 h-3.5" />
-                                                Create Context Package
+                                                Send To AI Context Builder
                                             </button>
                                         </div>
                                     ))}

@@ -549,5 +549,24 @@ class AnalyticsOpportunityExport(Base):
     exported_at = Column(DateTime, default=func.now())
 
 
+class AnalyticsContextExport(Base):
+    __tablename__ = "analytics_context_exports"
+
+    id = Column(String, primary_key=True)
+    source_type = Column(String, nullable=False)          # 'topic', 'opportunity', 'insight'
+    source_reference_id = Column(String, nullable=False)   # ID referensi asal
+    context_type = Column(String, nullable=False)          # 'topic', 'opportunity', 'insight', 'aggregated'
+    context_version = Column(String, nullable=False, default="1.0")
+    status = Column(String, nullable=False, default="new")  # 'new', 'loaded', 'archived'
+    workspace_id = Column(String, nullable=True)           # channel/workspace ID
+    exported_at = Column(DateTime, default=func.now())
+
+    @property
+    def payload(self):
+        # Fallback helper, dynamic creation is preferred but can be useful
+        return {}
+
+
+
 
 

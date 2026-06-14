@@ -8,7 +8,8 @@ import {
     syncAnalyticsChannel,
     getChannelInsights,
     refreshChannelInsights,
-    updateInsightStatus
+    updateInsightStatus,
+    exportInsightContext
 } from '../services/api';
 import { 
     TrendingUp, 
@@ -26,7 +27,8 @@ import {
     Zap,
     Cpu,
     Trash2,
-    ExternalLink
+    ExternalLink,
+    Share2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { 
@@ -147,6 +149,16 @@ export default function AnalyticsChannelExplorer() {
         },
         onError: (err: any) => {
             toast.error(err.response?.data?.detail || "Failed to dismiss insight");
+        }
+    });
+
+    const exportInsightMutation = useMutation({
+        mutationFn: (insightId: string) => exportInsightContext(insightId),
+        onSuccess: () => {
+            toast.success("Insight sent successfully to AI Context Builder!");
+        },
+        onError: (err: any) => {
+            toast.error(`Failed to send insight: ${err.response?.data?.detail || err.message}`);
         }
     });
 
@@ -919,6 +931,16 @@ export default function AnalyticsChannelExplorer() {
                                                 </span>
                                                 
                                                 <div className="flex items-center gap-2">
+                                                    {['content_gap', 'growth_opportunity', 'competitor_outperforming', 'subscriber_acceleration', 'content_opportunity'].includes(insight.insight_type) && (
+                                                        <button
+                                                            onClick={() => exportInsightMutation.mutate(insight.id)}
+                                                            disabled={exportInsightMutation.isPending}
+                                                            className="flex items-center gap-1 bg-indigo-600 hover:bg-indigo-500 border border-indigo-500/20 px-2.5 py-1 rounded-lg text-[10px] font-bold text-white transition-all disabled:opacity-50"
+                                                        >
+                                                            <Share2 className="w-3 h-3" /> Send Insight To Builder
+                                                        </button>
+                                                    )}
+
                                                     {insight.entity_type === 'video' && insight.entity_id && (
                                                         <button
                                                             onClick={() => handleDeepLink(insight.entity_id!, insight.title)}

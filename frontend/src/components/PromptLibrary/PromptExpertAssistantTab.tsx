@@ -1,7 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Sparkles, Loader2, Send, Cpu, Sliders } from 'lucide-react';
-import { getGenerationCombos, generatePromptDraft } from '../../services/api';
+import { Sparkles, Loader2, Send, Cpu, Sliders, Inbox, Archive, FileText, Flame, TrendingUp } from 'lucide-react';
+import { 
+    getGenerationCombos, 
+    generatePromptDraft,
+    getRecentAnalyticsContexts,
+    getAggregatedAIContext,
+    updateContextExportStatus
+} from '../../services/api';
 import { toast } from 'sonner';
 
 interface Props {
@@ -14,6 +20,77 @@ export default function PromptExpertAssistantTab({ workspaceId, onDraftGenerated
     const [expertType, setExpertType] = useState<'metadata' | 'thumbnail' | 'footage'>('metadata');
     const [inputText, setInputText] = useState('');
     const [selectedComboId, setSelectedComboId] = useState('');
+
+    const [inboxStatus, setInboxStatus] = useState<'new' | 'loaded'>('new');
+
+    // Fetch recent exports
+    const { data: recentExports = [], isLoading: isExportsLoading } = useQuery({
+        queryKey: ['recentAnalyticsContexts', inboxStatus, workspaceId],
+        queryFn: () => getRecentAnalyticsContexts(inboxStatus, workspaceId)
+    });
+
+    const loadContextMutation = useMutation({
+        mutationFn: ({ id, status }: { id: string; status: string }) => updateContextExportStatus(id, status),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['recentAnalyticsContexts'] });
+        }
+    });
+
+    const archiveContextMutation = useMutation({
+        mutationFn: (id: string) => updateContextExportStatus(id, 'archived'),
+        onSuccess: () => {
+            toast.success("Context archived successfully");
+            queryClient.invalidateQueries({ queryKey: ['recentAnalyticsContexts'] });
+        },
+        onError: () => {
+            toast.error("Failed to archive context");
+        }
+    });
+
+    const handleLoadIntoBuilder = async (item: any) => {
+        try {
+            const context = await getAggregatedAIContext(item.id);
+            let md = `### TOPIC\n${context.topic}\n\n`;
+            
+            if (context.market_data && Object.keys(context.market_data).length > 0) {
+                md += `### MARKET METRICS\n`;
+                if (context.market_data.opportunity_score !== undefined) md += `- Opportunity Score: ${context.market_data.opportunity_score.toFixed(0)}\n`;
+                if (context.market_data.demand_score !== undefined) md += `- Demand Score: ${context.market_data.demand_score.toFixed(0)}\n`;
+                if (context.market_data.trend_score !== undefined) md += `- Trend Score: ${context.market_data.trend_score.toFixed(0)}\n`;
+                if (context.market_data.competition_score !== undefined) md += `- Competition Score: ${context.market_data.competition_score.toFixed(0)}\n`;
+                if (context.market_data.forecast_score !== undefined) md += `- Forecast Score: ${context.market_data.forecast_score.toFixed(0)}\n\n`;
+            }
+            
+            if (context.signals && context.signals.length > 0) {
+                md += `### KEYWORD SIGNALS\n`;
+                context.signals.forEach((sig: any) => {
+                    md += `- ${sig.keyword} (Trend: ${sig.trend_score.toFixed(0)}, Comp: ${sig.competition_score.toFixed(0)})\n`;
+                });
+                md += `\n`;
+            }
+
+            if (context.competitor_data && Object.keys(context.competitor_data).length > 0) {
+                md += `### COMPETITOR DATA\n`;
+                md += `- Competitor Match Count: ${context.competitor_data.video_count || 0}\n`;
+                md += `- Competition Score: ${context.competitor_data.competition_score.toFixed(0)}\n\n`;
+            }
+
+            if (context.insights && context.insights.length > 0) {
+                md += `### ACTIVE INSIGHTS\n`;
+                context.insights.forEach((ins: any) => {
+                    md += `- [${ins.severity}] ${ins.finding}: ${ins.recommendation}\n`;
+                });
+                md += `\n`;
+            }
+            
+            setInputText(md.trim());
+            
+            await loadContextMutation.mutateAsync({ id: item.id, status: 'loaded' });
+            toast.success(`Loaded context for topic "${context.topic}" successfully!`);
+        } catch (error: any) {
+            toast.error(`Failed to load context: ${error.message}`);
+        }
+    };
 
     // Fetch combos (use metadata combos which are chat-based)
     const { data: combos = [], isLoading: isCombosLoading } = useQuery({
@@ -156,6 +233,108 @@ export default function PromptExpertAssistantTab({ workspaceId, onDraftGenerated
 
             {/* Rules Info Sidebar */}
             <div className="space-y-6">
+                {/* Analytics Context Inbox */}
+                <div className="bg-card border border-border rounded-2xl p-6 shadow-md">
+                    <h3 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center mb-3">
+                        <Inbox className="w-4 h-4 text-indigo-500 mr-2" /> Analytics Context Inbox
+                    </h3>
+                    
+                    {/* Tab select: New / Loaded */}
+                    <div className="flex bg-muted/30 border border-border/80 p-1 rounded-lg gap-1.5 mb-4 text-[10px]">
+                        <button
+                            type="button"
+                            onClick={() => setInboxStatus('new')}
+                            className={`flex-1 py-1.5 rounded-md font-bold transition-all ${inboxStatus === 'new' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                        >
+                            New
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setInboxStatus('loaded')}
+                            className={`flex-1 py-1.5 rounded-md font-bold transition-all ${inboxStatus === 'loaded' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                        >
+                            Loaded
+                        </button>
+                    </div>
+
+                    {isExportsLoading ? (
+                        <div className="py-8 flex justify-center"><Loader2 className="animate-spin w-5 h-5 text-muted-foreground" /></div>
+                    ) : recentExports.length === 0 ? (
+                        <p className="text-xs text-muted-foreground italic text-center py-6">No contexts in inbox.</p>
+                    ) : (
+                        <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1 scrollbar-thin">
+                            {recentExports.map((item: any) => {
+                                const dateStr = new Date(item.exported_at).toLocaleDateString();
+                                return (
+                                    <div key={item.id} className="bg-secondary/15 hover:bg-secondary/35 border border-border/40 rounded-xl p-3 flex flex-col justify-between gap-3 text-xs transition-all">
+                                        <div>
+                                            <div className="flex items-center justify-between mb-1.5">
+                                                <span className="text-[9px] uppercase font-mono px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 capitalize">
+                                                    {item.source_type}
+                                                </span>
+                                                <span className="text-[9px] text-muted-foreground font-mono">{dateStr}</span>
+                                            </div>
+                                            <h4 className="font-extrabold text-foreground truncate max-w-[180px]">{item.topic_name || "Unknown"}</h4>
+                                            
+                                            {/* Preview metrics */}
+                                            {item.source_type === 'insight' ? (
+                                                <div className="mt-2 space-y-1 text-[10px] text-muted-foreground">
+                                                    {item.severity && (
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span className="font-semibold">Severity:</span>
+                                                            <span className={`px-1 rounded text-[8px] font-bold ${
+                                                                item.severity === 'Critical' ? 'bg-red-500/15 text-red-400 border border-red-500/20' :
+                                                                item.severity === 'High' ? 'bg-orange-500/15 text-orange-400 border border-orange-500/20' :
+                                                                'bg-yellow-500/15 text-yellow-400 border border-yellow-500/20'
+                                                            }`}>{item.severity}</span>
+                                                        </div>
+                                                    )}
+                                                    {item.insight_type && (
+                                                        <div><span className="font-semibold">Type:</span> <span className="font-mono text-[9px]">{item.insight_type}</span></div>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <div className="mt-2 flex flex-wrap gap-2 text-[10px] text-muted-foreground">
+                                                    {item.opportunity_score !== undefined && item.opportunity_score > 0 && (
+                                                        <div className="bg-secondary/40 border border-border/40 rounded px-1.5 py-0.5 font-semibold flex items-center gap-0.5 text-foreground">
+                                                            <Flame className="w-3 h-3 text-red-500" /> {item.opportunity_score.toFixed(0)}
+                                                        </div>
+                                                    )}
+                                                    {item.forecast_score !== undefined && item.forecast_score > 0 && (
+                                                        <div className="bg-secondary/40 border border-border/40 rounded px-1.5 py-0.5 font-semibold flex items-center gap-0.5">
+                                                            <TrendingUp className="w-3 h-3 text-blue-500" /> Proj: {item.forecast_score.toFixed(0)}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="flex items-center gap-2 border-t border-border/15 pt-2.5 justify-between">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleLoadIntoBuilder(item)}
+                                                className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1 shadow-md shadow-indigo-600/15"
+                                            >
+                                                <FileText className="w-3 h-3" /> Load Into Builder
+                                            </button>
+                                            
+                                            <button
+                                                type="button"
+                                                onClick={() => archiveContextMutation.mutate(item.id)}
+                                                disabled={archiveContextMutation.isPending}
+                                                className="text-muted-foreground hover:text-red-400 p-1.5 rounded-lg hover:bg-red-500/5 transition-all disabled:opacity-50"
+                                                title="Archive context"
+                                            >
+                                                <Archive className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
                 <div className="bg-card border border-border rounded-2xl p-6 shadow-md">
                     <h3 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center mb-3">
                         <Sliders className="w-4 h-4 text-indigo-500 mr-2" /> Locked System Rules

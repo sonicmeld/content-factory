@@ -376,6 +376,18 @@ CREATE TABLE IF NOT EXISTS analytics_opportunity_exports (
     FOREIGN KEY(topic_id) REFERENCES analytics_topics(id)
 );
 
+CREATE TABLE IF NOT EXISTS analytics_context_exports (
+    id TEXT PRIMARY KEY,
+    source_type TEXT NOT NULL,
+    source_reference_id TEXT NOT NULL,
+    context_type TEXT NOT NULL,
+    context_version TEXT NOT NULL DEFAULT '1.0',
+    status TEXT NOT NULL DEFAULT 'new',
+    workspace_id TEXT,
+    exported_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+
 
 
 

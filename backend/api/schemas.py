@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict
-from typing import Optional, List, Literal
+from typing import Optional, List, Literal, Dict, Any
 from datetime import datetime
 from enum import Enum
 
@@ -718,6 +718,44 @@ class OpportunityExportResponse(BaseModel):
 
 class OpportunityExportRequest(BaseModel):
     topic_id: str
+
+
+class ExportContextRequest(BaseModel):
+    id: str
+    workspace_id: Optional[str] = None
+
+
+class AnalyticsContextExportResponse(BaseModel):
+    id: str
+    source_type: str
+    source_reference_id: str
+    context_type: str
+    context_version: str
+    status: str
+    workspace_id: Optional[str] = None
+    exported_at: datetime
+    
+    # Preview fields
+    topic_name: Optional[str] = None
+    opportunity_score: Optional[float] = None
+    forecast_score: Optional[float] = None
+    severity: Optional[str] = None
+    insight_type: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AIContextPayloadResponse(BaseModel):
+    context_type: str
+    context_version: str
+    topic: str
+    market_data: Dict[str, Any]
+    competitor_data: Dict[str, Any]
+    signals: List[Dict[str, Any]]
+    opportunities: List[Dict[str, Any]]
+    insights: List[Dict[str, Any]]
+    aggregated_sources: List[Dict[str, str]]
+
 
 
 

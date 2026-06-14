@@ -496,6 +496,26 @@ export const refreshMarketIntelligence = () =>
 export const exportMarketOpportunity = (topicId: string) =>
     api.post<OpportunityExport>('/analytics/market/exports', { topic_id: topicId }).then(res => res.data);
 
+// AI Context Builder API Calls
+export const exportTopicContext = (topicId: string, workspaceId?: string) =>
+    api.post<any>('/analytics/context/topic', { id: topicId, workspace_id: workspaceId }).then(res => res.data);
+
+export const exportOpportunityContext = (topicId: string, workspaceId?: string) =>
+    api.post<any>('/analytics/context/opportunity', { id: topicId, workspace_id: workspaceId }).then(res => res.data);
+
+export const exportInsightContext = (insightId: string, workspaceId?: string) =>
+    api.post<any>('/analytics/context/insight', { id: insightId, workspace_id: workspaceId }).then(res => res.data);
+
+export const getRecentAnalyticsContexts = (status?: string, workspaceId?: string) =>
+    api.get<any[]>('/analytics/context/recent', { params: { status, workspace_id: workspaceId } }).then(res => res.data);
+
+export const getAggregatedAIContext = (exportId: string) =>
+    api.get<any>(`/analytics/context/${exportId}`).then(res => res.data);
+
+export const updateContextExportStatus = (exportId: string, status: string) =>
+    api.patch<any>(`/analytics/context/${exportId}/status`, { status }).then(res => res.data);
+
 export default api;
+
 
 

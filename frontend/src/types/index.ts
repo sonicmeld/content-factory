@@ -537,4 +537,55 @@ export interface TopicOpportunitiesDetail {
     exports: OpportunityExport[];
 }
 
+export interface AnalyticsContextExport {
+    id: string;
+    source_type: 'topic' | 'opportunity' | 'insight';
+    source_reference_id: string;
+    context_type: 'topic' | 'opportunity' | 'insight' | 'aggregated';
+    context_version: string;
+    status: 'new' | 'loaded' | 'archived';
+    workspace_id?: string;
+    exported_at: string;
+}
+
+export interface AIContextPayload {
+    context_type: string;
+    context_version: string;
+    topic: string;
+    market_data: {
+        trend_score?: number;
+        demand_score?: number;
+        competition_score?: number;
+        forecast_score?: number;
+        opportunity_score?: number;
+    };
+    competitor_data: {
+        competition_score?: number;
+        video_count?: number;
+    };
+    signals: Array<{
+        keyword: string;
+        trend_score: number;
+        competition_score: number;
+    }>;
+    opportunities: Array<{
+        topic: string;
+        opportunity_score: number;
+        market_demand: number;
+        forecast: number;
+        competition: number;
+    }>;
+    insights: Array<{
+        insight_type: string;
+        severity: string;
+        finding: string;
+        recommendation: string;
+    }>;
+    aggregated_sources: Array<{
+        type: string;
+        id: string;
+    }>;
+}
+
+
 

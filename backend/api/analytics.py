@@ -19,7 +19,8 @@ from database.models import (
     AnalyticsTopic,
     AnalyticsKeyword,
     AnalyticsMarketTrend,
-    AnalyticsOpportunityExport
+    AnalyticsOpportunityExport,
+    AnalyticsContextExport
 )
 from api.schemas import (
     ObserveChannelRequest,
@@ -39,9 +40,18 @@ from api.schemas import (
     MarketOpportunityResponse,
     MarketForecastResponse,
     OpportunityExportResponse,
-    OpportunityExportRequest
+    OpportunityExportRequest,
+    ExportContextRequest,
+    AnalyticsContextExportResponse,
+    AIContextPayloadResponse
 )
 from services.analytics.collector import sync_channel, get_any_youtube_client
+from services.analytics.analytics_context_builder import (
+    export_topic_context,
+    export_opportunity_context,
+    export_insight_context,
+    create_ai_context
+)
 from services.analytics.explorer import (
     get_channel_timeline,
     get_publishing_pattern,
@@ -895,5 +905,110 @@ def export_opportunity_topic(req: OpportunityExportRequest, db: Session = Depend
     db.refresh(export)
     
     return export
+
+
+from pydantic import BaseModel
+
+class UpdateContextStatusRequest(BaseModel):
+    status: str
+
+
+@router.post("/context/topic")
+def api_export_topic_context(req: ExportContextRequest, db: Session = Depends(get_db)):
+    return export_topic_context(db, req.id, workspace_id=req.workspace_id)
+
+
+@router.post("/context/opportunity")
+def api_export_opportunity_context(req: ExportContextRequest, db: Session = Depends(get_db)):
+    return export_opportunity_context(db, req.id, workspace_id=req.workspace_id)
+
+
+@router.post("/context/insight")
+def api_export_insight_context(req: ExportContextRequest, db: Session = Depends(get_db)):
+    return export_insight_context(db, req.id, workspace_id=req.workspace_id)
+
+
+@router.get("/context/recent", response_model=List[AnalyticsContextExportResponse])
+def api_list_recent_contexts(
+    status: Optional[str] = None,
+    workspace_id: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    query = db.query(AnalyticsContextExport)
+    if status:
+        query = query.filter(AnalyticsContextExport.status == status)
+    else:
+        query = query.filter(AnalyticsContextExport.status != "archived")
+    if workspace_id:
+        query = query.filter(AnalyticsContextExport.workspace_id == workspace_id)
+        
+    exports = query.order_by(AnalyticsContextExport.exported_at.desc()).limit(20).all()
+    
+    enriched_results = []
+    for e in exports:
+        topic_name = "Unknown"
+        opp_score = 0.0
+        forecast_score = 0.0
+        severity = None
+        insight_type = None
+        
+        if e.source_type in ("topic", "opportunity"):
+            t = db.query(AnalyticsTopic).filter(AnalyticsTopic.id == e.source_reference_id).first()
+            if t:
+                topic_name = t.topic_name
+                opp_score = t.opportunity_score
+                forecast_score = t.forecast_score
+        elif e.source_type == "insight":
+            ins = db.query(AnalyticsInsight).filter(AnalyticsInsight.id == e.source_reference_id).first()
+            if ins:
+                topic_name = ins.title
+                severity = ins.severity
+                insight_type = ins.insight_type
+                opp_score = float(ins.score)
+                
+        res = {
+            "id": e.id,
+            "source_type": e.source_type,
+            "source_reference_id": e.source_reference_id,
+            "context_type": e.context_type,
+            "context_version": e.context_version,
+            "status": e.status,
+            "workspace_id": e.workspace_id,
+            "exported_at": e.exported_at,
+            "topic_name": topic_name,
+            "opportunity_score": opp_score,
+            "forecast_score": forecast_score,
+            "severity": severity,
+            "insight_type": insight_type
+        }
+        enriched_results.append(res)
+        
+    return enriched_results
+
+
+
+@router.get("/context/{id}", response_model=AIContextPayloadResponse)
+def api_get_aggregated_context(id: str, db: Session = Depends(get_db)):
+    export = db.query(AnalyticsContextExport).filter(AnalyticsContextExport.id == id).first()
+    if not export:
+        raise HTTPException(status_code=404, detail="Context export record not found")
+    
+    return create_ai_context(db, export.source_type, export.source_reference_id)
+
+
+@router.patch("/context/{id}/status", response_model=AnalyticsContextExportResponse)
+def api_update_context_status(id: str, req: UpdateContextStatusRequest, db: Session = Depends(get_db)):
+    export = db.query(AnalyticsContextExport).filter(AnalyticsContextExport.id == id).first()
+    if not export:
+        raise HTTPException(status_code=404, detail="Context export record not found")
+        
+    if req.status not in ("new", "loaded", "archived"):
+        raise HTTPException(status_code=400, detail="Invalid status. Must be 'new', 'loaded', or 'archived'")
+        
+    export.status = req.status
+    db.commit()
+    db.refresh(export)
+    return export
+
 
 
