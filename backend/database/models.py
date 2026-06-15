@@ -1,3 +1,5 @@
+from typing import Dict, List, Any
+import json
 from sqlalchemy import Column, String, Integer, DateTime, Text, Index, Boolean, UniqueConstraint, JSON, Float
 from sqlalchemy.sql import func
 from sqlalchemy.orm import declarative_base
@@ -604,8 +606,8 @@ class AnalyticsContextExport(Base):
         return {}
 
 
-class AnalyticsEnrichedContext(Base):
-    __tablename__ = "analytics_enriched_contexts"
+class ResearchContextRecord(Base):
+    __tablename__ = "research_context_records"
 
     id = Column(String, primary_key=True)
     export_id = Column(String, nullable=False)
@@ -614,15 +616,57 @@ class AnalyticsEnrichedContext(Base):
     workspace_id = Column(String, nullable=True)
     channel_id = Column(String, nullable=True)
     youtube_account_id = Column(String, nullable=True)     # FK ke youtube_accounts (SSOT identity)
-    topic_name = Column(String, nullable=True)
-    context_version = Column(String, nullable=False, default="2.0")
-    enrichment_version = Column(String, nullable=False, default="1.0")
+    
+    topic = Column(String, nullable=True)
+    trend_score = Column(Float, default=0.0)
+    keyword_count = Column(Integer, default=0)
+    competitor_count = Column(Integer, default=0)
+    signal_count = Column(Integer, default=0)
+    
+    keywords_json = Column(Text, nullable=False, default="{}")
+    audience_json = Column(Text, nullable=False, default="{}")
+    competitors_json = Column(Text, nullable=False, default="{}")
+    opportunities_json = Column(Text, nullable=False, default="[]")
+    signals_json = Column(Text, nullable=False, default="{}")
+    
     status = Column(String, nullable=False, default="draft") # draft | ready | archived | failed
-    generated_by = Column(String, nullable=False, default="heuristic") # heuristic | 9router | openai | claude | gemini
-    source_snapshot_json = Column(Text, nullable=False)
-    payload_json = Column(Text, nullable=False)
-    markdown_content = Column(Text, nullable=False)
-    generated_at = Column(DateTime, default=func.now())
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    @property
+    def keywords(self) -> Dict[str, Any]:
+        try:
+            return json.loads(self.keywords_json)
+        except Exception:
+            return {}
+
+    @property
+    def audience(self) -> Dict[str, Any]:
+        try:
+            return json.loads(self.audience_json)
+        except Exception:
+            return {}
+
+    @property
+    def competitors(self) -> Dict[str, Any]:
+        try:
+            return json.loads(self.competitors_json)
+        except Exception:
+            return {}
+
+    @property
+    def opportunities(self) -> List[Any]:
+        try:
+            return json.loads(self.opportunities_json)
+        except Exception:
+            return []
+
+    @property
+    def signals(self) -> Dict[str, Any]:
+        try:
+            return json.loads(self.signals_json)
+        except Exception:
+            return {}
 
 
 class AnalyticsGeneratedDraft(Base):

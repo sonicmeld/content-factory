@@ -113,7 +113,7 @@ def export_insight_context(db: Session, insight_id: str, workspace_id: Optional[
     return payload
 
 
-def create_ai_context(db: Session, source_type: str, source_reference_id: str) -> Dict[str, Any]:
+def build_research_dataset(db: Session, source_type: str, source_reference_id: str) -> Dict[str, Any]:
     """
     Aggregates all relevant topics, keywords, competitor data, and insights into a unified
     structure of context_type 'aggregated', version '1.0'.

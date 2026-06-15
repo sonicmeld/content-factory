@@ -198,10 +198,70 @@ export default function ContextPipelinePage() {
         }
     };
 
-    const handleLoadEnrichedToPromptExpert = (markdown: string) => {
+    const handleLoadEnrichedToPromptExpert = (enrichedContext: EnrichedContextPayload) => {
+        let md = `### TOPIC\n${enrichedContext.topic || 'Unknown'}\n\n`;
+        
+        if (enrichedContext.signals?.market_signals) {
+            const ms = enrichedContext.signals.market_signals;
+            md += `### MARKET SIGNALS\n`;
+            md += `- Opportunity Score: ${ms.opportunity_score}\n`;
+            md += `- Demand Score: ${ms.demand_score}\n`;
+            md += `- Forecast Score: ${ms.forecast_score}\n`;
+            md += `- Competition Score: ${ms.competition_score}\n\n`;
+        }
+        
+        if (enrichedContext.keywords) {
+            md += `### KEYWORDS\n`;
+            md += `- Primary: ${enrichedContext.keywords.primary_keywords?.join(', ') || ''}\n`;
+            md += `- Secondary: ${enrichedContext.keywords.secondary_keywords?.join(', ') || ''}\n`;
+            md += `- Related: ${enrichedContext.keywords.related_keywords?.join(', ') || ''}\n\n`;
+        }
+        
+        if (enrichedContext.audience) {
+            md += `### AUDIENCE UNDERSTANDING\n`;
+            md += `- Skill Level: ${enrichedContext.audience.audience_level || ''}\n`;
+            md += `- Pain Points:\n`;
+            enrichedContext.audience.pain_points?.forEach((p: string) => { md += `  * ${p}\n`; });
+            md += `- Goals:\n`;
+            enrichedContext.audience.goals?.forEach((g: string) => { md += `  * ${g}\n`; });
+            md += `- Common Questions:\n`;
+            enrichedContext.audience.common_questions?.forEach((q: string) => { md += `  * ${q}\n`; });
+            md += `\n`;
+        }
+        
+        if (enrichedContext.competitors) {
+            md += `### COMPETITORS\n`;
+            md += `- Content Gaps:\n`;
+            enrichedContext.competitors.content_gaps?.forEach((cg: string) => { md += `  * ${cg}\n`; });
+            md += `- Undercovered:\n`;
+            enrichedContext.competitors.undercovered_topics?.forEach((ut: string) => { md += `  * ${ut}\n`; });
+            md += `- Oversaturated:\n`;
+            enrichedContext.competitors.oversaturated_topics?.forEach((ot: string) => { md += `  * ${ot}\n`; });
+            md += `\n`;
+        }
+
+        if (enrichedContext.signals?.search_intent_context) {
+            const sic = enrichedContext.signals.search_intent_context;
+            md += `### SEARCH INTENT\n`;
+            md += `- Informational: ${sic.informational?.join(', ') || ''}\n`;
+            md += `- Comparative: ${sic.comparative?.join(', ') || ''}\n`;
+            md += `- Transactional: ${sic.transactional?.join(', ') || ''}\n`;
+            md += `- Navigational: ${sic.navigational?.join(', ') || ''}\n\n`;
+        }
+
+        if (enrichedContext.signals?.research_context) {
+            const rc = enrichedContext.signals.research_context;
+            md += `### RESEARCH DETAILS\n`;
+            md += `- Notes:\n`;
+            rc.research_notes?.forEach((n: string) => { md += `  * ${n}\n`; });
+            md += `- Facts:\n`;
+            rc.supporting_facts?.forEach((f: string) => { md += `  * ${f}\n`; });
+            md += `\n`;
+        }
+
         navigate('/prompts', { 
             state: { 
-                initialInputText: markdown, 
+                initialInputText: md.trim(), 
                 activeTab: 'expert' 
             } 
         });
@@ -469,7 +529,7 @@ export default function ContextPipelinePage() {
                     </div>
                 </div>
 
-                {/* STAGE 2: ENRICHED CONTEXTS */}
+                {/* STAGE 2: RESEARCH CONTEXTS */}
                 <div className="bg-card border border-border/65 rounded-3xl p-6 shadow-md flex flex-col h-[700px] overflow-hidden">
                     <div className="flex items-center justify-between pb-4 border-b border-border/50 mb-2">
                         <div className="flex items-center gap-2">
@@ -477,8 +537,8 @@ export default function ContextPipelinePage() {
                                 <Sparkles className="w-5 h-5 text-indigo-400" />
                             </div>
                             <div>
-                                <h2 className="text-sm font-bold text-foreground">Stage 2 — Enriched Contexts</h2>
-                                <p className="text-[10px] text-muted-foreground mt-0.5">Enrichment profiles compiled with strategy</p>
+                                <h2 className="text-sm font-bold text-foreground">Stage 2 — Research Contexts</h2>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">Structured data datasets for prompt strategy</p>
                             </div>
                         </div>
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-secondary text-foreground">
@@ -520,7 +580,7 @@ export default function ContextPipelinePage() {
                         ) : enrichedItems.length === 0 ? (
                             <div className="py-24 text-center space-y-2">
                                 <Sparkles className="w-8 h-8 mx-auto text-muted-foreground/30" />
-                                <p className="text-xs text-muted-foreground italic">No enriched contexts. Enrich item from Inbox.</p>
+                                <p className="text-xs text-muted-foreground italic">No research contexts. Process item from Inbox.</p>
                             </div>
                         ) : (
                             enrichedItems.map(item => (
@@ -542,12 +602,17 @@ export default function ContextPipelinePage() {
                                         }`}>
                                             {item.status}
                                         </span>
-                                        <span className="text-[9px] text-muted-foreground font-mono mr-5">{formatDate(item.generated_at)}</span>
+                                        <span className="text-[9px] text-muted-foreground font-mono mr-5">{formatDate(item.created_at)}</span>
                                     </div>
                                     
-                                    <div>
-                                        <h4 className="font-extrabold text-foreground leading-snug line-clamp-2 pr-4">{item.topic_name || "Unknown"}</h4>
-                                        <p className="text-[10px] text-muted-foreground mt-1">Engine: <span className="font-mono">{item.generated_by}</span></p>
+                                    <div className="space-y-2">
+                                        <h4 className="font-extrabold text-foreground leading-snug line-clamp-2 pr-4">{item.topic || "Unknown"}</h4>
+                                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px] text-muted-foreground pt-1.5 border-t border-border/10">
+                                            <div>Trend Score: <span className="font-bold text-indigo-400">{item.trend_score?.toFixed(1) || '0.0'}</span></div>
+                                            <div>Keywords: <span className="font-bold text-foreground">{item.keyword_count || 0}</span></div>
+                                            <div>Competitors: <span className="font-bold text-foreground">{item.competitor_count || 0}</span></div>
+                                            <div>Signals: <span className="font-bold text-foreground">{item.signal_count || 0}</span></div>
+                                        </div>
                                     </div>
 
                                     <div className="flex items-center gap-2 border-t border-border/15 pt-3 mt-1">

@@ -49,8 +49,8 @@ from api.schemas import (
     AnalyticsContextExportResponse,
     AIContextPayloadResponse,
     EnrichContextRequest,
-    EnrichedContextPayloadResponse,
-    EnrichmentHistoryResponse,
+    ResearchContextResponse,
+    ResearchContextHistoryResponse,
     GenerateDraftRequest,
     AnalyticsDraftResponse,
     DraftStatusUpdateRequest,
@@ -58,15 +58,15 @@ from api.schemas import (
     PipelineStatsResponse,
     ActivityTimelineItem
 )
-from database.models import AnalyticsEnrichedContext
+from database.models import ResearchContextRecord
 from services.analytics.collector import sync_channel, get_any_youtube_client
-from services.analytics.analytics_context_builder import (
+from services.analytics.research_context_builder import (
     export_topic_context,
     export_opportunity_context,
     export_insight_context,
-    create_ai_context
+    build_research_dataset
 )
-from services.analytics.context_enrichment import enrich_context
+from services.analytics.research_context_pipeline import process_research_context
 from services.analytics.draft_generation import generate_draft
 
 
@@ -1173,15 +1173,15 @@ def api_list_recent_contexts(
     return enriched_results
 
 
-@router.post("/context/enrich", response_model=EnrichedContextPayloadResponse)
+@router.post("/context/enrich", response_model=ResearchContextResponse)
 def api_enrich_context(req: EnrichContextRequest, db: Session = Depends(get_db)):
     """
     Triggers the context enrichment process.
     """
-    return enrich_context(db, req.export_id)
+    return process_research_context(db, req.export_id)
 
 
-@router.get("/context/enriched", response_model=List[EnrichmentHistoryResponse])
+@router.get("/context/enriched", response_model=List[ResearchContextHistoryResponse])
 def api_list_enriched_contexts(
     workspace_id: Optional[str] = None,
     status: Optional[str] = None,
@@ -1190,15 +1190,15 @@ def api_list_enriched_contexts(
     """
     Retrieves the history of all enriched contexts, filterable by status and workspace.
     """
-    query = db.query(AnalyticsEnrichedContext)
+    query = db.query(ResearchContextRecord)
     if status:
-        query = query.filter(AnalyticsEnrichedContext.status == status)
+        query = query.filter(ResearchContextRecord.status == status)
     else:
-        query = query.filter(AnalyticsEnrichedContext.status != "archived")
+        query = query.filter(ResearchContextRecord.status != "archived")
     if workspace_id:
-        query = query.filter(AnalyticsEnrichedContext.workspace_id == workspace_id)
+        query = query.filter(ResearchContextRecord.workspace_id == workspace_id)
         
-    return query.order_by(AnalyticsEnrichedContext.generated_at.desc()).all()
+    return query.order_by(ResearchContextRecord.created_at.desc()).all()
 
 
 @router.get("/context-pipeline/inbox", response_model=List[AnalyticsContextExportResponse])
@@ -1258,29 +1258,28 @@ def get_pipeline_inbox(
     return enriched_results
 
 
-@router.get("/context-pipeline/enriched", response_model=List[EnrichmentHistoryResponse])
+@router.get("/context-pipeline/enriched", response_model=List[ResearchContextHistoryResponse])
 def get_pipeline_enriched(
     workspace_id: Optional[str] = None,
     status: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    query = db.query(AnalyticsEnrichedContext)
+    query = db.query(ResearchContextRecord)
     if status:
-        query = query.filter(AnalyticsEnrichedContext.status == status)
+        query = query.filter(ResearchContextRecord.status == status)
     else:
-        query = query.filter(AnalyticsEnrichedContext.status != "deleted")
+        query = query.filter(ResearchContextRecord.status != "deleted")
     if workspace_id:
-        query = query.filter(AnalyticsEnrichedContext.workspace_id == workspace_id)
-    return query.order_by(AnalyticsEnrichedContext.generated_at.desc()).all()
+        query = query.filter(ResearchContextRecord.workspace_id == workspace_id)
+    return query.order_by(ResearchContextRecord.created_at.desc()).all()
 
 
-@router.get("/context-pipeline/enriched/{id}", response_model=EnrichedContextPayloadResponse)
+@router.get("/context-pipeline/enriched/{id}", response_model=ResearchContextResponse)
 def get_pipeline_enriched_detail(id: str, db: Session = Depends(get_db)):
-    enriched = db.query(AnalyticsEnrichedContext).filter(AnalyticsEnrichedContext.id == id).first()
+    enriched = db.query(ResearchContextRecord).filter(ResearchContextRecord.id == id).first()
     if not enriched:
-        raise HTTPException(status_code=404, detail="Enriched context record not found")
-    import json
-    return json.loads(enriched.payload_json)
+        raise HTTPException(status_code=404, detail="Research context record not found")
+    return enriched
 
 
 @router.post("/context-pipeline/drafts/generate", response_model=AnalyticsDraftResponse)
@@ -1352,7 +1351,7 @@ def bulk_archive(req: BulkActionRequest, db: Session = Depends(get_db)):
     if req.stage == "inbox":
         db.query(AnalyticsContextExport).filter(AnalyticsContextExport.id.in_(req.ids)).update({"status": "archived"}, synchronize_session=False)
     elif req.stage == "enriched":
-        db.query(AnalyticsEnrichedContext).filter(AnalyticsEnrichedContext.id.in_(req.ids)).update({"status": "archived"}, synchronize_session=False)
+        db.query(ResearchContextRecord).filter(ResearchContextRecord.id.in_(req.ids)).update({"status": "archived"}, synchronize_session=False)
     elif req.stage == "drafts":
         db.query(AnalyticsGeneratedDraft).filter(AnalyticsGeneratedDraft.id.in_(req.ids)).update({"status": "archived"}, synchronize_session=False)
     db.commit()
@@ -1365,7 +1364,7 @@ def bulk_delete(req: BulkActionRequest, db: Session = Depends(get_db)):
         # Physical delete for inbox/exports as per architecture revision 1
         db.query(AnalyticsContextExport).filter(AnalyticsContextExport.id.in_(req.ids)).delete(synchronize_session=False)
     elif req.stage == "enriched":
-        db.query(AnalyticsEnrichedContext).filter(AnalyticsEnrichedContext.id.in_(req.ids)).update({"status": "deleted"}, synchronize_session=False)
+        db.query(ResearchContextRecord).filter(ResearchContextRecord.id.in_(req.ids)).update({"status": "deleted"}, synchronize_session=False)
     elif req.stage == "drafts":
         db.query(AnalyticsGeneratedDraft).filter(AnalyticsGeneratedDraft.id.in_(req.ids)).update({"status": "deleted"}, synchronize_session=False)
     db.commit()
@@ -1377,7 +1376,7 @@ def bulk_purge(req: BulkActionRequest, db: Session = Depends(get_db)):
     if req.stage == "inbox":
         db.query(AnalyticsContextExport).filter(AnalyticsContextExport.id.in_(req.ids)).delete(synchronize_session=False)
     elif req.stage == "enriched":
-        db.query(AnalyticsEnrichedContext).filter(AnalyticsEnrichedContext.id.in_(req.ids)).delete(synchronize_session=False)
+        db.query(ResearchContextRecord).filter(ResearchContextRecord.id.in_(req.ids)).delete(synchronize_session=False)
     elif req.stage == "drafts":
         db.query(AnalyticsGeneratedDraft).filter(AnalyticsGeneratedDraft.id.in_(req.ids)).delete(synchronize_session=False)
     db.commit()
@@ -1402,20 +1401,20 @@ def purge_archived_drafts(db: Session = Depends(get_db)):
 @router.get("/context-pipeline/stats")
 def get_pipeline_stats(workspace_id: Optional[str] = None, db: Session = Depends(get_db)):
     exp_query = db.query(AnalyticsContextExport)
-    enr_query = db.query(AnalyticsEnrichedContext)
+    enr_query = db.query(ResearchContextRecord)
     dr_query = db.query(AnalyticsGeneratedDraft)
     
     if workspace_id:
         exp_query = exp_query.filter(AnalyticsContextExport.workspace_id == workspace_id)
-        enr_query = enr_query.filter(AnalyticsEnrichedContext.workspace_id == workspace_id)
+        enr_query = enr_query.filter(ResearchContextRecord.workspace_id == workspace_id)
         dr_query = dr_query.filter(AnalyticsGeneratedDraft.workspace_id == workspace_id)
         
     total_contexts = exp_query.filter(AnalyticsContextExport.status != "archived").count()
     new_contexts = exp_query.filter(AnalyticsContextExport.status == "new").count()
     
-    total_enrichments = enr_query.filter(AnalyticsEnrichedContext.status != "deleted").count()
-    ready_enrichments = enr_query.filter(AnalyticsEnrichedContext.status == "ready").count()
-    failed_enrichments = enr_query.filter(AnalyticsEnrichedContext.status == "failed").count()
+    total_enrichments = enr_query.filter(ResearchContextRecord.status != "deleted").count()
+    ready_enrichments = enr_query.filter(ResearchContextRecord.status == "ready").count()
+    failed_enrichments = enr_query.filter(ResearchContextRecord.status == "failed").count()
     
     total_drafts = dr_query.filter(AnalyticsGeneratedDraft.status != "deleted").count()
     draft_queue = dr_query.filter(AnalyticsGeneratedDraft.status == "draft").count()
@@ -1435,14 +1434,14 @@ def get_pipeline_stats(workspace_id: Optional[str] = None, db: Session = Depends
             "timestamp": e.exported_at
         })
         
-    # 2. Context Enriched
-    enrichments = enr_query.filter(AnalyticsEnrichedContext.status == "ready").order_by(AnalyticsEnrichedContext.generated_at.desc()).limit(10).all()
+    # 2. Context Processed
+    enrichments = enr_query.filter(ResearchContextRecord.status == "ready").order_by(ResearchContextRecord.created_at.desc()).limit(10).all()
     for en in enrichments:
         timeline.append({
             "id": f"enrich-{en.id}",
-            "event_type": "Context Enriched",
-            "title": f"Context Enriched: {en.topic_name or 'Topic'}",
-            "timestamp": en.generated_at
+            "event_type": "Research Context Prepared",
+            "title": f"Research Context: {en.topic or 'Topic'}",
+            "timestamp": en.created_at
         })
         
     # 3. Drafts events
@@ -1502,17 +1501,16 @@ def get_pipeline_stats(workspace_id: Optional[str] = None, db: Session = Depends
     }
 
 
-@router.get("/context/enriched/{id}", response_model=EnrichedContextPayloadResponse)
+@router.get("/context/enriched/{id}", response_model=ResearchContextResponse)
 def api_get_enriched_context(id: str, db: Session = Depends(get_db)):
     """
     Retrieves a single pre-rendered enriched context payload.
     """
-    enriched = db.query(AnalyticsEnrichedContext).filter(AnalyticsEnrichedContext.id == id).first()
+    enriched = db.query(ResearchContextRecord).filter(ResearchContextRecord.id == id).first()
     if not enriched:
-        raise HTTPException(status_code=404, detail="Enriched context record not found")
+        raise HTTPException(status_code=404, detail="Research context record not found")
     
-    import json
-    return json.loads(enriched.payload_json)
+    return enriched
 
 
 @router.get("/context/{id}", response_model=AIContextPayloadResponse)
@@ -1522,7 +1520,7 @@ def api_get_aggregated_context(id: str, db: Session = Depends(get_db)):
     if not export:
         raise HTTPException(status_code=404, detail="Context export record not found")
     
-    return create_ai_context(db, export.source_type, export.source_reference_id)
+    return build_research_dataset(db, export.source_type, export.source_reference_id)
 
 
 @router.patch("/context/{id}/status", response_model=AnalyticsContextExportResponse)

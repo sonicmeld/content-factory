@@ -769,38 +769,50 @@ class EnrichContextRequest(BaseModel):
     export_id: str
 
 
-class EnrichedContextPayloadResponse(BaseModel):
-    context_version: str
-    enrichment_version: str
-    topic_name: str
-    generated_by: str
-    markdown_content: str
-    source_export_id: str
-    source_type: str
-    source_reference_id: str
-    analytics_context: Dict[str, Any]
-    research_context: Dict[str, Any]
-    audience_context: Dict[str, Any]
-    competitor_context: Dict[str, Any]
-    keyword_expansion: Dict[str, Any]
-    topic_expansion: Dict[str, Any]
-    market_signals: Dict[str, Any]
-    search_intent_context: Dict[str, Any]
-
-
-class EnrichmentHistoryResponse(BaseModel):
+class ResearchContextResponse(BaseModel):
     id: str
     export_id: str
     source_type: str
     source_reference_id: str
     workspace_id: Optional[str] = None
     channel_id: Optional[str] = None
-    topic_name: Optional[str] = None
-    context_version: str
-    enrichment_version: str
+    youtube_account_id: Optional[str] = None
+    
+    topic: Optional[str] = None
+    trend_score: float = 0.0
+    keyword_count: int = 0
+    competitor_count: int = 0
+    signal_count: int = 0
+    
+    keywords: Dict[str, Any]
+    audience: Dict[str, Any]
+    competitors: Dict[str, Any]
+    opportunities: List[Any]
+    signals: Dict[str, Any]
+    
     status: str
-    generated_by: str
-    generated_at: datetime
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ResearchContextHistoryResponse(BaseModel):
+    id: str
+    export_id: str
+    source_type: str
+    source_reference_id: str
+    workspace_id: Optional[str] = None
+    channel_id: Optional[str] = None
+    youtube_account_id: Optional[str] = None
+    topic: Optional[str] = None
+    trend_score: float = 0.0
+    keyword_count: int = 0
+    competitor_count: int = 0
+    signal_count: int = 0
+    status: str
+    created_at: datetime
+    updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
 

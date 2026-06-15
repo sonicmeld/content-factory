@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Channel, GCPProfile, UploadJob, Asset, Prompt, ContentPackage, ChannelStorageStats, QueueItem, PackageGeneration, PromptContext, GenerationCombo, GenerationReadiness, MetadataVariant, GenerationAsset, MetadataLibraryItem, ExternalAccount, ConnectorJob, AssetInbox, AnalyticsEnrichedContext, EnrichedContextPayload, AnalyticsGeneratedDraft, PipelineStats, YoutubeAccount, YoutubeSyncResult } from '../types';
+import type { Channel, GCPProfile, UploadJob, Asset, Prompt, ContentPackage, ChannelStorageStats, QueueItem, PackageGeneration, PromptContext, GenerationCombo, GenerationReadiness, MetadataVariant, GenerationAsset, MetadataLibraryItem, ExternalAccount, ConnectorJob, AssetInbox, ResearchContextRecord, EnrichedContextPayload, AnalyticsGeneratedDraft, PipelineStats, YoutubeAccount, YoutubeSyncResult } from '../types';
 
 const api = axios.create({
     baseURL: '/api',
@@ -529,7 +529,7 @@ export const getContextPipelineInbox = (workspaceId?: string, status?: string) =
     api.get<any[]>('/analytics/context-pipeline/inbox', { params: { workspace_id: workspaceId, status } }).then(res => res.data);
 
 export const getContextPipelineEnriched = (workspaceId?: string, status?: string) =>
-    api.get<AnalyticsEnrichedContext[]>('/analytics/context-pipeline/enriched', { params: { workspace_id: workspaceId, status } }).then(res => res.data);
+    api.get<ResearchContextRecord[]>('/analytics/context-pipeline/enriched', { params: { workspace_id: workspaceId, status } }).then(res => res.data);
 
 export const getContextPipelineEnrichedDetail = (id: string) =>
     api.get<EnrichedContextPayload>(`/analytics/context-pipeline/enriched/${id}`).then(res => res.data);

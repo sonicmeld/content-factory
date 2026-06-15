@@ -163,7 +163,7 @@ export default function PromptLibraryPage() {
                     onClick={() => setActiveTab('contexts')}
                     className={`pb-3 border-b-2 transition-colors ${activeTab === 'contexts' ? 'border-primary text-primary font-bold' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
                 >
-                    Prompt Contexts
+                    Research Contexts
                 </button>
                 <button
                     onClick={() => setActiveTab('expert')}

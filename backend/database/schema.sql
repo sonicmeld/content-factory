@@ -387,27 +387,32 @@ CREATE TABLE IF NOT EXISTS analytics_context_exports (
     exported_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS analytics_enriched_contexts (
+CREATE TABLE IF NOT EXISTS research_context_records (
     id TEXT PRIMARY KEY,
     export_id TEXT NOT NULL,
     source_type TEXT NOT NULL,
     source_reference_id TEXT NOT NULL,
     workspace_id TEXT,
     channel_id TEXT,
-    topic_name TEXT,
-    context_version TEXT NOT NULL DEFAULT '2.0',
-    enrichment_version TEXT NOT NULL DEFAULT '1.0',
+    youtube_account_id TEXT,
+    topic TEXT,
+    trend_score REAL DEFAULT 0.0,
+    keyword_count INTEGER DEFAULT 0,
+    competitor_count INTEGER DEFAULT 0,
+    signal_count INTEGER DEFAULT 0,
+    keywords_json TEXT NOT NULL DEFAULT '{}',
+    audience_json TEXT NOT NULL DEFAULT '{}',
+    competitors_json TEXT NOT NULL DEFAULT '{}',
+    opportunities_json TEXT NOT NULL DEFAULT '[]',
+    signals_json TEXT NOT NULL DEFAULT '{}',
     status TEXT NOT NULL DEFAULT 'draft',
-    generated_by TEXT NOT NULL DEFAULT 'heuristic',
-    source_snapshot_json TEXT NOT NULL,
-    payload_json TEXT NOT NULL,
-    markdown_content TEXT NOT NULL,
-    generated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(export_id) REFERENCES analytics_context_exports(id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_analytics_enriched_source ON analytics_enriched_contexts (source_type, source_reference_id);
-CREATE INDEX IF NOT EXISTS idx_analytics_enriched_workspace ON analytics_enriched_contexts (workspace_id);
+CREATE INDEX IF NOT EXISTS idx_research_context_source ON research_context_records (source_type, source_reference_id);
+CREATE INDEX IF NOT EXISTS idx_research_context_workspace ON research_context_records (workspace_id);
 
 CREATE TABLE IF NOT EXISTS analytics_generated_drafts (
     id TEXT PRIMARY KEY,
@@ -424,7 +429,7 @@ CREATE TABLE IF NOT EXISTS analytics_generated_drafts (
     status TEXT NOT NULL DEFAULT 'draft',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY(source_enriched_context_id) REFERENCES analytics_enriched_contexts(id)
+    FOREIGN KEY(source_enriched_context_id) REFERENCES research_context_records(id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_analytics_generated_drafts_enriched ON analytics_generated_drafts (source_enriched_context_id);
@@ -451,7 +456,7 @@ CREATE TABLE IF NOT EXISTS youtube_accounts (
 CREATE INDEX IF NOT EXISTS idx_youtube_accounts_workspace_id ON youtube_accounts (workspace_id);
 CREATE INDEX IF NOT EXISTS idx_youtube_accounts_youtube_channel_id ON youtube_accounts (youtube_channel_id);
 
--- Note: Column youtube_account_id di analytics_context_exports, analytics_enriched_contexts,
+-- Note: Column youtube_account_id di analytics_context_exports, research_context_records,
 -- dan analytics_generated_drafts ditambahkan melalui Alembic migration:
 -- a1b2c3d4e5f6_youtube_identity_layer_consolidation.py
 -- Schema.sql hanya berisi CREATE TABLE (idempotent), bukan ALTER TABLE.

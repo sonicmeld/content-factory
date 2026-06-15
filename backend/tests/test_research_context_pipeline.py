@@ -17,9 +17,9 @@ from database.models import (
     AnalyticsTopic,
     AnalyticsKeyword,
     AnalyticsContextExport,
-    AnalyticsEnrichedContext
+    ResearchContextRecord
 )
-from services.analytics.context_enrichment import enrich_context
+from services.analytics.research_context_pipeline import process_research_context
 
 class TestContextEnrichment(unittest.TestCase):
     def setUp(self):
@@ -96,55 +96,40 @@ class TestContextEnrichment(unittest.TestCase):
         self.db.close()
         Base.metadata.drop_all(bind=self.engine)
 
-    def test_enrich_context_heuristic_success(self):
+    def test_process_research_context_heuristic_success(self):
         # Trigger enrichment service directly
-        payload = enrich_context(self.db, "export-1")
+        payload = process_research_context(self.db, "export-1")
 
-        self.assertEqual(payload["context_version"], "2.0")
-        self.assertEqual(payload["enrichment_version"], "1.0")
-        self.assertEqual(payload["topic_name"], "AI Agents")
-        self.assertEqual(payload["generated_by"], "heuristic")
+        self.assertEqual(payload["topic"], "AI Agents")
 
         # Test Lineage metadata exists
-        self.assertEqual(payload["source_export_id"], "export-1")
+        self.assertEqual(payload["export_id"], "export-1")
         self.assertEqual(payload["source_type"], "topic")
         self.assertEqual(payload["source_reference_id"], "topic-1")
 
-        # Test Markdown content is a Research Report
-        self.assertIn("# Research Report: AI Agents", payload["markdown_content"])
-        self.assertNotIn("## 🎯 Recommendations", payload["markdown_content"])
-        self.assertNotIn("angle_candidates", payload)
-        self.assertNotIn("hook_candidates", payload)
-
-        # Test Search Intent Context exists
-        self.assertIn("search_intent_context", payload)
-        self.assertIn("informational", payload["search_intent_context"])
-        self.assertIn("comparative", payload["search_intent_context"])
-        self.assertIn("transactional", payload["search_intent_context"])
-        self.assertIn("navigational", payload["search_intent_context"])
+        # Test structured content exists
+        self.assertEqual(payload["keyword_count"], 2)
+        self.assertEqual(payload["signal_count"], 2)
+        self.assertIn("autogen", payload["keywords"]["primary_keywords"])
+        self.assertIn("goals", payload["audience"])
+        self.assertIn("content_gaps", payload["competitors"])
 
         # Verify DB entry
-        record = self.db.query(AnalyticsEnrichedContext).filter(AnalyticsEnrichedContext.export_id == "export-1").first()
+        record = self.db.query(ResearchContextRecord).filter(ResearchContextRecord.export_id == "export-1").first()
         self.assertIsNotNone(record)
         self.assertEqual(record.status, "ready")
-        self.assertEqual(record.generated_by, "heuristic")
-        self.assertIn("AI Agents", record.topic_name)
-        
-        # Verify snapshot
-        snapshot = json.loads(record.source_snapshot_json)
-        self.assertEqual(snapshot["topic"], "AI Agents")
-        self.assertEqual(len(snapshot["signals"]), 2)
+        self.assertEqual(record.topic, "AI Agents")
+        self.assertEqual(record.trend_score, 92.5)
 
-    def test_enrich_context_api_endpoints_success(self):
+    def test_process_research_context_api_endpoints_success(self):
         # 1. Trigger enrichment endpoint
         resp = self.client.post("/api/analytics/context/enrich", json={"export_id": "export-1"})
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
-        self.assertEqual(data["context_version"], "2.0")
-        self.assertEqual(data["topic_name"], "AI Agents")
+        self.assertEqual(data["topic"], "AI Agents")
 
         # Check DB
-        record = self.db.query(AnalyticsEnrichedContext).first()
+        record = self.db.query(ResearchContextRecord).first()
         self.assertIsNotNone(record)
         enrichment_id = record.id
 
@@ -152,8 +137,7 @@ class TestContextEnrichment(unittest.TestCase):
         resp_get = self.client.get(f"/api/analytics/context/enriched/{enrichment_id}")
         self.assertEqual(resp_get.status_code, 200)
         get_data = resp_get.json()
-        self.assertEqual(get_data["topic_name"], "AI Agents")
-        self.assertEqual(get_data["markdown_content"], record.markdown_content)
+        self.assertEqual(get_data["topic"], "AI Agents")
 
         # 3. List history endpoint
         resp_list = self.client.get("/api/analytics/context/enriched?workspace_id=ws-abc")

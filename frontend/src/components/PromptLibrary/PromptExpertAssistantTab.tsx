@@ -413,10 +413,70 @@ export default function PromptExpertAssistantTab({ workspaceId, onDraftGenerated
                 <ContextEnrichmentViewer
                     payload={enrichedPayload}
                     onClose={() => setEnrichedPayload(null)}
-                    onLoadIntoBuilder={(markdown) => {
-                        setInputText(markdown);
+                    onLoadIntoBuilder={(enrichedContext) => {
+                        let md = `### TOPIC\n${enrichedContext.topic || 'Unknown'}\n\n`;
+                        
+                        if (enrichedContext.signals?.market_signals) {
+                            const ms = enrichedContext.signals.market_signals;
+                            md += `### MARKET SIGNALS\n`;
+                            md += `- Opportunity Score: ${ms.opportunity_score}\n`;
+                            md += `- Demand Score: ${ms.demand_score}\n`;
+                            md += `- Forecast Score: ${ms.forecast_score}\n`;
+                            md += `- Competition Score: ${ms.competition_score}\n\n`;
+                        }
+                        
+                        if (enrichedContext.keywords) {
+                            md += `### KEYWORDS\n`;
+                            md += `- Primary: ${enrichedContext.keywords.primary_keywords?.join(', ') || ''}\n`;
+                            md += `- Secondary: ${enrichedContext.keywords.secondary_keywords?.join(', ') || ''}\n`;
+                            md += `- Related: ${enrichedContext.keywords.related_keywords?.join(', ') || ''}\n\n`;
+                        }
+                        
+                        if (enrichedContext.audience) {
+                            md += `### AUDIENCE UNDERSTANDING\n`;
+                            md += `- Skill Level: ${enrichedContext.audience.audience_level || ''}\n`;
+                            md += `- Pain Points:\n`;
+                            enrichedContext.audience.pain_points?.forEach((p: string) => { md += `  * ${p}\n`; });
+                            md += `- Goals:\n`;
+                            enrichedContext.audience.goals?.forEach((g: string) => { md += `  * ${g}\n`; });
+                            md += `- Common Questions:\n`;
+                            enrichedContext.audience.common_questions?.forEach((q: string) => { md += `  * ${q}\n`; });
+                            md += `\n`;
+                        }
+                        
+                        if (enrichedContext.competitors) {
+                            md += `### COMPETITORS\n`;
+                            md += `- Content Gaps:\n`;
+                            enrichedContext.competitors.content_gaps?.forEach((cg: string) => { md += `  * ${cg}\n`; });
+                            md += `- Undercovered:\n`;
+                            enrichedContext.competitors.undercovered_topics?.forEach((ut: string) => { md += `  * ${ut}\n`; });
+                            md += `- Oversaturated:\n`;
+                            enrichedContext.competitors.oversaturated_topics?.forEach((ot: string) => { md += `  * ${ot}\n`; });
+                            md += `\n`;
+                        }
+
+                        if (enrichedContext.signals?.search_intent_context) {
+                            const sic = enrichedContext.signals.search_intent_context;
+                            md += `### SEARCH INTENT\n`;
+                            md += `- Informational: ${sic.informational?.join(', ') || ''}\n`;
+                            md += `- Comparative: ${sic.comparative?.join(', ') || ''}\n`;
+                            md += `- Transactional: ${sic.transactional?.join(', ') || ''}\n`;
+                            md += `- Navigational: ${sic.navigational?.join(', ') || ''}\n\n`;
+                        }
+
+                        if (enrichedContext.signals?.research_context) {
+                            const rc = enrichedContext.signals.research_context;
+                            md += `### RESEARCH DETAILS\n`;
+                            md += `- Notes:\n`;
+                            rc.research_notes?.forEach((n: string) => { md += `  * ${n}\n`; });
+                            md += `- Facts:\n`;
+                            rc.supporting_facts?.forEach((f: string) => { md += `  * ${f}\n`; });
+                            md += `\n`;
+                        }
+
+                        setInputText(md.trim());
                         setEnrichedPayload(null);
-                        toast.success("Loaded Enriched Context into Builder!");
+                        toast.success("Loaded Research Context into Builder!");
                     }}
                 />
             )}

@@ -595,73 +595,73 @@ export interface AIContextPayload {
     }>;
 }
 
-export interface AnalyticsEnrichedContext {
+export interface ResearchContextRecord {
     id: string;
     export_id: string;
     source_type: string;
     source_reference_id: string;
     workspace_id?: string;
     channel_id?: string;
-    topic_name?: string;
-    context_version: string;
-    enrichment_version: string;
+    youtube_account_id?: string;
+    topic?: string;
+    trend_score: number;
+    keyword_count: number;
+    competitor_count: number;
+    signal_count: number;
+    keywords: {
+        primary_keywords?: string[];
+        secondary_keywords?: string[];
+        related_keywords?: string[];
+    };
+    audience: {
+        audience_level?: 'Beginner' | 'Intermediate' | 'Advanced';
+        pain_points?: string[];
+        goals?: string[];
+        common_questions?: string[];
+    };
+    competitors: {
+        oversaturated_topics?: string[];
+        undercovered_topics?: string[];
+        content_gaps?: string[];
+    };
+    opportunities: Array<{
+        topic: string;
+        opportunity_score: number;
+        market_demand: number;
+        forecast: number;
+        competition: number;
+    }>;
+    signals: {
+        market_signals?: {
+            demand_score: number;
+            competition_score: number;
+            forecast_score: number;
+            opportunity_score: number;
+        };
+        search_intent_context?: {
+            informational?: string[];
+            comparative?: string[];
+            transactional?: string[];
+            navigational?: string[];
+        };
+        research_context?: {
+            research_notes?: string[];
+            supporting_facts?: string[];
+            related_entities?: string[];
+        };
+        topic_expansion?: {
+            related_topics?: string[];
+            adjacent_topics?: string[];
+            semantic_clusters?: string[];
+        };
+    };
     status: 'draft' | 'ready' | 'archived' | 'failed';
-    generated_by: string;
-    source_snapshot_json: string;
-    payload_json: string;
-    markdown_content: string;
-    generated_at: string;
+    created_at: string;
+    updated_at: string;
 }
 
-export interface EnrichedContextPayload {
-    context_version: string;
-    enrichment_version: string;
-    topic_name: string;
-    generated_by: string;
-    markdown_content: string;
-    source_export_id: string;
-    source_type: string;
-    source_reference_id: string;
-    analytics_context: AIContextPayload;
-    research_context: {
-        research_notes: string[];
-        supporting_facts: string[];
-        related_entities: string[];
-    };
-    audience_context: {
-        audience_level: 'Beginner' | 'Intermediate' | 'Advanced';
-        pain_points: string[];
-        goals: string[];
-        common_questions: string[];
-    };
-    competitor_context: {
-        oversaturated_topics: string[];
-        undercovered_topics: string[];
-        content_gaps: string[];
-    };
-    keyword_expansion: {
-        primary_keywords: string[];
-        secondary_keywords: string[];
-        related_keywords: string[];
-    };
-    topic_expansion: {
-        related_topics: string[];
-        adjacent_topics: string[];
-        semantic_clusters: string[];
-    };
-    market_signals: {
-        demand_score: number;
-        competition_score: number;
-        forecast_score: number;
-        opportunity_score: number;
-    };
-    search_intent_context: {
-        informational: string[];
-        comparative: string[];
-        transactional: string[];
-        navigational: string[];
-    };
-}
+// Keep a compatible alias to minimize type changes in other files
+export type EnrichedContextPayload = ResearchContextRecord;
 
 export interface AnalyticsGeneratedDraft {
     id: string;

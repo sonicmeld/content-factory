@@ -14,11 +14,11 @@ from database.models import (
     AnalyticsInsight,
     AnalyticsContextExport
 )
-from services.analytics.analytics_context_builder import (
+from services.analytics.research_context_builder import (
     export_topic_context,
     export_opportunity_context,
     export_insight_context,
-    create_ai_context
+    build_research_dataset
 )
 
 class TestAnalyticsContextBuilder(unittest.TestCase):
@@ -133,9 +133,9 @@ class TestAnalyticsContextBuilder(unittest.TestCase):
         self.assertEqual(export.status, "new")
         self.assertEqual(export.workspace_id, "ws-456")
 
-    def test_create_ai_context_aggregated_success(self):
+    def test_build_research_dataset_aggregated_success(self):
         # We test topic aggregation
-        agg_context = create_ai_context(self.db, "topic", "topic-1")
+        agg_context = build_research_dataset(self.db, "topic", "topic-1")
         
         self.assertEqual(agg_context["context_type"], "aggregated")
         self.assertEqual(agg_context["context_version"], "1.0")
@@ -165,9 +165,9 @@ class TestAnalyticsContextBuilder(unittest.TestCase):
         # Check aggregated sources list
         self.assertEqual(agg_context["aggregated_sources"], [{"type": "topic", "id": "topic-1"}])
 
-    def test_create_ai_context_insight_triggered_success(self):
+    def test_build_research_dataset_insight_triggered_success(self):
         # We test insight aggregation, which should auto-find topic and link both
-        agg_context = create_ai_context(self.db, "insight", "insight-1")
+        agg_context = build_research_dataset(self.db, "insight", "insight-1")
         
         self.assertEqual(agg_context["context_type"], "aggregated")
         self.assertEqual(agg_context["topic"], "AI Agents")

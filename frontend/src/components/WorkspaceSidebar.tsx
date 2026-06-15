@@ -50,7 +50,7 @@ export default function WorkspaceSidebar() {
         {
             section: 'Prompt',
             items: [
-                { label: 'Prompt Contexts', icon: Sparkles, path: `/workspace/${slug}/prompts` },
+                { label: 'Research Contexts', icon: Sparkles, path: `/workspace/${slug}/prompts` },
             ],
         },
         {

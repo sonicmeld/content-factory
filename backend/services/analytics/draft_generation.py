@@ -6,7 +6,7 @@ from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
-from database.models import AnalyticsEnrichedContext, AnalyticsGeneratedDraft
+from database.models import ResearchContextRecord, AnalyticsGeneratedDraft
 from app.config import settings
 from services.runtime_core_service import sanitize_9router_payload
 from services.analytics.angle_generator import generate_angles
@@ -20,12 +20,12 @@ def _build_9router_url() -> str:
         base = f"{base}/v1"
     return f"{base}/chat/completions"
 
-def _generate_fallback_draft(topic: str, payload: dict) -> str:
+def _generate_fallback_draft(topic: str, enriched: ResearchContextRecord) -> str:
     """
     Constructs a highly structured fallback markdown draft.
     Generates Hooks, Angles, and Outlines dynamically in E-3.
     """
-    primary_kws = payload.get("keyword_expansion", {}).get("primary_keywords", [topic])
+    primary_kws = enriched.keywords.get("primary_keywords", [topic])
     angles = generate_angles(topic, primary_kws)
     hooks = generate_hooks(topic, primary_kws)
     outlines = generate_outlines(topic, primary_kws)
@@ -33,8 +33,8 @@ def _generate_fallback_draft(topic: str, payload: dict) -> str:
     best_angle = angles[2] if len(angles) > 2 else angles[0]
     best_hook = hooks[0] if hooks else "Modern hook"
     
-    audience = payload.get("audience_context", {})
-    competitor = payload.get("competitor_context", {})
+    audience = enriched.audience
+    competitor = enriched.competitors
 
     md = []
     md.append(f"# Fallback YouTube Long-form Script: {topic}")
@@ -44,7 +44,7 @@ def _generate_fallback_draft(topic: str, payload: dict) -> str:
     md.append(f"- **Best Angle:** {best_angle}")
     md.append(f"- **Best Hook:** {best_hook}")
     md.append(f"- **Recommended Video Length:** 10-15 minutes")
-    md.append(f"- **Target Audience:** {payload.get('audience_context', {}).get('audience_level', 'General')} Audience")
+    md.append(f"- **Target Audience:** {audience.get('audience_level', 'General')} Audience")
     md.append("")
     md.append("## 👥 AUDIENCE DETAILS")
     md.append(f"- **Skill Level:** {audience.get('audience_level', 'Intermediate')}")
@@ -75,20 +75,19 @@ def _generate_fallback_draft(topic: str, payload: dict) -> str:
 
 def generate_draft(db: Session, enriched_context_id: str) -> Dict[str, Any]:
     """
-    Orchestrates draft generation from the specified Enriched Context record.
+    Orchestrates draft generation from the specified Research Context record.
     Uses 9Router chat completion with a structured system prompt, falling back
     to rule-based generation if LLM is unavailable or fails.
     """
-    enriched = db.query(AnalyticsEnrichedContext).filter(
-        AnalyticsEnrichedContext.id == enriched_context_id,
-        AnalyticsEnrichedContext.status == "ready"
+    enriched = db.query(ResearchContextRecord).filter(
+        ResearchContextRecord.id == enriched_context_id,
+        ResearchContextRecord.status == "ready"
     ).first()
     
     if not enriched:
-        raise HTTPException(status_code=404, detail="Enriched context record not found or not in 'ready' status")
-
-    payload = json.loads(enriched.payload_json)
-    topic = payload.get("topic_name", "Unknown Topic")
+        raise HTTPException(status_code=404, detail="Research context record not found or not in 'ready' status")
+    
+    topic = enriched.topic or "Unknown Topic"
     
     draft_id = str(uuid.uuid4())
     
@@ -121,14 +120,28 @@ def generate_draft(db: Session, enriched_context_id: str) -> Dict[str, Any]:
             try:
                 system_prompt = (
                     "You are a master scriptwriter and content creator for YouTube long-form content. "
-                    "Analyze the provided Research Report and keywords under research_context, audience_context, competitor_context, keyword_expansion, topic_expansion, search_intent_context, and market_signals. "
+                    "Analyze the provided Research Context dataset including keywords, audience insights, competitor analysis, search intent, and market signals. "
                     "Based on this research, determine the best hook, target angle, and video structure outline. "
                     "Then, draft a comprehensive, highly engaging, and complete video script draft in Markdown format. "
-                    "Include visual directions, detailed outline segments matching timestamps, visual directions, and fully written narration. "
+                    "Include visual directions, detailed outline segments matching timestamps, and fully written narration. "
                     "Do NOT write placeholders (e.g. '[Insert visual here]', '[Explain details here]'). "
                     "Write actual narrative content. Do not wrap response in a json block, return plain Markdown."
                 )
-                user_message = f"Research Enrichment Context Payload:\n{json.dumps(payload, indent=2)}"
+                
+                # Natively serialize the model properties to build the prompt context
+                prompt_context = {
+                    "topic": enriched.topic,
+                    "trend_score": enriched.trend_score,
+                    "keyword_count": enriched.keyword_count,
+                    "competitor_count": enriched.competitor_count,
+                    "signal_count": enriched.signal_count,
+                    "keywords": enriched.keywords,
+                    "audience": enriched.audience,
+                    "competitors": enriched.competitors,
+                    "opportunities": enriched.opportunities,
+                    "signals": enriched.signals
+                }
+                user_message = f"Research Dataset Context:\n{json.dumps(prompt_context, indent=2)}"
 
                 headers = {
                     "Authorization": f"Bearer {settings.NINE_ROUTER_API_KEY}",
@@ -163,7 +176,7 @@ def generate_draft(db: Session, enriched_context_id: str) -> Dict[str, Any]:
                 print(f"[Draft Warning] LLM draft generation failed: {llm_err}. Falling back to Rule-based.")
 
         if not content_markdown:
-            content_markdown = _generate_fallback_draft(topic, payload)
+            content_markdown = _generate_fallback_draft(topic, enriched)
             generated_by = "heuristic"
 
         # Update draft record
@@ -200,4 +213,3 @@ def generate_draft(db: Session, enriched_context_id: str) -> Dict[str, Any]:
             failed_draft.status = "deleted"
             db.commit()
         raise HTTPException(status_code=500, detail=f"Draft generation failed: {str(exc)}")
-

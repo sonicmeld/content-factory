@@ -18,7 +18,7 @@ from database.models import (
     AnalyticsTopic,
     AnalyticsKeyword,
     AnalyticsContextExport,
-    AnalyticsEnrichedContext,
+    ResearchContextRecord,
     AnalyticsGeneratedDraft
 )
 from services.analytics.draft_generation import generate_draft
@@ -75,15 +75,6 @@ class TestContextPipeline(unittest.TestCase):
 
         # Mock enrichment payload
         mock_payload = {
-            "context_version": "2.0",
-            "enrichment_version": "1.0",
-            "topic_name": "AI Agents",
-            "generated_by": "heuristic",
-            "markdown_content": "# Enriched Context: AI Agents\nSome research stuff.",
-            "source_export_id": "export-pipeline-1",
-            "source_type": "topic",
-            "source_reference_id": "topic-pipeline-1",
-            "analytics_context": {},
             "research_context": {
                 "research_notes": ["Note 1"],
                 "supporting_facts": ["Fact 1"],
@@ -124,22 +115,31 @@ class TestContextPipeline(unittest.TestCase):
             }
         }
 
-        self.enriched = AnalyticsEnrichedContext(
+        self.enriched = ResearchContextRecord(
             id="enriched-pipeline-1",
             export_id="export-pipeline-1",
             source_type="topic",
             source_reference_id="topic-pipeline-1",
             workspace_id="ws-pipeline",
             channel_id="chan-pipeline",
-            topic_name="AI Agents",
-            context_version="2.0",
-            enrichment_version="1.0",
+            topic="AI Agents",
+            trend_score=92.5,
+            keyword_count=2,
+            competitor_count=0,
+            signal_count=2,
+            keywords_json=json.dumps(mock_payload["keyword_expansion"]),
+            audience_json=json.dumps(mock_payload["audience_context"]),
+            competitors_json=json.dumps(mock_payload["competitor_context"]),
+            opportunities_json=json.dumps([]),
+            signals_json=json.dumps({
+                "market_signals": mock_payload["market_signals"],
+                "search_intent_context": mock_payload["search_intent_context"],
+                "research_context": mock_payload["research_context"],
+                "topic_expansion": mock_payload["topic_expansion"]
+            }),
             status="ready",
-            generated_by="heuristic",
-            source_snapshot_json=json.dumps({"topic": "AI Agents", "signals": []}),
-            payload_json=json.dumps(mock_payload),
-            markdown_content="# Enriched Context: AI Agents\nSome research stuff.",
-            generated_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
         )
         self.db.add(self.enriched)
         self.db.commit()
@@ -207,29 +207,26 @@ class TestContextPipeline(unittest.TestCase):
         # Test generation with non-existent enriched context
         with self.assertRaises(Exception) as ctx:
             generate_draft(self.db, "enriched-non-existent")
-        self.assertIn("Enriched context record not found", str(ctx.exception))
+        self.assertIn("Research context record not found", str(ctx.exception))
 
     def test_draft_generation_not_ready(self):
         # Create non-ready enriched context
-        not_ready_enriched = AnalyticsEnrichedContext(
+        not_ready_enriched = ResearchContextRecord(
             id="enriched-pipeline-failed",
             export_id="export-pipeline-1",
             source_type="topic",
             source_reference_id="topic-pipeline-1",
             workspace_id="ws-pipeline",
             status="failed",
-            generated_by="heuristic",
-            source_snapshot_json="{}",
-            payload_json="{}",
-            markdown_content="",
-            generated_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
         )
         self.db.add(not_ready_enriched)
         self.db.commit()
 
         with self.assertRaises(Exception) as ctx:
             generate_draft(self.db, "enriched-pipeline-failed")
-        self.assertIn("Enriched context record not found or not in 'ready' status", str(ctx.exception))
+        self.assertIn("Research context record not found or not in 'ready' status", str(ctx.exception))
 
     def test_api_generate_draft_endpoint(self):
         # Trigger draft generation via REST API
@@ -308,8 +305,8 @@ class TestContextPipeline(unittest.TestCase):
         exp1 = AnalyticsContextExport(id="bulk-exp-1", source_type="topic", source_reference_id="topic-1", context_type="topic", status="new", workspace_id="ws-pipeline", exported_at=datetime.utcnow())
         exp2 = AnalyticsContextExport(id="bulk-exp-2", source_type="topic", source_reference_id="topic-1", context_type="topic", status="new", workspace_id="ws-pipeline", exported_at=datetime.utcnow())
         
-        enr1 = AnalyticsEnrichedContext(id="bulk-enr-1", export_id="bulk-exp-1", source_type="topic", source_reference_id="topic-1", status="ready", source_snapshot_json="{}", payload_json="{}", markdown_content="", generated_at=datetime.utcnow())
-        enr2 = AnalyticsEnrichedContext(id="bulk-enr-2", export_id="bulk-exp-2", source_type="topic", source_reference_id="topic-1", status="ready", source_snapshot_json="{}", payload_json="{}", markdown_content="", generated_at=datetime.utcnow())
+        enr1 = ResearchContextRecord(id="bulk-enr-1", export_id="bulk-exp-1", source_type="topic", source_reference_id="topic-1", status="ready", created_at=datetime.utcnow(), updated_at=datetime.utcnow())
+        enr2 = ResearchContextRecord(id="bulk-enr-2", export_id="bulk-exp-2", source_type="topic", source_reference_id="topic-1", status="ready", created_at=datetime.utcnow(), updated_at=datetime.utcnow())
         
         dr1 = AnalyticsGeneratedDraft(id="bulk-dr-1", source_export_id="bulk-exp-1", source_enriched_context_id="bulk-enr-1", content_markdown="", status="draft", created_at=datetime.utcnow(), updated_at=datetime.utcnow())
         dr2 = AnalyticsGeneratedDraft(id="bulk-dr-2", source_export_id="bulk-exp-2", source_enriched_context_id="bulk-enr-2", content_markdown="", status="draft", created_at=datetime.utcnow(), updated_at=datetime.utcnow())
@@ -324,7 +321,7 @@ class TestContextPipeline(unittest.TestCase):
 
         resp = self.client.post("/api/analytics/context-pipeline/bulk/archive", json={"ids": ["bulk-enr-1"], "stage": "enriched"})
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(self.db.query(AnalyticsEnrichedContext).filter(AnalyticsEnrichedContext.id == "bulk-enr-1").first().status, "archived")
+        self.assertEqual(self.db.query(ResearchContextRecord).filter(ResearchContextRecord.id == "bulk-enr-1").first().status, "archived")
 
         resp = self.client.post("/api/analytics/context-pipeline/bulk/archive", json={"ids": ["bulk-dr-1"], "stage": "drafts"})
         self.assertEqual(resp.status_code, 200)
@@ -339,7 +336,7 @@ class TestContextPipeline(unittest.TestCase):
         # Enriched/Drafts: Soft delete
         resp = self.client.post("/api/analytics/context-pipeline/bulk/delete", json={"ids": ["bulk-enr-2"], "stage": "enriched"})
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(self.db.query(AnalyticsEnrichedContext).filter(AnalyticsEnrichedContext.id == "bulk-enr-2").first().status, "deleted")
+        self.assertEqual(self.db.query(ResearchContextRecord).filter(ResearchContextRecord.id == "bulk-enr-2").first().status, "deleted")
 
         resp = self.client.post("/api/analytics/context-pipeline/bulk/delete", json={"ids": ["bulk-dr-2"], "stage": "drafts"})
         self.assertEqual(resp.status_code, 200)
@@ -348,8 +345,8 @@ class TestContextPipeline(unittest.TestCase):
         # 3. Bulk Purge (Physical delete for all stages)
         resp = self.client.post("/api/analytics/context-pipeline/bulk/purge", json={"ids": ["bulk-enr-1", "bulk-enr-2"], "stage": "enriched"})
         self.assertEqual(resp.status_code, 200)
-        self.assertIsNone(self.db.query(AnalyticsEnrichedContext).filter(AnalyticsEnrichedContext.id == "bulk-enr-1").first())
-        self.assertIsNone(self.db.query(AnalyticsEnrichedContext).filter(AnalyticsEnrichedContext.id == "bulk-enr-2").first())
+        self.assertIsNone(self.db.query(ResearchContextRecord).filter(ResearchContextRecord.id == "bulk-enr-1").first())
+        self.assertIsNone(self.db.query(ResearchContextRecord).filter(ResearchContextRecord.id == "bulk-enr-2").first())
 
         resp = self.client.post("/api/analytics/context-pipeline/bulk/purge", json={"ids": ["bulk-dr-1", "bulk-dr-2"], "stage": "drafts"})
         self.assertEqual(resp.status_code, 200)
@@ -461,7 +458,7 @@ class TestContextPipeline(unittest.TestCase):
         # 3. GET /context-pipeline/enriched/{id}
         resp = self.client.get("/api/analytics/context-pipeline/enriched/enriched-pipeline-1")
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.json()["topic_name"], "AI Agents")
+        self.assertEqual(resp.json()["topic"], "AI Agents")
 
         # 4. GET /context-pipeline/drafts (empty initially)
         resp = self.client.get("/api/analytics/context-pipeline/drafts?workspace_id=ws-pipeline")
