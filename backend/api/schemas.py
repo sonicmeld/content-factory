@@ -775,14 +775,17 @@ class EnrichedContextPayloadResponse(BaseModel):
     topic_name: str
     generated_by: str
     markdown_content: str
+    source_export_id: str
+    source_type: str
+    source_reference_id: str
     analytics_context: Dict[str, Any]
     research_context: Dict[str, Any]
     audience_context: Dict[str, Any]
     competitor_context: Dict[str, Any]
-    angle_candidates: List[str]
-    hook_candidates: List[str]
-    outline_candidates: List[Dict[str, Any]]
-    recommendations: Dict[str, Any]
+    keyword_expansion: Dict[str, Any]
+    topic_expansion: Dict[str, Any]
+    market_signals: Dict[str, Any]
+    search_intent_context: Dict[str, Any]
 
 
 class EnrichmentHistoryResponse(BaseModel):

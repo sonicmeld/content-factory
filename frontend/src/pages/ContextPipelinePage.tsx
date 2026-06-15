@@ -35,6 +35,7 @@ import {
 import YouTubeAccountSelector from '../components/YouTubeAccountSelector';
 import { useYoutubeAccount } from '../hooks/useYoutubeAccount';
 import type { AnalyticsGeneratedDraft, EnrichedContextPayload } from '../types';
+import ContextEnrichmentViewer from '../components/PromptLibrary/ContextEnrichmentViewer';
 
 export default function ContextPipelinePage() {
     const queryClient = useQueryClient();
@@ -196,6 +197,15 @@ export default function ContextPipelinePage() {
         } catch (error: any) {
             toast.error("Failed to transition draft status");
         }
+    };
+
+    const handleLoadEnrichedToPromptExpert = (markdown: string) => {
+        navigate('/prompts', { 
+            state: { 
+                initialInputText: markdown, 
+                activeTab: 'expert' 
+            } 
+        });
     };
 
     // BULK ACTIONS
@@ -779,87 +789,12 @@ export default function ContextPipelinePage() {
             </div>
 
             {/* MODAL 1: ENRICHED DETAILS VIEWER */}
-            {viewEnrichedId && (
-                <div className="fixed inset-0 bg-background/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-card border border-border rounded-2xl shadow-xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in duration-200">
-                        {/* Header */}
-                        <div className="flex items-center justify-between p-5 border-b border-border bg-muted/10">
-                            <div>
-                                <h3 className="font-bold text-sm text-foreground flex items-center">
-                                    <Sparkles className="w-4 h-4 mr-2 text-indigo-400" /> Enriched Strategy Profile
-                                </h3>
-                                <p className="text-[10px] text-muted-foreground mt-0.5">Lineage: ID {viewEnrichedId.substring(0, 8)}</p>
-                            </div>
-                            <button onClick={() => setViewEnrichedId(null)} className="text-muted-foreground hover:text-foreground text-sm font-bold bg-secondary/60 hover:bg-secondary px-3 py-1 rounded-lg transition-all">Close</button>
-                        </div>
-                        
-                        {/* Scroll content */}
-                        <div className="p-6 overflow-y-auto space-y-6 text-xs max-h-[70vh] scrollbar-thin">
-                            {!viewEnrichedPayload ? (
-                                <div className="py-20 flex justify-center"><Loader2 className="animate-spin w-8 h-8 text-primary" /></div>
-                            ) : (
-                                <>
-                                    {/* Recommendations */}
-                                    <div className="bg-indigo-600/5 border border-indigo-500/10 rounded-2xl p-5 space-y-3">
-                                        <h4 className="font-bold text-indigo-400 flex items-center gap-1.5"><TrendingUp className="w-4 h-4" /> Recommendation Targets</h4>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-[11px]">
-                                            <div><span className="font-semibold text-muted-foreground">Best Hook:</span> <p className="font-medium text-foreground mt-0.5">{viewEnrichedPayload.recommendations?.best_hook}</p></div>
-                                            <div><span className="font-semibold text-muted-foreground">Best Angle:</span> <p className="font-medium text-foreground mt-0.5">{viewEnrichedPayload.recommendations?.best_angle}</p></div>
-                                            <div><span className="font-semibold text-muted-foreground">Video Duration:</span> <p className="font-medium text-foreground mt-0.5">{viewEnrichedPayload.recommendations?.recommended_video_length}</p></div>
-                                            <div><span className="font-semibold text-muted-foreground">Confidence Score:</span> <p className="font-medium text-foreground mt-0.5">{viewEnrichedPayload.recommendations?.confidence_score}%</p></div>
-                                        </div>
-                                    </div>
-
-                                    {/* Audience & Gaps */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="bg-secondary/10 border border-border/50 rounded-2xl p-4 space-y-2">
-                                            <h4 className="font-bold text-foreground">Target Audience</h4>
-                                            <p className="font-semibold text-muted-foreground">Level: <span className="text-foreground">{viewEnrichedPayload.audience_context?.audience_level}</span></p>
-                                            <p className="font-semibold text-muted-foreground mt-2">Pain Points:</p>
-                                            <ul className="list-disc pl-4 space-y-1">
-                                                {viewEnrichedPayload.audience_context?.pain_points?.map((pp, i) => <li key={i}>{pp}</li>)}
-                                            </ul>
-                                        </div>
-                                        <div className="bg-secondary/10 border border-border/50 rounded-2xl p-4 space-y-2">
-                                            <h4 className="font-bold text-foreground">Market & Content Gaps</h4>
-                                            <p className="font-semibold text-muted-foreground">Identified Gaps:</p>
-                                            <ul className="list-disc pl-4 space-y-1">
-                                                {viewEnrichedPayload.competitor_context?.content_gaps?.map((cg, i) => <li key={i}>{cg}</li>)}
-                                            </ul>
-                                        </div>
-                                    </div>
-
-                                    {/* Visual Script segments */}
-                                    <div className="space-y-3">
-                                        <h4 className="font-bold text-foreground">Outlines & Segments</h4>
-                                        <div className="space-y-3">
-                                            {viewEnrichedPayload.outline_candidates?.map((out, i) => (
-                                                <div key={i} className="bg-secondary/15 border border-border/40 rounded-xl p-3 flex items-start gap-4">
-                                                    <span className="font-mono bg-secondary border border-border/50 rounded px-2 py-0.5 font-bold shrink-0">{out.duration}</span>
-                                                    <div>
-                                                        <p className="font-bold text-foreground">{out.segment}</p>
-                                                        <p className="text-muted-foreground mt-1 leading-relaxed">{out.description}</p>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {/* Raw Markdown */}
-                                    <div className="space-y-2">
-                                        <h4 className="font-bold text-foreground">Raw Structured Markdown</h4>
-                                        <textarea
-                                            readOnly
-                                            value={viewEnrichedPayload.markdown_content}
-                                            rows={8}
-                                            className="w-full bg-background border border-border rounded-xl px-3 py-3 font-mono text-[10px] leading-relaxed focus:outline-none"
-                                        />
-                                    </div>
-                                </>
-                            )}
-                        </div>
-                    </div>
-                </div>
+            {viewEnrichedId && viewEnrichedPayload && (
+                <ContextEnrichmentViewer 
+                    payload={viewEnrichedPayload} 
+                    onClose={() => setViewEnrichedId(null)} 
+                    onLoadIntoBuilder={handleLoadEnrichedToPromptExpert}
+                />
             )}
 
             {/* MODAL 2: DRAFT REVIEWER */}

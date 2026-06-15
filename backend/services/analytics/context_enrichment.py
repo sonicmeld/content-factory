@@ -11,11 +11,7 @@ from app.config import settings
 from services.analytics.analytics_context_builder import create_ai_context
 from services.analytics.audience_enricher import enrich_audience
 from services.analytics.competitor_enricher import enrich_competitors
-from services.analytics.angle_generator import generate_angles
-from services.analytics.hook_generator import generate_hooks
-from services.analytics.outline_generator import generate_outlines
 from services.analytics.context_renderer import render_enriched_context_markdown
-
 
 
 def _build_9router_url() -> str:
@@ -26,13 +22,114 @@ def _build_9router_url() -> str:
     return f"{base}/chat/completions"
 
 
+def _build_heuristic_enrichment(topic: str, keywords: List[str], market_data: dict, competitor_data: dict) -> dict:
+    audience = enrich_audience(topic, keywords)
+    competitor = enrich_competitors(topic, competitor_data)
+
+    opp_score = market_data.get("opportunity_score", 50.0)
+    demand_score = market_data.get("demand_score", 50.0)
+    forecast_score = market_data.get("forecast_score", 50.0)
+    comp_score = market_data.get("competition_score", 50.0)
+    comp_count = competitor_data.get("video_count", 0)
+
+    research_notes = [
+        f"Detailed keyword and market indicators compiled for '{topic}'.",
+        f"The topic holds an Opportunity Index of {opp_score:.0f} and a Forecast trajectory of {forecast_score:.0f}.",
+        f"Competitor analysis detected {comp_count} related videos published in observed channels."
+    ]
+
+    supporting_facts = [
+        f"Search demand is calculated at {demand_score:.1f}.",
+        f"Market competition level is {comp_score:.1f}.",
+        f"Identified {len(keywords)} signal keywords from trend repository."
+    ]
+
+    related_entities = [topic, "YouTube Analytics", "Content Factory"]
+    if keywords:
+        related_entities.extend(keywords[:3])
+
+    primary_kws = keywords[:2] if len(keywords) >= 2 else (keywords if keywords else [topic])
+    secondary_kws = keywords[2:5] if len(keywords) > 2 else []
+    related_kws = [f"{topic} guide", f"{topic} tutorial", f"how to use {topic}"]
+
+    related_topics = [f"{topic} automation", f"{topic} tools"]
+    adjacent_topics = ["software development", "workflow optimization", "api integration"]
+    semantic_clusters = [f"{topic} deployment", f"{topic} templates", f"{topic} code"]
+
+    informational = []
+    comparative = []
+    transactional = []
+    navigational = []
+
+    for kw in keywords:
+        kw_l = kw.lower()
+        if any(w in kw_l for w in ['how', 'what', 'why', 'guide', 'tutorial', 'learn']):
+            informational.append(kw)
+        elif any(w in kw_l for w in ['vs', 'versus', 'compare', 'alternative']):
+            comparative.append(kw)
+        elif any(w in kw_l for w in ['deploy', 'setup', 'config', 'download', 'install', 'build', 'create']):
+            transactional.append(kw)
+        else:
+            navigational.append(kw)
+
+    if not informational:
+        informational = [f"how to use {topic}", f"{topic} tutorial for beginners"]
+    if not comparative:
+        comparative = [f"{topic} vs alternative solutions", f"difference between {topic} and competitors"]
+    if not transactional:
+        transactional = [f"deploy {topic} in production", f"configure {topic} environment"]
+    if not navigational:
+        navigational = [f"{topic} official docs", f"{topic} github repository"]
+
+    return {
+        "research_context": {
+            "research_notes": research_notes,
+            "supporting_facts": supporting_facts,
+            "related_entities": related_entities
+        },
+        "audience_context": {
+            "audience_level": audience.get("audience_level", "Intermediate"),
+            "pain_points": audience.get("pain_points", []),
+            "goals": audience.get("goals", []),
+            "common_questions": audience.get("common_questions", [])
+        },
+        "competitor_context": {
+            "oversaturated_topics": competitor.get("oversaturated_topics", []),
+            "undercovered_topics": competitor.get("undercovered_topics", []),
+            "content_gaps": competitor.get("content_gaps", [])
+        },
+        "keyword_expansion": {
+            "primary_keywords": primary_kws,
+            "secondary_keywords": secondary_kws,
+            "related_keywords": related_kws
+        },
+        "topic_expansion": {
+            "related_topics": related_topics,
+            "adjacent_topics": adjacent_topics,
+            "semantic_clusters": semantic_clusters
+        },
+        "market_signals": {
+            "demand_score": float(demand_score),
+            "competition_score": float(comp_score),
+            "forecast_score": float(forecast_score),
+            "opportunity_score": float(opp_score)
+        },
+        "search_intent_context": {
+            "informational": informational,
+            "comparative": comparative,
+            "transactional": transactional,
+            "navigational": navigational
+        }
+    }
+
+
 def enrich_context(db: Session, export_id: str) -> Dict[str, Any]:
     """
     Generates Enriched Context v2.0 using parent Analytics Context v1.0.
     1. Loads the export metadata audit log
     2. Writes a draft Enriched Context record
-    3. Triggers LLM or modular Heuristic components
-    4. Renders output as markdown
+    3. Runs Heuristics first
+    4. Triggers LLM for research assist optionally if configured
     5. Saves full JSON and Markdown output, updating status to ready.
     """
     export = db.query(AnalyticsContextExport).filter(AnalyticsContextExport.id == export_id).first()
@@ -40,7 +137,7 @@ def enrich_context(db: Session, export_id: str) -> Dict[str, Any]:
         raise HTTPException(status_code=404, detail="Parent context export not found")
 
     enrichment_id = str(uuid.uuid4())
-    
+
     # Create DRAFT record in database
     enriched_record = AnalyticsEnrichedContext(
         id=enrichment_id,
@@ -48,7 +145,7 @@ def enrich_context(db: Session, export_id: str) -> Dict[str, Any]:
         source_type=export.source_type,
         source_reference_id=export.source_reference_id,
         workspace_id=export.workspace_id,
-        channel_id=None, # Loaded or derived if available
+        channel_id=None,
         topic_name="Pending...",
         context_version="2.0",
         enrichment_version="1.0",
@@ -70,9 +167,8 @@ def enrich_context(db: Session, export_id: str) -> Dict[str, Any]:
         keywords = [sig["keyword"] for sig in signals]
         market_data = context_v1.get("market_data", {})
         competitor_data = context_v1.get("competitor_data", {})
-        insights = context_v1.get("insights", [])
 
-        # 2. Build lightweight source snapshot
+        # 2. Build snapshot
         snapshot = {
             "topic": topic,
             "signals": signals,
@@ -81,21 +177,25 @@ def enrich_context(db: Session, export_id: str) -> Dict[str, Any]:
         }
         source_snapshot_json = json.dumps(snapshot)
 
-        # 3. Enrichment Process
+        # 3. Build heuristic research context (Heuristics First)
+        payload_data = _build_heuristic_enrichment(topic, keywords, market_data, competitor_data)
         generated_by = "heuristic"
-        payload_data = None
 
+        # 4. Optional 9Router Research Assist
         if settings.NINE_ROUTER_URL and settings.NINE_ROUTER_API_KEY:
-            # Let's attempt LLM compilation
             try:
                 system_prompt = (
-                    "You are a master YouTube content strategist and keyword researcher. "
-                    "Analyze the provided Analytics Context (including keywords and metrics) and enrich it with structured planning. "
+                    "You are a master YouTube research assistant. "
+                    "Analyze the provided Analytics Context and Heuristic Research, and refine/enrich it. "
                     "You MUST reply ONLY with a valid JSON object matching the exact structure below. Do not put markdown blocks like ```json around it, do not output conversational text.\n\n"
+                    "CRITICAL: Do NOT generate creative hooks, content angles, outlines, scripts, or content recommendations.\n\n"
                     "JSON Schema structure:\n"
                     "{\n"
-                    "  \"research_notes\": \"Detailed research and fact-finding notes regarding target topics...\",\n"
-                    "  \"research_sources\": [\"Google Trends\", \"YouTube Suggestions\", \"Competitor Coverage\", \"Analytics Insights\"],\n"
+                    "  \"research_context\": {\n"
+                    "    \"research_notes\": [\"note 1\", \"note 2\"],\n"
+                    "    \"supporting_facts\": [\"fact 1\", \"fact 2\"],\n"
+                    "    \"related_entities\": [\"entity 1\", \"entity 2\"]\n"
+                    "  },\n"
                     "  \"audience_context\": {\n"
                     "    \"audience_level\": \"Beginner|Intermediate|Advanced\",\n"
                     "    \"pain_points\": [\"pain point 1\", \"pain point 2\"],\n"
@@ -103,33 +203,46 @@ def enrich_context(db: Session, export_id: str) -> Dict[str, Any]:
                     "    \"common_questions\": [\"question 1\", \"question 2\"]\n"
                     "  },\n"
                     "  \"competitor_context\": {\n"
-                    "    \"oversaturated_topics\": [\"oversaturated 1\", \"oversaturated 2\"],\n"
-                    "    \"undercovered_topics\": [\"undercovered 1\", \"undercovered 2\"],\n"
+                    "    \"oversaturated_topics\": [\"topic 1\", \"topic 2\"],\n"
+                    "    \"undercovered_topics\": [\"topic 1\", \"topic 2\"],\n"
                     "    \"content_gaps\": [\"gap 1\", \"gap 2\"]\n"
                     "  },\n"
-                    "  \"angle_candidates\": [\"Angle 1\", \"Angle 2\", \"Angle 3\", \"Angle 4\", \"Angle 5\"],\n"
-                    "  \"hook_candidates\": [\"Hook 1\", \"Hook 2\", \"Hook 3\", \"Hook 4\"],\n"
-                    "  \"outline_candidates\": [\n"
-                    "    {\"segment\": \"Segment Name\", \"duration\": \"0:00 - 1:00\", \"description\": \"details\"}\n"
-                    "  ],\n"
-                    "  \"recommendations\": {\n"
-                    "    \"best_angle\": \"recommended angle from angles\",\n"
-                    "    \"best_hook\": \"recommended hook from hooks\",\n"
-                    "    \"recommended_video_length\": \"e.g., 10-15 minutes\",\n"
-                    "    \"recommended_audience\": \"e.g., Intermediate developers\",\n"
-                    "    \"confidence_score\": 85\n"
+                    "  \"keyword_expansion\": {\n"
+                    "    \"primary_keywords\": [\"kw 1\", \"kw 2\"],\n"
+                    "    \"secondary_keywords\": [\"kw 1\", \"kw 2\"],\n"
+                    "    \"related_keywords\": [\"kw 1\", \"kw 2\"]\n"
+                    "  },\n"
+                    "  \"topic_expansion\": {\n"
+                    "    \"related_topics\": [\"topic 1\", \"topic 2\"],\n"
+                    "    \"adjacent_topics\": [\"topic 1\", \"topic 2\"],\n"
+                    "    \"semantic_clusters\": [\"cluster 1\", \"cluster 2\"]\n"
+                    "  },\n"
+                    "  \"market_signals\": {\n"
+                    "    \"demand_score\": 0.0,\n"
+                    "    \"competition_score\": 0.0,\n"
+                    "    \"forecast_score\": 0.0,\n"
+                    "    \"opportunity_score\": 0.0\n"
+                    "  },\n"
+                    "  \"search_intent_context\": {\n"
+                    "    \"informational\": [\"query 1\", \"query 2\"],\n"
+                    "    \"comparative\": [\"query 1\", \"query 2\"],\n"
+                    "    \"transactional\": [\"query 1\", \"query 2\"],\n"
+                    "    \"navigational\": [\"query 1\", \"query 2\"]\n"
                     "  }\n"
                     "}"
                 )
 
-                user_message = f"Analytics Context:\n{json.dumps(context_v1, indent=2)}"
-                
+                user_message = (
+                    f"Analytics Context:\n{json.dumps(context_v1, indent=2)}\n\n"
+                    f"Base Heuristic Research:\n{json.dumps(payload_data, indent=2)}"
+                )
+
                 headers = {
                     "Authorization": f"Bearer {settings.NINE_ROUTER_API_KEY}",
                     "Content-Type": "application/json",
                 }
-                
-                payload = {
+
+                req_payload = {
                     "model": settings.NINE_ROUTER_MODEL or "YT_Research",
                     "stream": False,
                     "messages": [
@@ -137,20 +250,19 @@ def enrich_context(db: Session, export_id: str) -> Dict[str, Any]:
                         {"role": "user", "content": user_message}
                     ]
                 }
-                
+
                 from services.runtime_core_service import sanitize_9router_payload
-                payload, timeout_sec = sanitize_9router_payload(db, payload)
+                req_payload, timeout_sec = sanitize_9router_payload(db, req_payload)
 
                 response = requests.post(
                     _build_9router_url(),
-                    json=payload,
+                    json=req_payload,
                     headers=headers,
                     timeout=timeout_sec
                 )
                 response.raise_for_status()
-                
+
                 raw_content = response.json().get("choices", [{}])[0].get("message", {}).get("content", "").strip()
-                # Clean up any potential markdown wraps
                 if raw_content.startswith("```"):
                     raw_content = raw_content.split("\n", 1)[1]
                     if raw_content.endswith("```"):
@@ -158,57 +270,13 @@ def enrich_context(db: Session, export_id: str) -> Dict[str, Any]:
                 raw_content = raw_content.strip()
 
                 parsed_json = json.loads(raw_content)
-                
-                # Check for mandatory keys to validate the LLM structure
-                required_keys = ["research_notes", "audience_context", "competitor_context", "angle_candidates", "hook_candidates", "outline_candidates", "recommendations"]
+
+                required_keys = ["research_context", "audience_context", "competitor_context", "keyword_expansion", "topic_expansion", "market_signals", "search_intent_context"]
                 if all(k in parsed_json for k in required_keys):
                     generated_by = settings.NINE_ROUTER_MODEL or "9router"
                     payload_data = parsed_json
             except Exception as llm_err:
-                print(f"[Enrichment Warning] LLM call failed or produced malformed JSON: {llm_err}. Falling back to Heuristics.")
-                
-        # 4. Heuristic fallbacks if LLM fails or is unconfigured
-        if not payload_data:
-            audience = enrich_audience(topic, keywords)
-            competitor = enrich_competitors(topic, competitor_data)
-            angles = generate_angles(topic, keywords)
-            hooks = generate_hooks(topic, keywords)
-            outlines = generate_outlines(topic, keywords)
-            
-            # Simple rules for recommendations
-            best_angle = angles[2] if len(angles) > 2 else angles[0]
-            best_hook = hooks[0] if hooks else "Modern hook"
-            
-            recommendations = {
-                "best_angle": best_angle,
-                "best_hook": best_hook,
-                "recommended_video_length": "10-15 minutes",
-                "recommended_audience": f"{audience['audience_level']} Developers",
-                "confidence_score": 85
-            }
-            
-            opp_score = market_data.get("opportunity_score", 50.0)
-            forecast_score = market_data.get("forecast_score", 50.0)
-            comp_count = competitor_data.get("video_count", 0)
-            
-            research_notes = (
-                f"Detailed keyword and market indicators for '{topic}'. "
-                f"The topic holds an Opportunity Index of {opp_score:.0f} and a Forecast trajectory of {forecast_score:.0f}. "
-                f"Competitor analysis detected {comp_count} related videos published in observed channels. "
-                f"Key keywords to target include: {', '.join(keywords[:5])}."
-            )
-            
-            payload_data = {
-                "research_notes": research_notes,
-                "research_sources": ["Google Trends", "YouTube Suggestions", "Competitor Coverage", "Analytics Insights"],
-                "audience_context": audience,
-                "competitor_context": competitor,
-                "angle_candidates": angles,
-                "hook_candidates": hooks,
-                "outline_candidates": outlines,
-                "recommendations": recommendations
-            }
-            generated_by = "heuristic"
+                print(f"[Enrichment Warning] LLM call failed or produced malformed JSON: {llm_err}. Using Heuristics.")
 
         # Assemble full Output Schema v2.0
         final_payload = {
@@ -216,20 +284,20 @@ def enrich_context(db: Session, export_id: str) -> Dict[str, Any]:
             "enrichment_version": "1.0",
             "topic_name": topic,
             "generated_by": generated_by,
+            "source_export_id": export_id,
+            "source_type": export.source_type,
+            "source_reference_id": export.source_reference_id,
             "analytics_context": context_v1,
-            "research_context": {
-                "research_notes": payload_data.get("research_notes"),
-                "research_sources": payload_data.get("research_sources", ["Google Trends", "YouTube Suggestions"])
-            },
+            "research_context": payload_data.get("research_context"),
             "audience_context": payload_data.get("audience_context"),
             "competitor_context": payload_data.get("competitor_context"),
-            "angle_candidates": payload_data.get("angle_candidates"),
-            "hook_candidates": payload_data.get("hook_candidates"),
-            "outline_candidates": payload_data.get("outline_candidates"),
-            "recommendations": payload_data.get("recommendations")
+            "keyword_expansion": payload_data.get("keyword_expansion"),
+            "topic_expansion": payload_data.get("topic_expansion"),
+            "market_signals": payload_data.get("market_signals"),
+            "search_intent_context": payload_data.get("search_intent_context")
         }
 
-        # Render preformatted markdown
+        # Render preformatted markdown (Research Report)
         markdown_content = render_enriched_context_markdown(final_payload)
         final_payload["markdown_content"] = markdown_content
 
@@ -240,7 +308,7 @@ def enrich_context(db: Session, export_id: str) -> Dict[str, Any]:
         enriched_record.source_snapshot_json = source_snapshot_json
         enriched_record.payload_json = json.dumps(final_payload)
         enriched_record.markdown_content = markdown_content
-        
+
         db.commit()
         db.refresh(enriched_record)
 
@@ -248,9 +316,9 @@ def enrich_context(db: Session, export_id: str) -> Dict[str, Any]:
 
     except Exception as exc:
         db.rollback()
-        # Set status to failed on database
         failed_record = db.query(AnalyticsEnrichedContext).filter(AnalyticsEnrichedContext.id == enrichment_id).first()
         if failed_record:
             failed_record.status = "failed"
             db.commit()
         raise HTTPException(status_code=500, detail=f"Context enrichment failed: {str(exc)}")
+

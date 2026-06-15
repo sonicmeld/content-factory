@@ -105,13 +105,23 @@ class TestContextEnrichment(unittest.TestCase):
         self.assertEqual(payload["topic_name"], "AI Agents")
         self.assertEqual(payload["generated_by"], "heuristic")
 
-        # Test Markdown content exists
-        self.assertIn("# Enriched Context: AI Agents", payload["markdown_content"])
-        self.assertIn("## 🎯 Recommendations", payload["markdown_content"])
+        # Test Lineage metadata exists
+        self.assertEqual(payload["source_export_id"], "export-1")
+        self.assertEqual(payload["source_type"], "topic")
+        self.assertEqual(payload["source_reference_id"], "topic-1")
 
-        # Test Recommendations exist
-        self.assertIsNotNone(payload["recommendations"])
-        self.assertEqual(payload["recommendations"]["confidence_score"], 85)
+        # Test Markdown content is a Research Report
+        self.assertIn("# Research Report: AI Agents", payload["markdown_content"])
+        self.assertNotIn("## 🎯 Recommendations", payload["markdown_content"])
+        self.assertNotIn("angle_candidates", payload)
+        self.assertNotIn("hook_candidates", payload)
+
+        # Test Search Intent Context exists
+        self.assertIn("search_intent_context", payload)
+        self.assertIn("informational", payload["search_intent_context"])
+        self.assertIn("comparative", payload["search_intent_context"])
+        self.assertIn("transactional", payload["search_intent_context"])
+        self.assertIn("navigational", payload["search_intent_context"])
 
         # Verify DB entry
         record = self.db.query(AnalyticsEnrichedContext).filter(AnalyticsEnrichedContext.export_id == "export-1").first()
@@ -152,3 +162,5 @@ class TestContextEnrichment(unittest.TestCase):
         self.assertEqual(len(history), 1)
         self.assertEqual(history[0]["id"], enrichment_id)
         self.assertEqual(history[0]["status"], "ready")
+
+

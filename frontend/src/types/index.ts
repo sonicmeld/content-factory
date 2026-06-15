@@ -619,10 +619,14 @@ export interface EnrichedContextPayload {
     topic_name: string;
     generated_by: string;
     markdown_content: string;
+    source_export_id: string;
+    source_type: string;
+    source_reference_id: string;
     analytics_context: AIContextPayload;
     research_context: {
-        research_notes: string;
-        research_sources: string[];
+        research_notes: string[];
+        supporting_facts: string[];
+        related_entities: string[];
     };
     audience_context: {
         audience_level: 'Beginner' | 'Intermediate' | 'Advanced';
@@ -635,19 +639,27 @@ export interface EnrichedContextPayload {
         undercovered_topics: string[];
         content_gaps: string[];
     };
-    angle_candidates: string[];
-    hook_candidates: string[];
-    outline_candidates: Array<{
-        segment: string;
-        duration: string;
-        description: string;
-    }>;
-    recommendations: {
-        best_angle: string;
-        best_hook: string;
-        recommended_video_length: string;
-        recommended_audience: string;
-        confidence_score: number;
+    keyword_expansion: {
+        primary_keywords: string[];
+        secondary_keywords: string[];
+        related_keywords: string[];
+    };
+    topic_expansion: {
+        related_topics: string[];
+        adjacent_topics: string[];
+        semantic_clusters: string[];
+    };
+    market_signals: {
+        demand_score: number;
+        competition_score: number;
+        forecast_score: number;
+        opportunity_score: number;
+    };
+    search_intent_context: {
+        informational: string[];
+        comparative: string[];
+        transactional: string[];
+        navigational: string[];
     };
 }
 

@@ -80,27 +80,47 @@ class TestContextPipeline(unittest.TestCase):
             "topic_name": "AI Agents",
             "generated_by": "heuristic",
             "markdown_content": "# Enriched Context: AI Agents\nSome research stuff.",
+            "source_export_id": "export-pipeline-1",
+            "source_type": "topic",
+            "source_reference_id": "topic-pipeline-1",
             "analytics_context": {},
-            "research_context": {},
+            "research_context": {
+                "research_notes": ["Note 1"],
+                "supporting_facts": ["Fact 1"],
+                "related_entities": ["AI Agents"]
+            },
             "audience_context": {
                 "audience_level": "Intermediate",
                 "pain_points": ["lack of automation", "complex APIs"],
-                "goals": ["build agents quickly"]
+                "goals": ["build agents quickly"],
+                "common_questions": ["How to automate?"]
             },
             "competitor_context": {
                 "content_gaps": ["lack of production examples"],
-                "oversaturated_topics": ["basic hello world agents"]
+                "oversaturated_topics": ["basic hello world agents"],
+                "undercovered_topics": ["advanced agents"]
             },
-            "angle_candidates": ["Developer Angle"],
-            "hook_candidates": ["Hook 1"],
-            "outline_candidates": [
-                {"segment": "Introduction", "duration": "1:30", "description": "Show agent running"}
-            ],
-            "recommendations": {
-                "best_angle": "Developer Angle",
-                "best_hook": "Hook 1",
-                "recommended_video_length": "10 min",
-                "recommended_audience": "Software Engineers"
+            "keyword_expansion": {
+                "primary_keywords": ["autogen"],
+                "secondary_keywords": [],
+                "related_keywords": ["how to use autogen"]
+            },
+            "topic_expansion": {
+                "related_topics": ["AI automation"],
+                "adjacent_topics": ["software development"],
+                "semantic_clusters": ["AI deployment"]
+            },
+            "market_signals": {
+                "demand_score": 88.0,
+                "competition_score": 24.0,
+                "forecast_score": 91.0,
+                "opportunity_score": 95.0
+            },
+            "search_intent_context": {
+                "informational": ["how to use autogen"],
+                "comparative": ["autogen vs crewai"],
+                "transactional": ["deploy autogen"],
+                "navigational": ["autogen official docs"]
             }
         }
 
@@ -150,7 +170,7 @@ class TestContextPipeline(unittest.TestCase):
             self.assertEqual(res["source_export_id"], "export-pipeline-1")
             self.assertEqual(res["source_enriched_context_id"], "enriched-pipeline-1")
             self.assertIn("# Fallback YouTube Long-form Script: AI Agents", res["content_markdown"])
-            self.assertIn("Developer Angle", res["content_markdown"])
+            self.assertIn("Tutorial Angle", res["content_markdown"])
             self.assertIn("lack of production examples", res["content_markdown"])
 
     @patch("services.analytics.draft_generation.requests.post")
