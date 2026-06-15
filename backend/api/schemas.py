@@ -500,6 +500,7 @@ class AnalyticsChannelResponse(BaseModel):
     last_sync_duration_seconds: Optional[int] = None
     created_at: datetime
     last_sync_at: Optional[datetime] = None
+    subscribers: Optional[int] = None
 
     model_config = ConfigDict(from_attributes=True)
 

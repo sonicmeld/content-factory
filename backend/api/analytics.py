@@ -238,8 +238,23 @@ def list_observed_channels(channel_id: Optional[str] = None, db: Session = Depen
     if channel_id:
         links = db.query(AnalyticsWorkspaceLink).filter(AnalyticsWorkspaceLink.channel_id == channel_id).all()
         channel_ids = [link.analytics_channel_id for link in links]
-        return query.filter(AnalyticsChannel.id.in_(channel_ids)).all()
-    return query.all()
+        channels = query.filter(AnalyticsChannel.id.in_(channel_ids)).all()
+    else:
+        channels = query.all()
+        
+    result = []
+    for ch in channels:
+        ch_dict = ch.__dict__.copy()
+        # Fetch latest snapshot to get subscribers
+        latest_snapshot = db.query(AnalyticsSnapshot).filter(
+            AnalyticsSnapshot.target_id == ch.id,
+            AnalyticsSnapshot.target_type == "channel"
+        ).order_by(AnalyticsSnapshot.snapshot_date.desc()).first()
+        
+        ch_dict["subscribers"] = latest_snapshot.subscribers if latest_snapshot else None
+        result.append(ch_dict)
+        
+    return result
 
 @router.post("/channels/observe", response_model=AnalyticsChannelResponse)
 def observe_channel(request: ObserveChannelRequest, db: Session = Depends(get_db)):

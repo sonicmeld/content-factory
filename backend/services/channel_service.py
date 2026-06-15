@@ -102,7 +102,8 @@ def populate_oauth_status(db: Session, channel: Channel):
     if not token:
         channel.oauth_status = "OAuth Missing"
     else:
-        if token.expires_at and token.expires_at < datetime.utcnow():
+        # If there's a refresh token, it can be auto-refreshed, so it's technically still connected.
+        if token.expires_at and token.expires_at < datetime.utcnow() and not token.refresh_token:
             channel.oauth_status = "OAuth Expired"
         else:
             channel.oauth_status = "OAuth Connected"

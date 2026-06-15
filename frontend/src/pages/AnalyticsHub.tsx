@@ -418,7 +418,11 @@ export default function AnalyticsHub() {
                                                     {channel.sync_status === 'PENDING' ? (
                                                         <span className="text-xs text-muted-foreground italic font-sans">Pending Initial Sync</span>
                                                     ) : (
-                                                        <span className="font-medium">—</span>
+                                                        <span className="font-medium">
+                                                            {channel.subscribers !== null && channel.subscribers !== undefined 
+                                                                ? channel.subscribers.toLocaleString() 
+                                                                : '—'}
+                                                        </span>
                                                     )}
                                                 </td>
  
