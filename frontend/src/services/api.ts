@@ -469,10 +469,10 @@ import type {
     TopicOpportunitiesDetail
 } from '../types';
 
-export const getMarketTrends = () =>
-    api.get<MarketTrend[]>('/analytics/market/trends').then(res => res.data);
+export const getMarketTrends = (accountId?: string) =>
+    api.get<MarketTrend[]>('/analytics/market/trends', { params: accountId ? { account_id: accountId } : {} }).then(res => res.data);
 
-export const getMarketTopics = (params?: { page?: number; search?: string; sort?: string }) =>
+export const getMarketTopics = (params?: { page?: number; search?: string; sort?: string; account_id?: string }) =>
     api.get<MarketTopic[]>('/analytics/market/topics', { params }).then(res => res.data);
 
 export const getMarketTopic = (id: string) =>
@@ -481,17 +481,21 @@ export const getMarketTopic = (id: string) =>
 export const getMarketTopicOpportunities = (id: string) =>
     api.get<TopicOpportunitiesDetail>(`/analytics/market/topics/${id}/opportunities`).then(res => res.data);
 
-export const getMarketKeywords = (topicId?: string) =>
-    api.get<MarketKeyword[]>('/analytics/market/keywords', { params: { topic_id: topicId } }).then(res => res.data);
+export const getMarketKeywords = (topicId?: string, accountId?: string) =>
+    api.get<MarketKeyword[]>('/analytics/market/keywords', { params: { topic_id: topicId, account_id: accountId } }).then(res => res.data);
 
-export const getMarketOpportunities = () =>
-    api.get<MarketOpportunity[]>('/analytics/market/opportunities').then(res => res.data);
+export const getMarketOpportunities = (accountId?: string) =>
+    api.get<MarketOpportunity[]>('/analytics/market/opportunities', { params: accountId ? { account_id: accountId } : {} }).then(res => res.data);
 
-export const getMarketForecast = () =>
-    api.get<MarketForecast[]>('/analytics/market/forecast').then(res => res.data);
+export const getMarketForecast = (accountId?: string) =>
+    api.get<MarketForecast[]>('/analytics/market/forecast', { params: accountId ? { account_id: accountId } : {} }).then(res => res.data);
 
-export const refreshMarketIntelligence = () =>
-    api.post<{ status: string; topics_analyzed: number; keywords_collected: number; duration_ms: number }>('/analytics/market/refresh').then(res => res.data);
+export const refreshMarketIntelligence = (accountId?: string) =>
+    api.post<{ status: string; topics_analyzed: number; keywords_collected: number; relevance_scored: number; channel_aware: boolean; seed_keywords_used: number; duration_ms: number }>(
+        '/analytics/market/refresh',
+        null,
+        { params: accountId ? { account_id: accountId } : {} }
+    ).then(res => res.data);
 
 export const exportMarketOpportunity = (topicId: string) =>
     api.post<OpportunityExport>('/analytics/market/exports', { topic_id: topicId }).then(res => res.data);

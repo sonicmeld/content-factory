@@ -22,7 +22,9 @@ from database.models import (
     AnalyticsOpportunityExport,
     AnalyticsContextExport,
     AnalyticsGeneratedDraft,
-    YoutubeAccount
+    YoutubeAccount,
+    AnalyticsChannelProfile,
+    AnalyticsTopicRelevance
 )
 from api.schemas import (
     ObserveChannelRequest,
@@ -78,6 +80,8 @@ from services.analytics.topic_radar import cluster_and_save_trends
 from services.analytics.competitor_topic_analysis import analyze_competitor_coverage
 from services.analytics.forecast_engine import calculate_forecasts
 from services.analytics.opportunity_engine import calculate_opportunity_scores
+from services.analytics.channel_profile_extractor import sync_channel_profile, get_seed_keywords
+from services.analytics.topic_relevance import calculate_relevance_scores, get_relevance_map, get_relevance_label
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
@@ -732,20 +736,43 @@ def compare_channels(channel_ids: str, db: Session = Depends(get_db)):
 # --- Sprint D: Market Intelligence Endpoints ---
 
 @router.get("/market/trends", response_model=List[MarketTrendResponse])
-def get_market_trends(db: Session = Depends(get_db)):
+def get_market_trends(account_id: Optional[str] = None, db: Session = Depends(get_db)):
     """
-    Fetch all collected market trends, ordered by collected_at descending.
+    Fetch collected market trends.
+    If account_id provided: filtered to topics relevant to that channel,
+    ordered by relevance_score DESC. Otherwise global, ordered by trend_score DESC.
     """
-    results = db.query(
+    # When account filter is active, get relevant topic_ids
+    relevant_topic_ids = None
+    if account_id:
+        relevance_map = get_relevance_map(db, account_id)
+        # Only include topics with any relevance score > 0
+        relevant_topic_ids = [tid for tid, score in relevance_map.items() if score > 0]
+
+    query = db.query(
         AnalyticsMarketTrend,
         AnalyticsKeyword.keyword
     ).outerjoin(
         AnalyticsKeyword, AnalyticsMarketTrend.keyword_id == AnalyticsKeyword.id
-    ).order_by(AnalyticsMarketTrend.collected_at.desc()).all()
-    
+    )
+
+    if relevant_topic_ids is not None:
+        if relevant_topic_ids:
+            query = query.filter(AnalyticsMarketTrend.topic_id.in_(relevant_topic_ids))
+        else:
+            # Account has profile but no relevant topics yet — return empty
+            return []
+
+    results = query.order_by(AnalyticsMarketTrend.trend_score.desc()).limit(50).all()
+
     trends = []
     for trend, keyword in results:
-        trend_dict = {
+        relevance_score = None
+        relevance_label = None
+        if account_id and relevant_topic_ids is not None:
+            relevance_score = get_relevance_map(db, account_id).get(trend.topic_id, 0.0)
+            relevance_label = get_relevance_label(relevance_score)
+        trends.append({
             "id": trend.id,
             "keyword_id": trend.keyword_id,
             "topic_id": trend.topic_id,
@@ -754,10 +781,12 @@ def get_market_trends(db: Session = Depends(get_db)):
             "growth_rate": trend.growth_rate,
             "region": trend.region,
             "collected_at": trend.collected_at,
-            "keyword": keyword or "Unknown"
-        }
-        trends.append(trend_dict)
+            "keyword": keyword or "Unknown",
+            "relevance_score": relevance_score,
+            "relevance_label": relevance_label
+        })
     return trends
+
 
 
 @router.get("/market/topics", response_model=List[MarketTopicResponse])
@@ -765,35 +794,66 @@ def get_market_topics(
     page: int = 1,
     search: Optional[str] = None,
     sort: Optional[str] = None,
+    account_id: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     """
-    Fetch all clustered topics, supporting pagination, keyword search, and sorting.
+    Fetch clustered topics with optional channel-aware relevance ranking.
+    If account_id provided: topics sorted by relevance_score DESC (channel-aware mode).
+    Otherwise: global mode sorted by opportunity_score DESC.
     """
     limit = 20
     offset = (page - 1) * limit
-    
+
     query = db.query(AnalyticsTopic).filter(AnalyticsTopic.status != "archived")
-    
+
     if search:
         query = query.filter(AnalyticsTopic.topic_name.like(f"%{search}%"))
-        
-    if sort:
-        # e.g., "opportunity_score", "trend_score", "demand_score", "competition_score"
-        if sort == "opportunity_score":
-            query = query.order_by(AnalyticsTopic.opportunity_score.desc())
-        elif sort == "trend_score":
+
+    if account_id:
+        # Channel-aware mode: JOIN with relevance table, sort by relevance DESC
+        relevance_map = get_relevance_map(db, account_id)
+        topics = query.all()
+        # Sort by relevance score, falling back to opportunity_score for ties
+        topics.sort(
+            key=lambda t: (relevance_map.get(t.id, 0.0), t.opportunity_score),
+            reverse=True
+        )
+        # Apply pagination manually after sort
+        paginated = topics[offset:offset + limit]
+        # Attach relevance metadata
+        result = []
+        for t in paginated:
+            t_dict = {
+                "id": t.id,
+                "topic_name": t.topic_name,
+                "topic_slug": t.topic_slug,
+                "fingerprint": t.fingerprint,
+                "status": t.status,
+                "trend_score": t.trend_score,
+                "demand_score": t.demand_score,
+                "competition_score": t.competition_score,
+                "forecast_score": t.forecast_score,
+                "opportunity_score": t.opportunity_score,
+                "last_calculated_at": t.last_calculated_at,
+                "created_at": t.created_at,
+                "updated_at": t.updated_at,
+                "relevance_score": relevance_map.get(t.id, 0.0),
+                "relevance_label": get_relevance_label(relevance_map.get(t.id, 0.0))
+            }
+            result.append(t_dict)
+        return result
+    else:
+        # Global mode: standard sort
+        if sort == "trend_score":
             query = query.order_by(AnalyticsTopic.trend_score.desc())
         elif sort == "demand_score":
             query = query.order_by(AnalyticsTopic.demand_score.desc())
         elif sort == "competition_score":
             query = query.order_by(AnalyticsTopic.competition_score.desc())
         else:
-            query = query.order_by(AnalyticsTopic.topic_name.asc())
-    else:
-        query = query.order_by(AnalyticsTopic.opportunity_score.desc())
-        
-    return query.offset(offset).limit(limit).all()
+            query = query.order_by(AnalyticsTopic.opportunity_score.desc())
+        return query.offset(offset).limit(limit).all()
 
 
 @router.get("/market/topics/{id}", response_model=MarketTopicResponse)
@@ -851,32 +911,68 @@ def get_market_topic_opportunities(id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/market/keywords", response_model=List[MarketKeywordResponse])
-def get_market_keywords(topic_id: Optional[str] = None, db: Session = Depends(get_db)):
+def get_market_keywords(
+    topic_id: Optional[str] = None,
+    account_id: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
     """
-    Fetch all keywords, optionally filtered by topic_id.
+    Fetch keywords. If account_id provided, filter to keywords of relevant topics only.
     """
     query = db.query(AnalyticsKeyword)
+
+    if account_id and not topic_id:
+        # Filter keywords to only those belonging to relevant topics
+        relevance_map = get_relevance_map(db, account_id)
+        relevant_topic_ids = [tid for tid, score in relevance_map.items() if score > 0]
+        if relevant_topic_ids:
+            query = query.filter(AnalyticsKeyword.topic_id.in_(relevant_topic_ids))
+
     if topic_id:
         query = query.filter(AnalyticsKeyword.topic_id == topic_id)
+
     return query.order_by(AnalyticsKeyword.trend_score.desc()).all()
 
 
 @router.get("/market/opportunities", response_model=List[MarketOpportunityResponse])
-def get_market_opportunities(db: Session = Depends(get_db)):
+def get_market_opportunities(account_id: Optional[str] = None, db: Session = Depends(get_db)):
     """
-    Fetch active/emerging opportunities ordered by opportunity_score descending.
+    Fetch active/emerging opportunities.
+    If account_id provided: sorted by relevance_score DESC, then opportunity_score.
+    Otherwise: global, sorted by opportunity_score DESC.
     """
-    return db.query(AnalyticsTopic).filter(
+    base_query = db.query(AnalyticsTopic).filter(
         AnalyticsTopic.status.in_(["active", "emerging"])
-    ).order_by(AnalyticsTopic.opportunity_score.desc()).all()
+    )
+
+    if account_id:
+        relevance_map = get_relevance_map(db, account_id)
+        topics = base_query.all()
+        topics.sort(
+            key=lambda t: (relevance_map.get(t.id, 0.0), t.opportunity_score),
+            reverse=True
+        )
+        return topics
+
+    return base_query.order_by(AnalyticsTopic.opportunity_score.desc()).all()
 
 
 @router.get("/market/forecast", response_model=List[MarketForecastResponse])
-def get_market_forecasts_list(db: Session = Depends(get_db)):
+def get_market_forecasts_list(account_id: Optional[str] = None, db: Session = Depends(get_db)):
     """
-    Calculate and fetch forecasts for all active topics.
+    Calculate forecasts for all active topics.
+    If account_id provided: sorted by relevance_score DESC.
     """
     topics = db.query(AnalyticsTopic).filter(AnalyticsTopic.status != "archived").all()
+
+    relevance_map = get_relevance_map(db, account_id) if account_id else {}
+
+    if account_id and relevance_map:
+        topics.sort(
+            key=lambda t: (relevance_map.get(t.id, 0.0), t.forecast_score),
+            reverse=True
+        )
+
     results = []
     for t in topics:
         f = calculate_forecasts(db, t.id)
@@ -892,44 +988,80 @@ def get_market_forecasts_list(db: Session = Depends(get_db)):
 
 
 @router.post("/market/refresh")
-def refresh_market_intelligence(background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+def refresh_market_intelligence(
+    background_tasks: BackgroundTasks,
+    account_id: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
     """
-    Manually triggers the market collection and calculation pipeline.
-    Runs synchronously to ensure database state is updated immediately for client responsiveness.
+    Channel-Aware Market Intelligence refresh pipeline.
+
+    If account_id is provided:
+      1. sync_channel_profile()      — read from Identity Layer (no OAuth)
+      2. collect_market_trends()     — seeded with channel's niche keywords
+      3. cluster_and_save_trends()   — global pool (no account duplication)
+      4. analyze_competitor_coverage()
+      5. calculate_opportunity_scores()
+      6. calculate_relevance_scores() — score topics for this specific channel
+
+    If account_id is NOT provided:
+      Falls back to legacy global mode using all active account titles.
     """
     start_time = time.time()
-    
-    from database.models import YoutubeAccount
-    # Ambil semua channel yang analytics_enabled = True sebagai sumber niche/keyword
-    active_accounts = db.query(YoutubeAccount).filter(YoutubeAccount.analytics_enabled == True).all()
     seed_keywords = []
-    for account in active_accounts:
-        if account.youtube_channel_title:
-            # Bersihkan judul (misal: hapus suffix atau ambil kata utama)
-            clean_title = account.youtube_channel_title.split("(@")[0].strip()
-            seed_keywords.append(clean_title)
+    profile_synced = False
 
-    # 1. Collect trends and suggestions (fallback ke BOOTSTRAP_KEYWORDS jika tidak ada seed)
+    if account_id:
+        # Phase 1: Sync channel profile from Identity Layer
+        try:
+            sync_channel_profile(db, account_id)
+            seed_keywords = get_seed_keywords(db, account_id)
+            profile_synced = True
+            print(f"[MarketRefresh] Using {len(seed_keywords)} seed keywords from channel profile")
+        except Exception as e:
+            print(f"[MarketRefresh] Profile sync failed: {e} — falling back to title seed")
+
+    if not seed_keywords:
+        # Legacy fallback: use channel titles of all active accounts
+        active_accounts = db.query(YoutubeAccount).filter(
+            YoutubeAccount.analytics_enabled == True
+        ).all()
+        for acct in active_accounts:
+            if acct.youtube_channel_title:
+                clean_title = acct.youtube_channel_title.split("(@")[0].strip()
+                seed_keywords.append(clean_title)
+
+    # Phase 2: Collect market trends
     trends = collect_market_trends(db, seed_keywords if seed_keywords else None)
-    
-    # 2. Cluster keywords and save/update database
+
+    # Phase 3: Cluster keywords into global topic pool
     cluster_and_save_trends(db, trends)
-    
-    # 3. Analyze competitor coverage
+
+    # Phase 4: Analyze competitor coverage
     analyze_competitor_coverage(db)
-    
-    # 4. Calculate opportunity scores and forecasts
+
+    # Phase 5: Calculate opportunity scores (global)
     calculate_opportunity_scores(db)
-    
+
+    # Phase 6: Calculate relevance scores for this channel
+    relevance_count = 0
+    if account_id and profile_synced:
+        try:
+            relevance_count = calculate_relevance_scores(db, account_id)
+        except Exception as e:
+            print(f"[MarketRefresh] Relevance scoring failed: {e}")
+
     duration_ms = int((time.time() - start_time) * 1000)
-    
     topics_count = db.query(AnalyticsTopic).filter(AnalyticsTopic.status != "archived").count()
     keywords_count = db.query(AnalyticsKeyword).count()
-    
+
     return {
         "status": "success",
         "topics_analyzed": topics_count,
         "keywords_collected": keywords_count,
+        "relevance_scored": relevance_count,
+        "channel_aware": bool(account_id and profile_synced),
+        "seed_keywords_used": len(seed_keywords),
         "duration_ms": duration_ms
     }
 

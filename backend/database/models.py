@@ -643,3 +643,50 @@ class AnalyticsGeneratedDraft(Base):
     status = Column(String, nullable=False, default="draft") # draft | reviewed | approved | loaded_to_prompt | archived | deleted
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class AnalyticsChannelProfile(Base):
+    """
+    Analytics Projection Layer — bukan sumber data utama.
+    Data berasal dari YouTube Identity Layer (YoutubeAccount).
+    Menyimpan 'sidik jari niche' channel untuk digunakan sebagai seed
+    Market Intelligence dan relevance scoring.
+    """
+    __tablename__ = "analytics_channel_profiles"
+
+    id = Column(String, primary_key=True)
+    youtube_account_id = Column(String, nullable=False, unique=True)  # FK ke youtube_accounts
+    channel_title = Column(String, nullable=True)
+    channel_description = Column(Text, nullable=True)
+    channel_keywords_raw = Column(Text, nullable=True)         # raw string dari YouTube API brandingSettings
+    seed_keywords_json = Column(Text, nullable=True)           # JSON array: ["ai automation", "n8n", ...]
+    video_titles_sample_json = Column(Text, nullable=True)     # JSON array: sample 30 video titles
+    extracted_at = Column(DateTime, nullable=True)
+    version = Column(Integer, default=1)
+
+    __table_args__ = (
+        Index("idx_analytics_channel_profiles_account_id", "youtube_account_id"),
+    )
+
+
+class AnalyticsTopicRelevance(Base):
+    """
+    Bridge table antara AnalyticsTopic (global) dan YoutubeAccount.
+    Menyimpan relevance_score per (topic x account) tanpa menduplikasi
+    data topic itu sendiri.
+    """
+    __tablename__ = "analytics_topic_relevance"
+
+    id = Column(String, primary_key=True)
+    topic_id = Column(String, nullable=False)               # FK ke analytics_topics
+    youtube_account_id = Column(String, nullable=False)     # FK ke youtube_accounts
+    relevance_score = Column(Float, default=0.0)            # 0.0 - 1.0
+    seed_overlap_count = Column(Integer, default=0)         # jumlah seed keyword yang overlap
+    calculated_at = Column(DateTime, default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("topic_id", "youtube_account_id", name="uq_topic_relevance"),
+        Index("idx_analytics_topic_relevance_account", "youtube_account_id"),
+        Index("idx_analytics_topic_relevance_topic", "topic_id"),
+    )
+

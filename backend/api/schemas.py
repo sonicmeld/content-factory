@@ -654,6 +654,9 @@ class MarketTopicResponse(BaseModel):
     last_calculated_at: datetime
     created_at: datetime
     updated_at: datetime
+    # Channel-aware relevance fields (None when in global mode)
+    relevance_score: Optional[float] = None
+    relevance_label: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -680,6 +683,9 @@ class MarketTrendResponse(BaseModel):
     region: Optional[str] = None
     collected_at: datetime
     keyword: Optional[str] = None
+    # Channel-aware relevance fields (None when in global mode)
+    relevance_score: Optional[float] = None
+    relevance_label: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

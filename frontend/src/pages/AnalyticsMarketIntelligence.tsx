@@ -54,30 +54,30 @@ export default function AnalyticsMarketIntelligence() {
         isLoading: isAccountsLoading,
     } = useYoutubeAccount();
 
-    // Queries
+    // Queries — all channel-aware via activeAccountId
     const { data: trends = [], isLoading: isTrendsLoading } = useQuery({
-        queryKey: ['marketTrends'],
-        queryFn: getMarketTrends
+        queryKey: ['marketTrends', activeAccountId],
+        queryFn: () => getMarketTrends(activeAccountId || undefined)
     });
 
     const { data: topics = [], isLoading: isTopicsLoading } = useQuery({
-        queryKey: ['marketTopics', searchQuery, sortField],
-        queryFn: () => getMarketTopics({ search: searchQuery, sort: sortField })
+        queryKey: ['marketTopics', searchQuery, sortField, activeAccountId],
+        queryFn: () => getMarketTopics({ search: searchQuery, sort: sortField, account_id: activeAccountId || undefined })
     });
 
     const { data: keywords = [], isLoading: isKeywordsLoading } = useQuery({
-        queryKey: ['marketKeywords'],
-        queryFn: () => getMarketKeywords()
+        queryKey: ['marketKeywords', activeAccountId],
+        queryFn: () => getMarketKeywords(undefined, activeAccountId || undefined)
     });
 
     const { data: opportunities = [], isLoading: isOpportunitiesLoading } = useQuery({
-        queryKey: ['marketOpportunities'],
-        queryFn: getMarketOpportunities
+        queryKey: ['marketOpportunities', activeAccountId],
+        queryFn: () => getMarketOpportunities(activeAccountId || undefined)
     });
 
     const { data: forecasts = [], isLoading: isForecastsLoading } = useQuery({
-        queryKey: ['marketForecasts'],
-        queryFn: getMarketForecast
+        queryKey: ['marketForecasts', activeAccountId],
+        queryFn: () => getMarketForecast(activeAccountId || undefined)
     });
 
     const { data: selectedTopicDetails, isLoading: isTopicDetailsLoading } = useQuery({
@@ -88,7 +88,7 @@ export default function AnalyticsMarketIntelligence() {
 
     // Mutations
     const refreshMutation = useMutation({
-        mutationFn: refreshMarketIntelligence,
+        mutationFn: () => refreshMarketIntelligence(activeAccountId || undefined),
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['marketTrends'] });
             queryClient.invalidateQueries({ queryKey: ['marketTopics'] });
@@ -98,7 +98,10 @@ export default function AnalyticsMarketIntelligence() {
             if (selectedTopicId) {
                 queryClient.invalidateQueries({ queryKey: ['marketTopicOpportunities', selectedTopicId] });
             }
-            toast.success(`Refresh complete! Analyzed ${data.topics_analyzed} topics and collected ${data.keywords_collected} keywords in ${data.duration_ms}ms.`);
+            const channelMsg = data.channel_aware
+                ? ` | Channel-Aware (${data.seed_keywords_used} seeds, ${data.relevance_scored} topics scored)`
+                : ' | Global mode';
+            toast.success(`Refresh complete! ${data.topics_analyzed} topics · ${data.keywords_collected} keywords · ${data.duration_ms}ms${channelMsg}`);
         },
         onError: () => {
             toast.error('Failed to refresh market intelligence data');
@@ -301,6 +304,14 @@ export default function AnalyticsMarketIntelligence() {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {topics.map((topic) => {
                                         const isSelected = selectedTopicId === topic.id;
+                                        const relevanceLabel = topic.relevance_label;
+                                        const relevanceBadgeClass = relevanceLabel === 'High'
+                                            ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                                            : relevanceLabel === 'Medium'
+                                            ? 'bg-blue-500/15 text-blue-400 border border-blue-500/30'
+                                            : relevanceLabel === 'Low'
+                                            ? 'bg-amber-500/15 text-amber-500 border border-amber-500/30'
+                                            : null;
                                         return (
                                             <div 
                                                 key={topic.id}
@@ -311,18 +322,44 @@ export default function AnalyticsMarketIntelligence() {
                                             >
                                                 <div>
                                                     <div className="flex items-center justify-between">
-                                                        <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded ${
-                                                            topic.status === 'active' ? 'bg-green-500/10 text-green-500' :
-                                                            topic.status === 'emerging' ? 'bg-blue-500/10 text-blue-500' :
-                                                            'bg-amber-500/10 text-amber-500'
-                                                        }`}>
-                                                            {topic.status}
-                                                        </span>
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded ${
+                                                                topic.status === 'active' ? 'bg-green-500/10 text-green-500' :
+                                                                topic.status === 'emerging' ? 'bg-blue-500/10 text-blue-500' :
+                                                                'bg-amber-500/10 text-amber-500'
+                                                            }`}>
+                                                                {topic.status}
+                                                            </span>
+                                                            {/* Relevance Badge — only visible when channel filter is active */}
+                                                            {activeAccountId && relevanceBadgeClass && (
+                                                                <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded ${relevanceBadgeClass}`}>
+                                                                    {relevanceLabel}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                         <span className="text-[10px] text-muted-foreground font-mono">
                                                             Score: {topic.opportunity_score.toFixed(0)}
                                                         </span>
                                                     </div>
                                                     <h3 className="font-bold text-base mt-2 hover:text-destructive transition-colors">{topic.topic_name}</h3>
+                                                    {/* Relevance score bar — only when channel filter active */}
+                                                    {activeAccountId && topic.relevance_score !== undefined && topic.relevance_score !== null && (
+                                                        <div className="mt-2">
+                                                            <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
+                                                                <span>Channel Relevance</span>
+                                                                <span>{(topic.relevance_score * 100).toFixed(0)}%</span>
+                                                            </div>
+                                                            <div className="w-full bg-secondary/60 rounded-full h-1">
+                                                                <div
+                                                                    className={`h-1 rounded-full transition-all ${
+                                                                        topic.relevance_score >= 0.5 ? 'bg-emerald-500' :
+                                                                        topic.relevance_score >= 0.2 ? 'bg-blue-500' : 'bg-amber-500'
+                                                                    }`}
+                                                                    style={{ width: `${Math.round(topic.relevance_score * 100)}%` }}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
 
                                                 <div className="grid grid-cols-3 gap-2 border-t border-border/40 pt-4 mt-4 text-center">

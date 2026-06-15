@@ -469,6 +469,9 @@ export interface MarketTopic {
     last_calculated_at: string;
     created_at: string;
     updated_at: string;
+    // Channel-aware relevance (present when account_id filter is active)
+    relevance_score?: number;
+    relevance_label?: 'High' | 'Medium' | 'Low' | 'None';
 }
 
 export interface MarketKeyword {
@@ -491,6 +494,9 @@ export interface MarketTrend {
     region?: string;
     collected_at: string;
     keyword?: string;
+    // Channel-aware relevance (present when account_id filter is active)
+    relevance_score?: number;
+    relevance_label?: 'High' | 'Medium' | 'Low' | 'None';
 }
 
 export interface MarketOpportunity {
