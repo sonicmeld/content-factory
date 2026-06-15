@@ -458,13 +458,15 @@ export default function AnalyticsHub() {
                                                     >
                                                         <RefreshCw className={`w-4 h-4 ${channel.sync_status === 'SYNCING' ? 'animate-spin text-green-500' : ''}`} />
                                                     </button>
-                                                    <button 
-                                                        onClick={() => archiveMutation.mutate(channel.id)}
-                                                        title="Archive Channel"
-                                                        className="p-1.5 hover:text-red-400 bg-secondary rounded transition-colors"
-                                                    >
-                                                        <Archive className="w-4 h-4" />
-                                                    </button>
+                                                    {channel.analytics_type !== 'owned' && !channel.is_own && (
+                                                        <button 
+                                                            onClick={() => archiveMutation.mutate(channel.id)}
+                                                            title="Archive Channel"
+                                                            className="p-1.5 hover:text-red-400 bg-secondary rounded transition-colors"
+                                                        >
+                                                            <Archive className="w-4 h-4" />
+                                                        </button>
+                                                    )}
                                                 </td>
                                             </tr>
                                         );
