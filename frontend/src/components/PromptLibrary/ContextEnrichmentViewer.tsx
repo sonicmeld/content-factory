@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Sparkles, BookOpen, Users, Compass, Anchor, Layout, Eye, Check, Copy, Flame, ShieldAlert, Award } from 'lucide-react';
+import { X, Sparkles, BookOpen, Users, Compass, Anchor, Layout, Flame, ShieldAlert, Award } from 'lucide-react';
 import type { EnrichedContextPayload } from '../../types';
 
 interface Props {
@@ -30,7 +30,7 @@ export default function ContextEnrichmentViewer({ payload, onClose, onLoadIntoBu
     const keywordExpansion = payload.keywords || {};
     const topicExpansion = payload.signals?.topic_expansion || {};
     const searchIntentContext = payload.signals?.search_intent_context || {};
-    const marketSignals = payload.signals?.market_signals || {};
+    const marketSignals = (payload.signals?.market_signals || {}) as any;
 
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-200">
