@@ -10,7 +10,6 @@ import {
     Archive, 
     Trash2, 
     Eye, 
-    TrendingUp, 
     Clock, 
     AlertTriangle,
     ExternalLink,
