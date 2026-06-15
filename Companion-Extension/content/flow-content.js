@@ -932,18 +932,24 @@ if (window.top !== window.self) {
                            iconTexts.includes('arrow_forward') ||
                            accessibleText.includes('arrow_forward');
           const hasCreate = lowerText.includes('create') ||
+                            lowerText.includes('generate') ||
                             accessibleText.includes('create') ||
-                            btn.querySelector('span')?.textContent?.trim().toLowerCase() === 'create';
+                            accessibleText.includes('generate') ||
+                            btn.querySelector('span')?.textContent?.trim().toLowerCase() === 'create' ||
+                            btn.querySelector('span')?.textContent?.trim().toLowerCase() === 'generate';
           const hasAdd2 = html.includes('add_2') || iconTexts.includes('add_2');
           const isDialog = btn.getAttribute('aria-haspopup') === 'dialog';
           const isMenuButton = btn.getAttribute('aria-haspopup') === 'menu';
 
-          if (!hasArrow || hasAdd2 || isDialog || isMenuButton) continue;
-          if (!hasCreate && !lowerText.includes('arrow_forward')) continue;
+          if (hasAdd2 || isDialog || isMenuButton) continue;
+          if (!hasCreate && !hasArrow) continue;
           if (!isVisibleElement(btn) || isButtonDisabled(btn)) continue;
 
           const rect = btn.getBoundingClientRect();
-          candidates.push({ btn, score: (hasCreate ? 10 : 0) + rect.width + rect.height });
+          let score = rect.width + rect.height;
+          if (hasCreate) score += 100;
+          if (hasArrow) score += 50;
+          candidates.push({ btn, score });
         }
 
         candidates.sort((a, b) => b.score - a.score);
