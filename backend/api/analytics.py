@@ -21,7 +21,8 @@ from database.models import (
     AnalyticsMarketTrend,
     AnalyticsOpportunityExport,
     AnalyticsContextExport,
-    AnalyticsGeneratedDraft
+    AnalyticsGeneratedDraft,
+    YoutubeAccount
 )
 from api.schemas import (
     ObserveChannelRequest,
@@ -234,7 +235,20 @@ def cleanup_sync_logs_retention(db: Session):
 
 @router.get("/channels", response_model=List[AnalyticsChannelResponse])
 def list_observed_channels(channel_id: Optional[str] = None, db: Session = Depends(get_db)):
-    query = db.query(AnalyticsChannel).filter(AnalyticsChannel.is_archived == False)
+    from sqlalchemy import or_
+    
+    query = db.query(AnalyticsChannel).outerjoin(
+        AnalyticsChannelIdentity, AnalyticsChannel.id == AnalyticsChannelIdentity.analytics_channel_id
+    ).outerjoin(
+        YoutubeAccount, AnalyticsChannelIdentity.identity_reference_id == YoutubeAccount.id
+    ).filter(
+        AnalyticsChannel.is_archived == False,
+        or_(
+            YoutubeAccount.id == None,
+            YoutubeAccount.analytics_enabled == True
+        )
+    )
+    
     if channel_id:
         links = db.query(AnalyticsWorkspaceLink).filter(AnalyticsWorkspaceLink.channel_id == channel_id).all()
         channel_ids = [link.analytics_channel_id for link in links]
