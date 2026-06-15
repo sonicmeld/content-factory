@@ -312,6 +312,7 @@ export interface AnalyticsChannel {
     last_sync_duration_seconds?: number;
     created_at: string;
     last_sync_at?: string;
+    subscribers?: number;
 }
 
 export interface AnalyticsOverview {
