@@ -235,27 +235,28 @@ def cleanup_sync_logs_retention(db: Session):
 
 @router.get("/channels", response_model=List[AnalyticsChannelResponse])
 def list_observed_channels(channel_id: Optional[str] = None, db: Session = Depends(get_db)):
-    from sqlalchemy import or_
-    
-    query = db.query(AnalyticsChannel).outerjoin(
-        AnalyticsChannelIdentity, AnalyticsChannel.id == AnalyticsChannelIdentity.analytics_channel_id
-    ).outerjoin(
-        YoutubeAccount, AnalyticsChannelIdentity.identity_reference_id == YoutubeAccount.id
-    ).filter(
+    # Find all analytics_channel_ids that are linked to a DISABLED YoutubeAccount
+    disabled_account_ids = db.query(YoutubeAccount.id).filter(
+        YoutubeAccount.analytics_enabled == False
+    ).subquery()
+
+    disabled_analytics_channel_ids = db.query(AnalyticsChannelIdentity.analytics_channel_id).filter(
+        AnalyticsChannelIdentity.identity_reference_id.in_(disabled_account_ids)
+    ).subquery()
+
+    # Base query: exclude archived AND those linked to disabled accounts
+    query = db.query(AnalyticsChannel).filter(
         AnalyticsChannel.is_archived == False,
-        or_(
-            YoutubeAccount.id == None,
-            YoutubeAccount.analytics_enabled == True
-        )
+        AnalyticsChannel.id.not_in(disabled_analytics_channel_ids)
     )
-    
+
     if channel_id:
         links = db.query(AnalyticsWorkspaceLink).filter(AnalyticsWorkspaceLink.channel_id == channel_id).all()
         channel_ids = [link.analytics_channel_id for link in links]
         channels = query.filter(AnalyticsChannel.id.in_(channel_ids)).all()
     else:
         channels = query.all()
-        
+
     result = []
     for ch in channels:
         ch_dict = ch.__dict__.copy()
@@ -264,10 +265,10 @@ def list_observed_channels(channel_id: Optional[str] = None, db: Session = Depen
             AnalyticsSnapshot.target_id == ch.id,
             AnalyticsSnapshot.target_type == "channel"
         ).order_by(AnalyticsSnapshot.snapshot_date.desc()).first()
-        
+
         ch_dict["subscribers"] = latest_snapshot.subscribers if latest_snapshot else None
         result.append(ch_dict)
-        
+
     return result
 
 @router.post("/channels/observe", response_model=AnalyticsChannelResponse)
