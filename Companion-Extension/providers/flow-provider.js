@@ -19,11 +19,11 @@ export class FlowProvider extends BaseProvider {
 
     const settings = await ClientManager.getSettings();
     
-    // Determine generation type and aspect ratio: forced to 16:9 HD for both
-    const isFootage = job.asset_type === 'footage';
-    const type = isFootage ? 'video' : 'image';
+    // Determine generation type and aspect ratio: forced to 16:9 HD for both.
+    // Footage and thumbnail both generate image outputs (PNG/JPG).
+    const type = 'image';
     const ratio = '16:9'; // Forced 16:9 aspect ratio for YouTube
-    const downloadQuality = isFootage ? '720p' : '1K'; // HD dimensions (1K = 1280x720 for image, 720p for video)
+    const downloadQuality = '1K'; // HD dimensions (1K = 1280x720 for image)
 
     // Prepare prompt payload settings
     const payloadSettings = {

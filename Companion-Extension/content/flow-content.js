@@ -1457,10 +1457,10 @@ if (window.top !== window.self) {
         return true;
       }
 
-      // Download a single image via background script (chrome.downloads)
       function downloadImage(url, promptIndex, batchIndex, settings) {
-        const ext = (settings.type === 'video') ? 'mp4' : 'jpg';
-        const prefix = (settings.type === 'video') ? 'Flow_Video' : 'Flow_Image';
+        const isFootage = settings.job_details && settings.job_details.asset_type === 'footage';
+        const ext = (settings.type === 'video') ? 'mp4' : (isFootage ? 'png' : 'jpg');
+        const prefix = (settings.type === 'video') ? 'Flow_Video' : (isFootage ? 'Flow_Footage' : 'Flow_Image');
 
         // Generate prompt words for filename (first 5 words, sanitized)
         const promptWords = ''; // Could enhance if we have access to current prompt text
