@@ -734,3 +734,19 @@ export interface ChannelUploadPreference {
     updated_at?: string;
 }
 
+export interface ChannelPublishingDefault {
+    channel_id: string;
+    preferred_publish_time: string;
+    timezone?: string;
+    default_playlist_id?: string;
+    auto_schedule_enabled: boolean;
+    created_at?: string;
+    updated_at?: string;
+}
+
+export interface YoutubePlaylist {
+    id: string;
+    title: string;
+}
+
+

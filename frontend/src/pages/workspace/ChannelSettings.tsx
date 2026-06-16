@@ -1,7 +1,7 @@
-import { Info, PlaySquare, Plug, AlertTriangle, CheckCircle2, Loader2, Save, Tag, X } from 'lucide-react';
+import { Info, PlaySquare, Plug, AlertTriangle, CheckCircle2, Loader2, Save, Tag, X, Calendar, Clock } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getChannels, updateChannel, connectOAuth, disconnectOAuth, getChannelUploadPreferences, updateChannelUploadPreferences } from '../../services/api';
+import { getChannels, updateChannel, connectOAuth, disconnectOAuth, getChannelUploadPreferences, updateChannelUploadPreferences, getChannelPublishingDefaults, updateChannelPublishingDefaults, getChannelPlaylists } from '../../services/api';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import PromptAssignmentManager from '../../components/PromptAssignmentManager';
@@ -38,6 +38,19 @@ const YOUTUBE_LANGUAGES = [
     { code: 'ko', name: 'Korean' }
 ];
 
+const TIMEZONES = [
+    { value: 'UTC', label: 'UTC (Coordinated Universal Time)' },
+    { value: 'Asia/Jakarta', label: 'Asia/Jakarta (WIB)' },
+    { value: 'Asia/Singapore', label: 'Asia/Singapore (SGT)' },
+    { value: 'Asia/Tokyo', label: 'Asia/Tokyo (JST)' },
+    { value: 'America/New_York', label: 'America/New_York (EST/EDT)' },
+    { value: 'America/Los_Angeles', label: 'America/Los_Angeles (PST/PDT)' },
+    { value: 'America/Chicago', label: 'America/Chicago (CST/CDT)' },
+    { value: 'Europe/London', label: 'Europe/London (GMT/BST)' },
+    { value: 'Europe/Paris', label: 'Europe/Paris (CET/CEST)' },
+    { value: 'Australia/Sydney', label: 'Australia/Sydney (AEST/AEDT)' }
+];
+
 export default function ChannelSettings() {
     const { slug } = useParams();
     const queryClient = useQueryClient();
@@ -55,11 +68,31 @@ export default function ChannelSettings() {
     const [defaultTags, setDefaultTags] = useState<string[]>([]);
     const [newTagInput, setNewTagInput] = useState('');
 
+    // Publishing Defaults State
+    const [preferredPublishTime, setPreferredPublishTime] = useState('19:00');
+    const [timezone, setTimezone] = useState('UTC');
+    const [defaultPlaylistId, setDefaultPlaylistId] = useState('');
+    const [autoScheduleEnabled, setAutoScheduleEnabled] = useState(false);
+
     const { data: uploadPreferences, isLoading: isLoadingPrefs } = useQuery({
         queryKey: ['channel-upload-preferences', currentChannel?.id],
         queryFn: () => getChannelUploadPreferences(currentChannel!.id),
         enabled: !!currentChannel?.id
     });
+
+    const { data: publishingDefaults, isLoading: isLoadingPubs } = useQuery({
+        queryKey: ['channel-publishing-defaults', currentChannel?.id],
+        queryFn: () => getChannelPublishingDefaults(currentChannel!.id),
+        enabled: !!currentChannel?.id
+    });
+
+    const { data: playlists = [], isLoading: isLoadingPlaylists } = useQuery({
+        queryKey: ['channel-playlists', currentChannel?.id],
+        queryFn: () => getChannelPlaylists(currentChannel!.id),
+        enabled: !!currentChannel?.id,
+        retry: false
+    });
+
 
     useEffect(() => {
         if (currentChannel) {
@@ -76,6 +109,42 @@ export default function ChannelSettings() {
             setDefaultTags(uploadPreferences.default_tags || []);
         }
     }, [uploadPreferences]);
+
+    useEffect(() => {
+        if (publishingDefaults) {
+            setPreferredPublishTime(publishingDefaults.preferred_publish_time);
+            setTimezone(publishingDefaults.timezone || 'UTC');
+            setDefaultPlaylistId(publishingDefaults.default_playlist_id || '');
+            setAutoScheduleEnabled(publishingDefaults.auto_schedule_enabled);
+        }
+    }, [publishingDefaults]);
+
+    const savePubsMutation = useMutation({
+        mutationFn: (data: {
+            preferred_publish_time: string;
+            timezone: string;
+            default_playlist_id: string | null;
+            auto_schedule_enabled: boolean;
+        }) => updateChannelPublishingDefaults(currentChannel!.id, data),
+        onSuccess: () => {
+            toast.success('Publishing defaults saved');
+            queryClient.invalidateQueries({ queryKey: ['channel-publishing-defaults', currentChannel!.id] });
+        },
+        onError: (err: any) => {
+            const msg = err.response?.data?.detail || 'Failed to save publishing defaults';
+            toast.error(msg);
+        }
+    });
+
+    const handleSavePubs = (e: React.FormEvent) => {
+        e.preventDefault();
+        savePubsMutation.mutate({
+            preferred_publish_time: preferredPublishTime,
+            timezone: timezone,
+            default_playlist_id: defaultPlaylistId || null,
+            auto_schedule_enabled: autoScheduleEnabled
+        });
+    };
 
     const updateMutation = useMutation({
         mutationFn: () => updateChannel(currentChannel!.id, { name, is_active: isActive ? 1 : 0 }),
@@ -414,16 +483,110 @@ export default function ChannelSettings() {
                 {/* Prompt Assignment Manager */}
                 <PromptAssignmentManager channelId={currentChannel.id} />
 
-                <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden opacity-60">
+                {/* Publishing Defaults */}
+                <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
                     <div className="px-6 py-4 border-b border-border bg-secondary/30 flex items-center justify-between">
-                        <h3 className="font-semibold">Publishing Defaults</h3>
-                        <span className="text-[10px] font-bold uppercase bg-secondary px-2 py-0.5 rounded-full text-muted-foreground">Planned Feature</span>
+                        <div className="flex items-center gap-2">
+                            <Calendar className="w-5 h-5 text-emerald-500" />
+                            <h3 className="font-semibold text-lg">Publishing Defaults</h3>
+                        </div>
                     </div>
                     <div className="p-6">
-                        <p className="text-sm text-muted-foreground">Set automatic scheduling behaviors, preferred publish times, and playlist assignments.</p>
+                        {isLoadingPubs ? (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+                                <Loader2 className="w-4 h-4 animate-spin text-emerald-500" />
+                                Loading publishing defaults...
+                            </div>
+                        ) : (
+                            <form onSubmit={handleSavePubs} className="space-y-4">
+                                <div className="flex items-start gap-2 pt-2">
+                                    <input 
+                                        type="checkbox" 
+                                        id="autoScheduleEnabled"
+                                        checked={autoScheduleEnabled}
+                                        onChange={e => setAutoScheduleEnabled(e.target.checked)}
+                                        className="rounded border-border bg-background mt-1"
+                                    />
+                                    <div className="space-y-0.5">
+                                        <label htmlFor="autoScheduleEnabled" className="text-sm font-medium cursor-pointer">Enable Auto Scheduling</label>
+                                        <p className="text-xs text-muted-foreground">Automatically schedule publication time for all uploaded videos.</p>
+                                    </div>
+                                </div>
+
+                                {autoScheduleEnabled && (
+                                    <div className="space-y-4 pt-2 border-t border-border">
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium flex items-center gap-1">
+                                                <Clock className="w-4 h-4 text-muted-foreground" />
+                                                Preferred Publish Time
+                                            </label>
+                                            <input 
+                                                type="text"
+                                                placeholder="19:00"
+                                                value={preferredPublishTime}
+                                                onChange={e => setPreferredPublishTime(e.target.value)}
+                                                className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                                            />
+                                            <p className="text-xs text-muted-foreground">Specify the post time in 24-hour HH:MM format.</p>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium">Timezone</label>
+                                            <select
+                                                value={timezone}
+                                                onChange={e => setTimezone(e.target.value)}
+                                                className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                                            >
+                                                {TIMEZONES.map(tz => (
+                                                    <option key={tz.value} value={tz.value}>{tz.label}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="space-y-2 pt-2 border-t border-border">
+                                    <label className="text-sm font-medium">Default Playlist</label>
+                                    {isLoadingPlaylists ? (
+                                        <div className="text-xs text-muted-foreground flex items-center gap-1 py-1">
+                                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                            Loading playlists...
+                                        </div>
+                                    ) : playlists.length > 0 ? (
+                                        <select
+                                            value={defaultPlaylistId}
+                                            onChange={e => setDefaultPlaylistId(e.target.value)}
+                                            className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                                        >
+                                            <option value="">-- No Playlist Assignment --</option>
+                                            {playlists.map(pl => (
+                                                <option key={pl.id} value={pl.id}>{pl.title}</option>
+                                            ))}
+                                        </select>
+                                    ) : (
+                                        <div className="text-xs text-muted-foreground bg-secondary/50 border border-border rounded px-3 py-2">
+                                            No playlists found. Connect YouTube OAuth to load playlists.
+                                        </div>
+                                    )}
+                                    <p className="text-xs text-muted-foreground">Select a default playlist to automatically assign uploaded videos.</p>
+                                </div>
+
+                                <div className="pt-2">
+                                    <button 
+                                        type="submit"
+                                        disabled={savePubsMutation.isPending}
+                                        className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+                                    >
+                                        {savePubsMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                        Save Publishing Defaults
+                                    </button>
+                                </div>
+                            </form>
+                        )}
                     </div>
                 </div>
             </div>
+
 
         </div>
     );

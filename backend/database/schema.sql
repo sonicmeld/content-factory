@@ -473,3 +473,17 @@ CREATE TABLE IF NOT EXISTS channel_upload_preferences (
 );
 
 CREATE INDEX IF NOT EXISTS idx_channel_upload_preferences_channel ON channel_upload_preferences (channel_id);
+
+CREATE TABLE IF NOT EXISTS channel_publishing_defaults (
+    id TEXT PRIMARY KEY,
+    channel_id TEXT NOT NULL UNIQUE,
+    preferred_publish_time TEXT NOT NULL DEFAULT '19:00',
+    timezone TEXT,
+    default_playlist_id TEXT,
+    auto_schedule_enabled INTEGER NOT NULL DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_channel_publishing_defaults_channel ON channel_publishing_defaults (channel_id);
+

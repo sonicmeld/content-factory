@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Channel, GCPProfile, UploadJob, Asset, Prompt, ContentPackage, ChannelStorageStats, QueueItem, PackageGeneration, PromptContext, GenerationCombo, GenerationReadiness, MetadataVariant, GenerationAsset, MetadataLibraryItem, ExternalAccount, ConnectorJob, AssetInbox, ResearchContextRecord, EnrichedContextPayload, AnalyticsGeneratedDraft, PipelineStats, YoutubeAccount, YoutubeSyncResult, ChannelUploadPreference } from '../types';
+import type { Channel, GCPProfile, UploadJob, Asset, Prompt, ContentPackage, ChannelStorageStats, QueueItem, PackageGeneration, PromptContext, GenerationCombo, GenerationReadiness, MetadataVariant, GenerationAsset, MetadataLibraryItem, ExternalAccount, ConnectorJob, AssetInbox, ResearchContextRecord, EnrichedContextPayload, AnalyticsGeneratedDraft, PipelineStats, YoutubeAccount, YoutubeSyncResult, ChannelUploadPreference, ChannelPublishingDefault, YoutubePlaylist } from '../types';
 
 const api = axios.create({
     baseURL: '/api',
@@ -14,6 +14,10 @@ export const deleteChannel = (id: string) => api.delete(`/channels/${id}`).then(
 export const getChannelStorage = (id: string) => api.get<ChannelStorageStats>(`/channels/${id}/storage`).then(res => res.data);
 export const getChannelUploadPreferences = (channelId: string) => api.get<ChannelUploadPreference>(`/channels/${channelId}/upload-preferences`).then(res => res.data);
 export const updateChannelUploadPreferences = (channelId: string, data: Partial<ChannelUploadPreference>) => api.put<ChannelUploadPreference>(`/channels/${channelId}/upload-preferences`, data).then(res => res.data);
+export const getChannelPublishingDefaults = (channelId: string) => api.get<ChannelPublishingDefault>(`/channels/${channelId}/publishing-defaults`).then(res => res.data);
+export const updateChannelPublishingDefaults = (channelId: string, data: Partial<ChannelPublishingDefault>) => api.put<ChannelPublishingDefault>(`/channels/${channelId}/publishing-defaults`, data).then(res => res.data);
+export const getChannelPlaylists = (channelId: string) => api.get<YoutubePlaylist[]>(`/channels/${channelId}/playlists`).then(res => res.data);
+
 
 
 // GCP Profiles

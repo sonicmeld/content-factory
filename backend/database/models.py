@@ -754,3 +754,17 @@ class ChannelUploadPreference(Base):
         except Exception:
             return []
 
+
+class ChannelPublishingDefault(Base):
+    __tablename__ = "channel_publishing_defaults"
+
+    id = Column(String, primary_key=True)
+    channel_id = Column(String, nullable=False, unique=True)
+    preferred_publish_time = Column(String, nullable=False, default="19:00")
+    timezone = Column(String, nullable=True)
+    default_playlist_id = Column(String, nullable=True)
+    auto_schedule_enabled = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+

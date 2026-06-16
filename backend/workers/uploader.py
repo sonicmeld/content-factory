@@ -65,7 +65,17 @@ def upload_to_youtube(db: Session, job_id: str):
         if pref.default_tags:
             body['snippet']['tags'] = pref.default_tags
 
-        
+
+        # Apply publishing defaults scheduling
+        from services.publishing_defaults_executor import apply_scheduling_defaults
+        publish_at_str = apply_scheduling_defaults(db, job.channel_id, body)
+        if publish_at_str:
+            from datetime import datetime
+            naive_dt = datetime.strptime(publish_at_str, "%Y-%m-%dT%H:%M:%SZ")
+            job.scheduled_at = naive_dt
+            db.commit()
+
+
         media = MediaFileUpload(job.video_path, chunksize=256*1024, resumable=True)
         
         request = youtube.videos().insert(
@@ -83,9 +93,17 @@ def upload_to_youtube(db: Session, job_id: str):
                 upload_logger.info(f"Job {job_id}: Uploaded {progress_pct}%")
                 update_progress(job_id, progress_pct, "uploading")
                 
-        upload_logger.info(f"Job {job_id} successfully published to YouTube! Video ID: {response.get('id')}")
+        video_id = response.get("id")
+        upload_logger.info(f"Job {job_id} successfully published to YouTube! Video ID: {video_id}")
+        
+        # Post-upload playlist assignment (non-blocking)
+        if video_id:
+            from services.publishing_defaults_executor import assign_playlist_defaults
+            assign_playlist_defaults(db, job.channel_id, youtube, video_id)
+            
         upload_repository.update_job(db, job, {"status": "published"})
         clear_progress(job_id)
+
 
     except Exception as e:
         clear_progress(job_id)

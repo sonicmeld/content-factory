@@ -91,7 +91,17 @@ def upload_video(db: Session, job: UploadJob) -> dict:
         body["snippet"]["tags"] = pref.default_tags
 
 
-    # 7. Upload via resumable upload
+    # 7.5 Apply publishing defaults scheduling
+    from services.publishing_defaults_executor import apply_scheduling_defaults
+    publish_at_str = apply_scheduling_defaults(db, job.channel_id, body)
+    if publish_at_str:
+        from datetime import datetime
+        naive_dt = datetime.strptime(publish_at_str, "%Y-%m-%dT%H:%M:%SZ")
+        job.scheduled_at = naive_dt
+        db.commit()
+
+
+    # 8. Upload via resumable upload
     media = MediaFileUpload(video_path, mimetype="video/mp4", resumable=True)
 
     try:
@@ -118,7 +128,7 @@ def upload_video(db: Session, job: UploadJob) -> dict:
             detail=f"YouTube upload failed: {str(e)}"
         )
 
-    # 8. Extract result
+    # 9. Extract result
     video_id = response.get("id")
     if not video_id:
         raise HTTPException(
@@ -126,7 +136,12 @@ def upload_video(db: Session, job: UploadJob) -> dict:
             detail="YouTube upload completed but no video ID was returned."
         )
 
+    # 9.5 Post-upload: default playlist assignment (non-blocking)
+    from services.publishing_defaults_executor import assign_playlist_defaults
+    assign_playlist_defaults(db, job.channel_id, youtube, video_id)
+
     video_url = f"https://www.youtube.com/watch?v={video_id}"
+
 
     return {
         "video_id": video_id,

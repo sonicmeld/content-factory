@@ -921,3 +921,28 @@ class ChannelUploadPreferenceResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+
+class ChannelPublishingDefaultUpdate(BaseModel):
+    preferred_publish_time: str
+    timezone: Optional[str] = None
+    default_playlist_id: Optional[str] = None
+    auto_schedule_enabled: bool
+
+
+class ChannelPublishingDefaultResponse(BaseModel):
+    channel_id: str
+    preferred_publish_time: str
+    timezone: Optional[str] = None
+    default_playlist_id: Optional[str] = None
+    auto_schedule_enabled: bool
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class YoutubePlaylistResponse(BaseModel):
+    id: str
+    title: str
+
+
