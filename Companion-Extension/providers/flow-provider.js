@@ -19,24 +19,18 @@ export class FlowProvider extends BaseProvider {
 
     const settings = await ClientManager.getSettings();
     
-    // Determine generation type and aspect ratio based on YouTube target size (Standard vs Shorts)
+    // Determine generation type and aspect ratio: forced to 16:9 HD for both
     const isFootage = job.asset_type === 'footage';
     const type = isFootage ? 'video' : 'image';
-    
-    const promptLower = (job.prompt || '').toLowerCase();
-    const isVertical = promptLower.includes('shorts') || 
-                       promptLower.includes('short') || 
-                       promptLower.includes('vertical') || 
-                       promptLower.includes('portrait') || 
-                       promptLower.includes('9:16');
-    const ratio = isVertical ? '9:16' : '16:9';
+    const ratio = '16:9'; // Forced 16:9 aspect ratio for YouTube
+    const downloadQuality = isFootage ? '720p' : '1K'; // HD dimensions (1K = 1280x720 for image, 720p for video)
 
     // Prepare prompt payload settings
     const payloadSettings = {
       type: type,
       ratio: ratio,
       batch: '1',    // Default output count is 1 for automation
-      downloadQuality: 'default',
+      downloadQuality: downloadQuality,
       globalDelayMs: 2000,
       job_details: job // Pass details down to content script download trigger
     };
