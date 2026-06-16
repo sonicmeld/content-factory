@@ -460,3 +460,16 @@ CREATE INDEX IF NOT EXISTS idx_youtube_accounts_youtube_channel_id ON youtube_ac
 -- dan analytics_generated_drafts ditambahkan melalui Alembic migration:
 -- a1b2c3d4e5f6_youtube_identity_layer_consolidation.py
 -- Schema.sql hanya berisi CREATE TABLE (idempotent), bukan ALTER TABLE.
+
+CREATE TABLE IF NOT EXISTS channel_upload_preferences (
+    id TEXT PRIMARY KEY,
+    channel_id TEXT NOT NULL UNIQUE,
+    privacy_status TEXT NOT NULL DEFAULT 'private',
+    category_id TEXT,
+    default_language TEXT,
+    default_tags_json TEXT NOT NULL DEFAULT '[]',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_channel_upload_preferences_channel ON channel_upload_preferences (channel_id);

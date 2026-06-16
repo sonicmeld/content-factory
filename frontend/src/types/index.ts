@@ -723,3 +723,14 @@ export interface YoutubeSyncResult {
     updated: number;
     message: string;
 }
+
+export interface ChannelUploadPreference {
+    channel_id: string;
+    privacy_status: 'private' | 'unlisted' | 'public';
+    category_id?: string;
+    default_language?: string;
+    default_tags: string[];
+    created_at?: string;
+    updated_at?: string;
+}
+

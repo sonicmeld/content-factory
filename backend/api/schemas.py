@@ -901,3 +901,23 @@ class YoutubeSyncResponse(BaseModel):
     created: int
     updated: int
     message: str
+
+
+class ChannelUploadPreferenceUpdate(BaseModel):
+    privacy_status: str
+    category_id: Optional[str] = None
+    default_language: Optional[str] = None
+    default_tags: List[str] = []
+
+
+class ChannelUploadPreferenceResponse(BaseModel):
+    channel_id: str
+    privacy_status: str
+    category_id: Optional[str] = None
+    default_language: Optional[str] = None
+    default_tags: List[str] = []
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+

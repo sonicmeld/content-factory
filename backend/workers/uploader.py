@@ -45,16 +45,26 @@ def upload_to_youtube(db: Session, job_id: str):
         
         youtube = build(YOUTUBE_API_SERVICE_NAME, YOUTUBE_API_VERSION, credentials=credentials)
         
+        from services.channel_upload_preferences import get_preferences
+        pref = get_preferences(db, job.channel_id)
+
         body = {
             'snippet': {
                 'title': job.title or "Untitled",
                 'description': job.description or "",
-                'categoryId': '22'
+                'categoryId': pref.category_id or '22'
             },
             'status': {
-                'privacyStatus': 'private'
+                'privacyStatus': pref.privacy_status or 'private'
             }
         }
+
+        if pref.default_language:
+            body['snippet']['defaultLanguage'] = pref.default_language
+
+        if pref.default_tags:
+            body['snippet']['tags'] = pref.default_tags
+
         
         media = MediaFileUpload(job.video_path, chunksize=256*1024, resumable=True)
         

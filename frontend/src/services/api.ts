@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Channel, GCPProfile, UploadJob, Asset, Prompt, ContentPackage, ChannelStorageStats, QueueItem, PackageGeneration, PromptContext, GenerationCombo, GenerationReadiness, MetadataVariant, GenerationAsset, MetadataLibraryItem, ExternalAccount, ConnectorJob, AssetInbox, ResearchContextRecord, EnrichedContextPayload, AnalyticsGeneratedDraft, PipelineStats, YoutubeAccount, YoutubeSyncResult } from '../types';
+import type { Channel, GCPProfile, UploadJob, Asset, Prompt, ContentPackage, ChannelStorageStats, QueueItem, PackageGeneration, PromptContext, GenerationCombo, GenerationReadiness, MetadataVariant, GenerationAsset, MetadataLibraryItem, ExternalAccount, ConnectorJob, AssetInbox, ResearchContextRecord, EnrichedContextPayload, AnalyticsGeneratedDraft, PipelineStats, YoutubeAccount, YoutubeSyncResult, ChannelUploadPreference } from '../types';
 
 const api = axios.create({
     baseURL: '/api',
@@ -12,6 +12,9 @@ export const createChannel = (data: Partial<Channel>) => api.post<Channel>('/cha
 export const updateChannel = (id: string, data: Partial<Channel>) => api.put<Channel>(`/channels/${id}`, data).then(res => res.data);
 export const deleteChannel = (id: string) => api.delete(`/channels/${id}`).then(res => res.data);
 export const getChannelStorage = (id: string) => api.get<ChannelStorageStats>(`/channels/${id}/storage`).then(res => res.data);
+export const getChannelUploadPreferences = (channelId: string) => api.get<ChannelUploadPreference>(`/channels/${channelId}/upload-preferences`).then(res => res.data);
+export const updateChannelUploadPreferences = (channelId: string, data: Partial<ChannelUploadPreference>) => api.put<ChannelUploadPreference>(`/channels/${channelId}/upload-preferences`, data).then(res => res.data);
+
 
 // GCP Profiles
 export const getGCPProfiles = () => api.get<GCPProfile[]>('/gcp-profiles').then(res => res.data);

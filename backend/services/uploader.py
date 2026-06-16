@@ -68,17 +68,28 @@ def upload_video(db: Session, job: UploadJob) -> dict:
             detail=f"Failed to build YouTube API client: {str(e)}"
         )
 
-    # 6. Prepare video metadata (MVP: private only)
+    # 6. Load channel upload preferences
+    from services.channel_upload_preferences import get_preferences
+    pref = get_preferences(db, job.channel_id)
+
+    # 7. Prepare video metadata
     body = {
         "snippet": {
             "title": title,
-            "description": "",   # Sprint 7 MVP: no description required
-            "categoryId": "22"   # Category: People & Blogs (generic default)
+            "description": job.description or "",
+            "categoryId": pref.category_id or "22"
         },
         "status": {
-            "privacyStatus": "private"
+            "privacyStatus": pref.privacy_status or "private"
         }
     }
+
+    if pref.default_language:
+        body["snippet"]["defaultLanguage"] = pref.default_language
+
+    if pref.default_tags:
+        body["snippet"]["tags"] = pref.default_tags
+
 
     # 7. Upload via resumable upload
     media = MediaFileUpload(video_path, mimetype="video/mp4", resumable=True)

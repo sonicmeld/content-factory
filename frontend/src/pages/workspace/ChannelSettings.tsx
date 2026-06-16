@@ -1,10 +1,42 @@
-import { Info, PlaySquare, Plug, AlertTriangle, CheckCircle2, Loader2, Save } from 'lucide-react';
+import { Info, PlaySquare, Plug, AlertTriangle, CheckCircle2, Loader2, Save, Tag, X } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getChannels, updateChannel, connectOAuth, disconnectOAuth } from '../../services/api';
+import { getChannels, updateChannel, connectOAuth, disconnectOAuth, getChannelUploadPreferences, updateChannelUploadPreferences } from '../../services/api';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import PromptAssignmentManager from '../../components/PromptAssignmentManager';
+
+const YOUTUBE_CATEGORIES = [
+    { id: '1', name: 'Film & Animation' },
+    { id: '2', name: 'Autos & Vehicles' },
+    { id: '10', name: 'Music' },
+    { id: '15', name: 'Pets & Animals' },
+    { id: '17', name: 'Sports' },
+    { id: '19', name: 'Travel & Events' },
+    { id: '20', name: 'Gaming' },
+    { id: '22', name: 'People & Blogs' },
+    { id: '23', name: 'Comedy' },
+    { id: '24', name: 'Entertainment' },
+    { id: '25', name: 'News & Politics' },
+    { id: '26', name: 'Howto & Style' },
+    { id: '27', name: 'Education' },
+    { id: '28', name: 'Science & Technology' },
+    { id: '29', name: 'Nonprofits & Activism' }
+];
+
+const YOUTUBE_LANGUAGES = [
+    { code: 'en', name: 'English' },
+    { code: 'id', name: 'Indonesian' },
+    { code: 'es', name: 'Spanish' },
+    { code: 'fr', name: 'French' },
+    { code: 'de', name: 'German' },
+    { code: 'ja', name: 'Japanese' },
+    { code: 'zh', name: 'Chinese' },
+    { code: 'hi', name: 'Hindi' },
+    { code: 'pt', name: 'Portuguese' },
+    { code: 'ru', name: 'Russian' },
+    { code: 'ko', name: 'Korean' }
+];
 
 export default function ChannelSettings() {
     const { slug } = useParams();
@@ -16,12 +48,34 @@ export default function ChannelSettings() {
     const [name, setName] = useState('');
     const [isActive, setIsActive] = useState(true);
 
+    // Upload Preferences State
+    const [privacyStatus, setPrivacyStatus] = useState<'private' | 'unlisted' | 'public'>('private');
+    const [categoryId, setCategoryId] = useState('22');
+    const [defaultLanguage, setDefaultLanguage] = useState('en');
+    const [defaultTags, setDefaultTags] = useState<string[]>([]);
+    const [newTagInput, setNewTagInput] = useState('');
+
+    const { data: uploadPreferences, isLoading: isLoadingPrefs } = useQuery({
+        queryKey: ['channel-upload-preferences', currentChannel?.id],
+        queryFn: () => getChannelUploadPreferences(currentChannel!.id),
+        enabled: !!currentChannel?.id
+    });
+
     useEffect(() => {
         if (currentChannel) {
             setName(currentChannel.name);
             setIsActive(currentChannel.is_active === 1);
         }
     }, [currentChannel]);
+
+    useEffect(() => {
+        if (uploadPreferences) {
+            setPrivacyStatus(uploadPreferences.privacy_status);
+            setCategoryId(uploadPreferences.category_id || '22');
+            setDefaultLanguage(uploadPreferences.default_language || 'en');
+            setDefaultTags(uploadPreferences.default_tags || []);
+        }
+    }, [uploadPreferences]);
 
     const updateMutation = useMutation({
         mutationFn: () => updateChannel(currentChannel!.id, { name, is_active: isActive ? 1 : 0 }),
@@ -30,6 +84,23 @@ export default function ChannelSettings() {
             queryClient.invalidateQueries({ queryKey: ['channels'] });
         },
         onError: () => toast.error('Failed to update channel')
+    });
+
+    const savePrefsMutation = useMutation({
+        mutationFn: (data: {
+            privacy_status: 'private' | 'unlisted' | 'public';
+            category_id: string;
+            default_language: string;
+            default_tags: string[];
+        }) => updateChannelUploadPreferences(currentChannel!.id, data),
+        onSuccess: () => {
+            toast.success('Upload preferences saved');
+            queryClient.invalidateQueries({ queryKey: ['channel-upload-preferences', currentChannel!.id] });
+        },
+        onError: (err: any) => {
+            const msg = err.response?.data?.detail || 'Failed to save upload preferences';
+            toast.error(msg);
+        }
     });
 
     const connectOAuthMutation = useMutation({
@@ -65,7 +136,57 @@ export default function ChannelSettings() {
         updateMutation.mutate();
     };
 
+    const handleSavePrefs = (e: React.FormEvent) => {
+        e.preventDefault();
+        const currentLength = defaultTags.join(',').length;
+        if (currentLength > 500) {
+            toast.error('Combined tags length cannot exceed 500 characters.');
+            return;
+        }
+        savePrefsMutation.mutate({
+            privacy_status: privacyStatus,
+            category_id: categoryId,
+            default_language: defaultLanguage,
+            default_tags: defaultTags
+        });
+    };
+
+    const handleAddTag = (tagText: string) => {
+        const cleaned = tagText.replace(/,/g, '').trim();
+        if (!cleaned) return;
+        if (defaultTags.includes(cleaned)) {
+            setNewTagInput('');
+            return;
+        }
+        
+        const newTags = [...defaultTags, cleaned];
+        const newLength = newTags.join(',').length;
+        if (newLength > 500) {
+            toast.error('Combined tags length cannot exceed 500 characters.');
+            return;
+        }
+        
+        setDefaultTags(newTags);
+        setNewTagInput('');
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleAddTag(newTagInput);
+        } else if (e.key === ',') {
+            e.preventDefault();
+            handleAddTag(newTagInput);
+        }
+    };
+
+    const handleRemoveTag = (indexToRemove: number) => {
+        setDefaultTags(defaultTags.filter((_, idx) => idx !== indexToRemove));
+    };
+
     const isOAuthConnected = currentChannel.oauth_status === 'OAuth Connected';
+    const currentTagsLength = defaultTags.join(',').length;
+
 
     return (
         <div className="space-y-8 max-w-4xl pb-10">
@@ -185,19 +306,111 @@ export default function ChannelSettings() {
 
 
 
-            {/* Future Features */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
-                <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden opacity-60">
-                    <div className="px-6 py-4 border-b border-border bg-secondary/30 flex items-center justify-between">
-                        <h3 className="font-semibold">Upload Preferences</h3>
-                        <span className="text-[10px] font-bold uppercase bg-secondary px-2 py-0.5 rounded-full text-muted-foreground">Planned Feature</span>
-                    </div>
-                    <div className="p-6">
-                        <p className="text-sm text-muted-foreground">Configure default privacy status (Public, Private, Unlisted), tags, and category for all videos in this channel.</p>
-                    </div>
+            {/* YouTube Upload Preferences */}
+            <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+                <div className="px-6 py-4 border-b border-border bg-secondary/30 flex items-center gap-2">
+                    <Tag className="w-5 h-5 text-indigo-500" />
+                    <h3 className="font-semibold text-lg">YouTube Upload Preferences</h3>
                 </div>
+                <div className="p-6">
+                    {isLoadingPrefs ? (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+                            <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
+                            Loading preferences...
+                        </div>
+                    ) : (
+                        <form onSubmit={handleSavePrefs} className="space-y-4 max-w-lg">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Default Privacy Status</label>
+                                <select
+                                    value={privacyStatus}
+                                    onChange={e => setPrivacyStatus(e.target.value as 'private' | 'unlisted' | 'public')}
+                                    className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                                >
+                                    <option value="private">Private</option>
+                                    <option value="unlisted">Unlisted</option>
+                                    <option value="public">Public</option>
+                                </select>
+                            </div>
 
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">YouTube Video Category</label>
+                                <select
+                                    value={categoryId}
+                                    onChange={e => setCategoryId(e.target.value)}
+                                    className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                                >
+                                    {YOUTUBE_CATEGORIES.map(cat => (
+                                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Default Video Language</label>
+                                <select
+                                    value={defaultLanguage}
+                                    onChange={e => setDefaultLanguage(e.target.value)}
+                                    className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                                >
+                                    {YOUTUBE_LANGUAGES.map(lang => (
+                                        <option key={lang.code} value={lang.code}>{lang.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Default Video Tags</label>
+                                <div className="flex flex-wrap gap-2 p-2 bg-background border border-border rounded-md min-h-[42px] focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent transition-all">
+                                    {defaultTags.map((tag, idx) => (
+                                        <span key={idx} className="flex items-center gap-1 bg-secondary text-secondary-foreground text-xs font-medium px-2 py-1 rounded-md select-none">
+                                            {tag}
+                                            <button
+                                                type="button"
+                                                onClick={() => handleRemoveTag(idx)}
+                                                className="hover:text-destructive text-muted-foreground focus:outline-none transition-colors"
+                                            >
+                                                <X className="w-3.5 h-3.5" />
+                                            </button>
+                                        </span>
+                                    ))}
+                                    <input
+                                        type="text"
+                                        placeholder={defaultTags.length === 0 ? "Add tags (press Enter or comma)..." : ""}
+                                        value={newTagInput}
+                                        onChange={e => setNewTagInput(e.target.value)}
+                                        onKeyDown={handleKeyDown}
+                                        onBlur={() => handleAddTag(newTagInput)}
+                                        className="flex-1 bg-transparent border-none outline-none text-sm p-0.5 min-w-[120px] focus:ring-0 focus:outline-none"
+                                    />
+                                </div>
+                                <div className="flex justify-between items-center text-xs text-muted-foreground mt-1">
+                                    <span className={currentTagsLength > 450 ? "text-amber-500 font-medium animate-pulse" : ""}>
+                                        {currentTagsLength} / 500 characters
+                                    </span>
+                                    {currentTagsLength > 500 && (
+                                        <span className="text-destructive font-semibold">Over 500 character limit!</span>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="pt-2">
+                                <button
+                                    type="submit"
+                                    disabled={savePrefsMutation.isPending || currentTagsLength > 500}
+                                    className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {savePrefsMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                    Save Upload Preferences
+                                </button>
+                            </div>
+                        </form>
+                    )}
+                </div>
+            </div>
+
+            {/* Other controls */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Prompt Assignment Manager */}
                 <PromptAssignmentManager channelId={currentChannel.id} />
 
@@ -210,8 +423,8 @@ export default function ChannelSettings() {
                         <p className="text-sm text-muted-foreground">Set automatic scheduling behaviors, preferred publish times, and playlist assignments.</p>
                     </div>
                 </div>
-
             </div>
+
         </div>
     );
 }

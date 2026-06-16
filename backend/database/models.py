@@ -734,3 +734,23 @@ class AnalyticsTopicRelevance(Base):
         Index("idx_analytics_topic_relevance_topic", "topic_id"),
     )
 
+
+class ChannelUploadPreference(Base):
+    __tablename__ = "channel_upload_preferences"
+
+    id = Column(String, primary_key=True)
+    channel_id = Column(String, nullable=False, unique=True)
+    privacy_status = Column(String, nullable=False, default="private")
+    category_id = Column(String, nullable=True)
+    default_language = Column(String, nullable=True)
+    default_tags_json = Column(Text, nullable=False, default="[]")
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    @property
+    def default_tags(self) -> List[str]:
+        try:
+            return json.loads(self.default_tags_json)
+        except Exception:
+            return []
+
