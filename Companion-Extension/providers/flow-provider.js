@@ -19,10 +19,22 @@ export class FlowProvider extends BaseProvider {
 
     const settings = await ClientManager.getSettings();
     
+    // Determine generation type and aspect ratio based on YouTube target size (Standard vs Shorts)
+    const isFootage = job.asset_type === 'footage';
+    const type = isFootage ? 'video' : 'image';
+    
+    const promptLower = (job.prompt || '').toLowerCase();
+    const isVertical = promptLower.includes('shorts') || 
+                       promptLower.includes('short') || 
+                       promptLower.includes('vertical') || 
+                       promptLower.includes('portrait') || 
+                       promptLower.includes('9:16');
+    const ratio = isVertical ? '9:16' : '16:9';
+
     // Prepare prompt payload settings
     const payloadSettings = {
-      type: 'image', // Footage Workbox generates image asset (PNG/JPG)
-      ratio: '16:9',
+      type: type,
+      ratio: ratio,
       batch: '1',    // Default output count is 1 for automation
       downloadQuality: 'default',
       globalDelayMs: 2000,
