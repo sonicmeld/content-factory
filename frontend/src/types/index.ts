@@ -737,8 +737,8 @@ export interface ChannelUploadPreference {
 export interface ChannelPublishingDefault {
     channel_id: string;
     preferred_publish_time: string;
-    timezone?: string;
-    default_playlist_id?: string;
+    timezone?: string | null;
+    default_playlist_id?: string | null;
     auto_schedule_enabled: boolean;
     created_at?: string;
     updated_at?: string;
