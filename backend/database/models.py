@@ -331,6 +331,7 @@ class AssetInbox(Base):
     file_path = Column(String, nullable=False)
     inbox_metadata = Column("metadata", Text, nullable=True)
     created_at = Column(DateTime, default=func.now())
+    deleted_at = Column(DateTime, nullable=True)
 
 
 class PromptExpertDraft(Base):

@@ -159,13 +159,6 @@ export default function ProductionForm({ assetType, disabled = false }: Producti
         onSuccess: (jobs) => {
             const data = jobs[0];
             toast.success(`${jobs.length} External connector job(s) logged: ${data.provider}`);
-            const urlMap: Record<string, string> = {
-                'Google Flow': 'https://labs.google/fx/tools/flow',
-                'Gemini': 'https://gemini.google.com',
-                'ChatGPT': 'https://chatgpt.com',
-            };
-            const targetUrl = urlMap[data.provider] || 'https://labs.google/fx/tools/flow';
-            window.open(targetUrl, '_blank');
             queryClient.invalidateQueries({ queryKey: ['connector-jobs', slug] });
         },
         onError: (err: any) => {
@@ -503,15 +496,15 @@ export default function ProductionForm({ assetType, disabled = false }: Producti
                 {genMode === 'external' ? (
                     <button
                         onClick={handleGenerate}
-                        disabled={disabled || isProcessing}
-                        className="w-full flex items-center justify-center space-x-2 bg-indigo-600 hover:bg-indigo-700 py-2.5 rounded-xl font-bold text-xs transition-all text-white disabled:opacity-50"
+                        disabled={disabled || isProcessing || !selectedExternalContextId}
+                        className="w-full flex items-center justify-center space-x-2 bg-indigo-600 hover:bg-indigo-700 py-2.5 rounded-xl font-bold text-xs transition-all text-white disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {isProcessing ? (
                             <Loader2 className="w-4.5 h-4.5 animate-spin" />
                         ) : (
-                            <ExternalLink className="w-4.5 h-4.5" />
+                            <PlayCircle className="w-4.5 h-4.5" />
                         )}
-                        <span>Open in {selectedExternalProvider}</span>
+                        <span>Generate {assetType}</span>
                     </button>
                 ) : (
                     <button

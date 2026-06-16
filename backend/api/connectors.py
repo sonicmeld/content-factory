@@ -247,7 +247,8 @@ def to_inbox_response(item: AssetInbox) -> AssetInboxResponse:
         status=item.status,
         file_path=item.file_path,
         metadata=item.inbox_metadata,
-        created_at=item.created_at
+        created_at=item.created_at,
+        deleted_at=item.deleted_at
     )
 
 @router.post("/inbox/upload", response_model=AssetInboxResponse)
@@ -301,8 +302,12 @@ def get_inbox_assets(
     query = db.query(AssetInbox)
     if workspace_id:
         query = query.filter(AssetInbox.workspace_id == workspace_id)
-    if status:
-        query = query.filter(AssetInbox.status == status)
+    if status == "deleted":
+        query = query.filter(AssetInbox.deleted_at != None)
+    else:
+        query = query.filter(AssetInbox.deleted_at == None)
+        if status and status != "all":
+            query = query.filter(AssetInbox.status == status)
     items = query.order_by(AssetInbox.created_at.desc()).all()
     return [to_inbox_response(item) for item in items]
 
@@ -420,6 +425,95 @@ def archive_inbox_asset(
     db.commit()
     db.refresh(inbox_item)
     return to_inbox_response(inbox_item)
+
+
+from pydantic import BaseModel
+
+class BulkInboxActionRequest(BaseModel):
+    ids: List[str]
+
+@router.post("/inbox/{inbox_id}/delete", response_model=AssetInboxResponse)
+def delete_inbox_asset(
+    inbox_id: str,
+    db: Session = Depends(get_db)
+):
+    inbox_item = db.query(AssetInbox).filter(AssetInbox.id == inbox_id).first()
+    if not inbox_item:
+        raise HTTPException(status_code=404, detail="Inbox item not found")
+        
+    inbox_item.deleted_at = datetime.datetime.utcnow()
+    db.commit()
+    db.refresh(inbox_item)
+    return to_inbox_response(inbox_item)
+
+@router.post("/inbox/{inbox_id}/restore", response_model=AssetInboxResponse)
+def restore_inbox_asset(
+    inbox_id: str,
+    db: Session = Depends(get_db)
+):
+    inbox_item = db.query(AssetInbox).filter(AssetInbox.id == inbox_id).first()
+    if not inbox_item:
+        raise HTTPException(status_code=404, detail="Inbox item not found")
+        
+    inbox_item.deleted_at = None
+    db.commit()
+    db.refresh(inbox_item)
+    return to_inbox_response(inbox_item)
+
+@router.post("/inbox/{inbox_id}/purge")
+def purge_inbox_asset(
+    inbox_id: str,
+    db: Session = Depends(get_db)
+):
+    inbox_item = db.query(AssetInbox).filter(AssetInbox.id == inbox_id).first()
+    if not inbox_item:
+        raise HTTPException(status_code=404, detail="Inbox item not found")
+        
+    # Purge: permanent file deletion if NOT approved
+    if inbox_item.status != "approved" and os.path.exists(inbox_item.file_path):
+        try:
+            os.remove(inbox_item.file_path)
+        except Exception:
+            pass
+            
+    db.delete(inbox_item)
+    db.commit()
+    return {"message": "Inbox item permanently purged"}
+
+@router.post("/inbox/purge-imported")
+def purge_imported_inbox_assets(
+    db: Session = Depends(get_db)
+):
+    inbox_items = db.query(AssetInbox).filter(AssetInbox.status.in_(["approved", "rejected"])).all()
+    count = 0
+    for item in inbox_items:
+        if item.status != "approved" and os.path.exists(item.file_path):
+            try:
+                os.remove(item.file_path)
+            except Exception:
+                pass
+        db.delete(item)
+        count += 1
+    db.commit()
+    return {"message": f"Successfully purged {count} imported and routed inbox assets"}
+
+@router.post("/inbox/bulk/archive")
+def bulk_archive_inbox_assets(
+    req: BulkInboxActionRequest,
+    db: Session = Depends(get_db)
+):
+    db.query(AssetInbox).filter(AssetInbox.id.in_(req.ids)).update({"status": "archived"}, synchronize_session=False)
+    db.commit()
+    return {"message": f"Successfully archived {len(req.ids)} inbox assets"}
+
+@router.post("/inbox/bulk/delete")
+def bulk_delete_inbox_assets(
+    req: BulkInboxActionRequest,
+    db: Session = Depends(get_db)
+):
+    db.query(AssetInbox).filter(AssetInbox.id.in_(req.ids)).update({"deleted_at": datetime.datetime.utcnow()}, synchronize_session=False)
+    db.commit()
+    return {"message": f"Successfully soft-deleted {len(req.ids)} inbox assets"}
 
 
 import httpx

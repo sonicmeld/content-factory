@@ -300,6 +300,24 @@ export const rejectInboxAsset = (id: string) =>
 export const archiveInboxAsset = (id: string) =>
     api.post<AssetInbox>(`/connectors/inbox/${id}/archive`).then(res => res.data);
 
+export const deleteInboxAsset = (id: string) =>
+    api.post<AssetInbox>(`/connectors/inbox/${id}/delete`).then(res => res.data);
+
+export const restoreInboxAsset = (id: string) =>
+    api.post<AssetInbox>(`/connectors/inbox/${id}/restore`).then(res => res.data);
+
+export const purgeInboxAsset = (id: string) =>
+    api.post<{ message: string }>(`/connectors/inbox/${id}/purge`).then(res => res.data);
+
+export const purgeImportedInboxAssets = () =>
+    api.post<{ message: string }>('/connectors/inbox/purge-imported').then(res => res.data);
+
+export const bulkArchiveInboxAssets = (ids: string[]) =>
+    api.post<{ message: string }>('/connectors/inbox/bulk/archive', { ids }).then(res => res.data);
+
+export const bulkDeleteInboxAssets = (ids: string[]) =>
+    api.post<{ message: string }>('/connectors/inbox/bulk/delete', { ids }).then(res => res.data);
+
 export const generateSingleModelAsset = (data: {
     workspace_id: string;
     asset_type: string;

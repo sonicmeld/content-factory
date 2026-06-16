@@ -285,6 +285,7 @@ export interface AssetInbox {
     file_path: string;
     metadata?: string;
     created_at: string;
+    deleted_at?: string;
 }
 
 export interface CompanionRuntime {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -20,7 +20,11 @@ import {
     Calendar,
     Settings,
     Globe,
-    Plug
+    Plug,
+    Eye,
+    MoreVertical,
+    RotateCcw,
+    ShieldAlert
 } from 'lucide-react';
 import {
     getInboxAssets,
@@ -37,7 +41,13 @@ import {
     deleteConnectorJob,
     getProviders,
     getCompanionRuntimes,
-    revokeCompanionRuntime
+    revokeCompanionRuntime,
+    deleteInboxAsset,
+    restoreInboxAsset,
+    purgeInboxAsset,
+    purgeImportedInboxAssets,
+    bulkArchiveInboxAssets,
+    bulkDeleteInboxAssets
 } from '../services/api';
 import type { AssetInbox } from '../types';
 
@@ -46,8 +56,14 @@ type TabType = 'inbox' | 'accounts' | 'jobs' | 'providers' | 'runtimes';
 export default function ConnectorsPage() {
     const queryClient = useQueryClient();
     const [activeTab, setActiveTab] = useState<TabType>('inbox');
-    const [inboxFilter, setInboxFilter] = useState<'pending' | 'approved' | 'rejected' | 'archived'>('pending');
+    const [inboxFilter, setInboxFilter] = useState<'pending' | 'approved' | 'rejected' | 'archived' | 'deleted'>('pending');
     const [selectedWorkspace, setSelectedWorkspace] = useState<string>('all');
+
+    const [selectedInboxIds, setSelectedInboxIds] = useState<string[]>([]);
+    const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
+    const [viewingAsset, setViewingAsset] = useState<AssetInbox | null>(null);
+    const [purgingAsset, setPurgingAsset] = useState<AssetInbox | null>(null);
+    const [showPurgeImportedModal, setShowPurgeImportedModal] = useState<boolean>(false);
 
     // For Approve Destination Modal
     const [selectedAsset, setSelectedAsset] = useState<AssetInbox | null>(null);
@@ -211,6 +227,84 @@ export default function ConnectorsPage() {
         onError: () => toast.error('Failed to clear connector jobs')
     });
 
+    const deleteInboxAssetMutation = useMutation({
+        mutationFn: (id: string) => deleteInboxAsset(id),
+        onSuccess: (_, id) => {
+            toast.success('Asset soft-deleted');
+            setSelectedInboxIds(prev => prev.filter(sid => sid !== id));
+            refetchInbox();
+        },
+        onError: (err: any) => {
+            toast.error(err.response?.data?.detail || 'Failed to delete asset');
+        }
+    });
+
+    const restoreInboxAssetMutation = useMutation({
+        mutationFn: (id: string) => restoreInboxAsset(id),
+        onSuccess: () => {
+            toast.success('Asset restored');
+            refetchInbox();
+        },
+        onError: (err: any) => {
+            toast.error(err.response?.data?.detail || 'Failed to restore asset');
+        }
+    });
+
+    const purgeInboxAssetMutation = useMutation({
+        mutationFn: (id: string) => purgeInboxAsset(id),
+        onSuccess: (_, id) => {
+            toast.success('Asset permanently purged');
+            setSelectedInboxIds(prev => prev.filter(sid => sid !== id));
+            refetchInbox();
+        },
+        onError: (err: any) => {
+            toast.error(err.response?.data?.detail || 'Failed to purge asset');
+        }
+    });
+
+    const purgeImportedInboxAssetsMutation = useMutation({
+        mutationFn: () => purgeImportedInboxAssets(),
+        onSuccess: (data: any) => {
+            toast.success(data.message || 'Imported assets purged successfully');
+            refetchInbox();
+        },
+        onError: (err: any) => {
+            toast.error(err.response?.data?.detail || 'Failed to purge imported assets');
+        }
+    });
+
+    const bulkArchiveInboxAssetsMutation = useMutation({
+        mutationFn: (ids: string[]) => bulkArchiveInboxAssets(ids),
+        onSuccess: () => {
+            toast.success('Selected assets archived');
+            setSelectedInboxIds([]);
+            refetchInbox();
+        },
+        onError: (err: any) => {
+            toast.error(err.response?.data?.detail || 'Failed to archive selected assets');
+        }
+    });
+
+    const bulkDeleteInboxAssetsMutation = useMutation({
+        mutationFn: (ids: string[]) => bulkDeleteInboxAssets(ids),
+        onSuccess: () => {
+            toast.success('Selected assets soft-deleted');
+            setSelectedInboxIds([]);
+            refetchInbox();
+        },
+        onError: (err: any) => {
+            toast.error(err.response?.data?.detail || 'Failed to delete selected assets');
+        }
+    });
+
+    useEffect(() => {
+        const handleOutsideClick = () => {
+            setActiveDropdownId(null);
+        };
+        window.addEventListener('click', handleOutsideClick);
+        return () => window.removeEventListener('click', handleOutsideClick);
+    }, []);
+
     // Helper to extract preview URL
     const getAssetPreviewUrl = (asset: AssetInbox) => {
         const filename = asset.file_path.split(/[/\\]/).pop();
@@ -347,21 +441,76 @@ export default function ConnectorsPage() {
             {/* TAB CONTENT: ASSET INBOX */}
             {activeTab === 'inbox' && (
                 <div className="space-y-6">
-                    {/* Inbox sub-tabs */}
-                    <div className="flex bg-muted/40 p-1 rounded-xl w-fit border border-border/40 gap-1">
-                        {(['pending', 'approved', 'rejected', 'archived'] as const).map((filter) => (
+                    {/* Inbox sub-tabs & Bulk Actions Toolbar */}
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-muted/10 p-3 rounded-2xl border border-border/50">
+                        <div className="flex bg-muted/40 p-1 rounded-xl w-fit border border-border/40 gap-1 shrink-0">
+                            {(['pending', 'approved', 'rejected', 'archived', 'deleted'] as const).map((filter) => (
+                                <button
+                                    key={filter}
+                                    onClick={() => {
+                                        setInboxFilter(filter);
+                                        setSelectedInboxIds([]); // Clear selection when filter changes
+                                    }}
+                                    className={`text-xs font-semibold px-4 py-2 rounded-lg transition-all capitalize ${
+                                        inboxFilter === filter
+                                            ? 'bg-card text-foreground shadow-sm'
+                                            : 'text-muted-foreground hover:text-foreground'
+                                    }`}
+                                >
+                                    {filter}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                            {inboxAssets.length > 0 && (
+                                <label className="flex items-center gap-2 px-3 py-2 rounded-xl bg-secondary/50 border border-border text-xs font-semibold cursor-pointer select-none hover:bg-secondary transition-colors">
+                                    <input
+                                        type="checkbox"
+                                        checked={inboxAssets.length > 0 && selectedInboxIds.length === inboxAssets.length}
+                                        onChange={(e) => {
+                                            if (e.target.checked) {
+                                                setSelectedInboxIds(inboxAssets.map(a => a.id));
+                                            } else {
+                                                setSelectedInboxIds([]);
+                                            }
+                                        }}
+                                        className="w-4 h-4 rounded border-border text-indigo-600 focus:ring-indigo-500 bg-background"
+                                    />
+                                    <span>Select All ({selectedInboxIds.length}/{inboxAssets.length})</span>
+                                </label>
+                            )}
+
+                            {selectedInboxIds.length > 0 && inboxFilter !== 'archived' && inboxFilter !== 'deleted' && (
+                                <button
+                                    onClick={() => bulkArchiveInboxAssetsMutation.mutate(selectedInboxIds)}
+                                    disabled={bulkArchiveInboxAssetsMutation.isPending}
+                                    className="flex items-center gap-1.5 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border border-amber-500/20 px-3.5 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+                                >
+                                    <Archive className="w-4 h-4" />
+                                    Archive Selected
+                                </button>
+                            )}
+
+                            {selectedInboxIds.length > 0 && inboxFilter !== 'deleted' && (
+                                <button
+                                    onClick={() => bulkDeleteInboxAssetsMutation.mutate(selectedInboxIds)}
+                                    disabled={bulkDeleteInboxAssetsMutation.isPending}
+                                    className="flex items-center gap-1.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 px-3.5 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                    Delete Selected
+                                </button>
+                            )}
+
                             <button
-                                key={filter}
-                                onClick={() => setInboxFilter(filter)}
-                                className={`text-xs font-semibold px-4 py-2 rounded-lg transition-all capitalize ${
-                                    inboxFilter === filter
-                                        ? 'bg-card text-foreground shadow-sm'
-                                        : 'text-muted-foreground hover:text-foreground'
-                                }`}
+                                onClick={() => setShowPurgeImportedModal(true)}
+                                className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-sm"
                             >
-                                {filter}
+                                <Trash2 className="w-4 h-4" />
+                                Purge Imported
                             </button>
-                        ))}
+                        </div>
                     </div>
 
                     {loadingInbox ? (
@@ -418,8 +567,24 @@ export default function ConnectorsPage() {
                                                 </div>
                                             )}
 
+                                            {/* Selection Checkbox */}
+                                            <div className="absolute top-2.5 left-2.5 z-10" onClick={(e) => e.stopPropagation()}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedInboxIds.includes(asset.id)}
+                                                    onChange={(e) => {
+                                                        if (e.target.checked) {
+                                                            setSelectedInboxIds([...selectedInboxIds, asset.id]);
+                                                        } else {
+                                                            setSelectedInboxIds(selectedInboxIds.filter(id => id !== asset.id));
+                                                        }
+                                                    }}
+                                                    className="w-4 h-4 rounded border-border text-indigo-600 focus:ring-indigo-500 bg-background/90 cursor-pointer shadow-sm"
+                                                />
+                                            </div>
+
                                             {/* Source Badge */}
-                                            <span className="absolute top-2.5 left-2.5 text-[10px] font-bold tracking-wider px-2 py-0.5 rounded bg-background/90 border border-border shadow-sm text-foreground flex items-center gap-1">
+                                            <span className="absolute top-2.5 left-9 text-[10px] font-bold tracking-wider px-2 py-0.5 rounded bg-background/90 border border-border shadow-sm text-foreground flex items-center gap-1">
                                                 <Sparkles className="w-3 h-3 text-indigo-400 animate-pulse" />
                                                 {asset.source}
                                             </span>
@@ -432,7 +597,96 @@ export default function ConnectorsPage() {
 
                                         {/* Details */}
                                         <div className="p-4 flex-1 flex flex-col justify-between space-y-4">
-                                            <div className="space-y-2.5">
+                                            <div className="space-y-2.5 relative">
+                                                {/* Dropdown Menu Trigger */}
+                                                <div className="absolute top-0 right-0 z-20">
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setActiveDropdownId(activeDropdownId === asset.id ? null : asset.id);
+                                                        }}
+                                                        className="p-1 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+                                                    >
+                                                        <MoreVertical className="w-4.5 h-4.5" />
+                                                    </button>
+                                                    {activeDropdownId === asset.id && (
+                                                        <div className="absolute right-0 mt-1 w-36 bg-popover border border-border rounded-xl shadow-lg z-30 py-1.5 text-xs font-semibold animate-in fade-in slide-in-from-top-1 duration-100">
+                                                            {inboxFilter === 'deleted' ? (
+                                                                <>
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            restoreInboxAssetMutation.mutate(asset.id);
+                                                                            setActiveDropdownId(null);
+                                                                        }}
+                                                                        className="w-full text-left px-3.5 py-2 hover:bg-secondary text-foreground flex items-center gap-2"
+                                                                    >
+                                                                        <RotateCcw className="w-4 h-4 text-emerald-400" />
+                                                                        Restore
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setPurgingAsset(asset);
+                                                                            setActiveDropdownId(null);
+                                                                        }}
+                                                                        className="w-full text-left px-3.5 py-2 hover:bg-secondary text-red-400 hover:text-red-300 flex items-center gap-2"
+                                                                    >
+                                                                        <Trash2 className="w-4 h-4" />
+                                                                        Purge
+                                                                    </button>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setViewingAsset(asset);
+                                                                            setActiveDropdownId(null);
+                                                                        }}
+                                                                        className="w-full text-left px-3.5 py-2 hover:bg-secondary text-foreground flex items-center gap-2"
+                                                                    >
+                                                                        <Eye className="w-4 h-4 text-indigo-400" />
+                                                                        View
+                                                                    </button>
+                                                                    {asset.status === 'pending' && (
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                handleApproveClick(asset);
+                                                                                setActiveDropdownId(null);
+                                                                            }}
+                                                                            className="w-full text-left px-3.5 py-2 hover:bg-secondary text-foreground flex items-center gap-2"
+                                                                        >
+                                                                            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                                                                            Import
+                                                                        </button>
+                                                                    )}
+                                                                    {asset.status !== 'archived' && (
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                archiveInboxAssetMutation.mutate(asset.id);
+                                                                                setActiveDropdownId(null);
+                                                                            }}
+                                                                            className="w-full text-left px-3.5 py-2 hover:bg-secondary text-foreground flex items-center gap-2"
+                                                                        >
+                                                                            <Archive className="w-4 h-4 text-amber-400" />
+                                                                            Archive
+                                                                        </button>
+                                                                    )}
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            deleteInboxAssetMutation.mutate(asset.id);
+                                                                            setActiveDropdownId(null);
+                                                                        }}
+                                                                        className="w-full text-left px-3.5 py-2 hover:bg-secondary text-red-400 hover:text-red-300 flex items-center gap-2"
+                                                                    >
+                                                                        <Trash2 className="w-4 h-4" />
+                                                                        Delete
+                                                                    </button>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+
                                                 <div>
                                                     <span className="text-[9px] font-extrabold text-muted-foreground uppercase tracking-widest block">Created At</span>
                                                     <div className="flex items-center gap-1.5 text-xs text-foreground/90 font-medium">
@@ -460,57 +714,82 @@ export default function ConnectorsPage() {
                                             </div>
 
                                             {/* Action triggers */}
-                                            {asset.status === 'pending' && (
-                                                <div className="space-y-2 pt-1">
+                                            {inboxFilter === 'deleted' ? (
+                                                <div className="grid grid-cols-2 gap-2 pt-1">
                                                     <button
                                                         type="button"
-                                                        onClick={() => handleApproveClick(asset)}
-                                                        className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white py-2 px-3 rounded-xl text-xs font-bold shadow-sm transition-colors"
+                                                        onClick={() => restoreInboxAssetMutation.mutate(asset.id)}
+                                                        disabled={restoreInboxAssetMutation.isPending}
+                                                        className="flex items-center justify-center gap-1.5 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 py-2 px-2.5 rounded-xl text-xs font-semibold transition-colors disabled:opacity-50"
                                                     >
-                                                        <CheckCircle2 className="w-4 h-4" />
-                                                        Approve & Route
+                                                        <RotateCcw className="w-4 h-4" />
+                                                        Restore
                                                     </button>
-
-                                                    <div className="grid grid-cols-2 gap-2">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => rejectMutation.mutate(asset.id)}
-                                                            className="flex items-center justify-center gap-1.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 py-2 px-2.5 rounded-xl text-xs font-semibold transition-colors"
-                                                        >
-                                                            <XCircle className="w-4 h-4" />
-                                                            Reject
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => archiveMutation.mutate(asset.id)}
-                                                            className="flex items-center justify-center gap-1.5 bg-secondary hover:bg-secondary/80 border border-border py-2 px-2.5 rounded-xl text-xs font-semibold transition-colors"
-                                                        >
-                                                            <Archive className="w-4 h-4 text-muted-foreground" />
-                                                            Archive
-                                                        </button>
-                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setPurgingAsset(asset)}
+                                                        disabled={purgeInboxAssetMutation.isPending}
+                                                        className="flex items-center justify-center gap-1.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 py-2 px-2.5 rounded-xl text-xs font-semibold transition-colors disabled:opacity-50"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                        Purge
+                                                    </button>
                                                 </div>
-                                            )}
+                                            ) : (
+                                                <>
+                                                    {asset.status === 'pending' && (
+                                                        <div className="space-y-2 pt-1">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleApproveClick(asset)}
+                                                                className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white py-2 px-3 rounded-xl text-xs font-bold shadow-sm transition-colors"
+                                                            >
+                                                                <CheckCircle2 className="w-4 h-4" />
+                                                                Approve & Route
+                                                            </button>
 
-                                            {asset.status === 'approved' && (
-                                                <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-3 py-2 rounded-xl w-full justify-center">
-                                                    <CheckCircle2 className="w-4.5 h-4.5" />
-                                                    <span>Imported & Routed</span>
-                                                </div>
-                                            )}
+                                                            <div className="grid grid-cols-2 gap-2">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => rejectMutation.mutate(asset.id)}
+                                                                    className="flex items-center justify-center gap-1.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 py-2 px-2.5 rounded-xl text-xs font-semibold transition-colors"
+                                                                >
+                                                                    <XCircle className="w-4.5 h-4.5" />
+                                                                    Reject
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => archiveMutation.mutate(asset.id)}
+                                                                    className="flex items-center justify-center gap-1.5 bg-secondary hover:bg-secondary/80 border border-border py-2 px-2.5 rounded-xl text-xs font-semibold transition-colors"
+                                                                >
+                                                                    <Archive className="w-4.5 h-4.5 text-muted-foreground" />
+                                                                    Archive
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    )}
 
-                                            {asset.status === 'rejected' && (
-                                                <div className="flex items-center gap-2 text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/25 px-3 py-2 rounded-xl w-full justify-center">
-                                                    <XCircle className="w-4.5 h-4.5" />
-                                                    <span>Rejected / Deleted</span>
-                                                </div>
-                                            )}
+                                                    {asset.status === 'approved' && (
+                                                        <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-3 py-2 rounded-xl w-full justify-center">
+                                                            <CheckCircle2 className="w-4.5 h-4.5" />
+                                                            <span>Imported & Routed</span>
+                                                        </div>
+                                                    )}
 
-                                            {asset.status === 'archived' && (
-                                                <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground bg-secondary border border-border px-3 py-2 rounded-xl w-full justify-center">
-                                                    <Archive className="w-4.5 h-4.5" />
-                                                    <span>Archived</span>
-                                                </div>
+                                                    {asset.status === 'rejected' && (
+                                                        <div className="flex items-center gap-2 text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/25 px-3 py-2 rounded-xl w-full justify-center">
+                                                            <XCircle className="w-4.5 h-4.5" />
+                                                            <span>Rejected / Deleted</span>
+                                                        </div>
+                                                    )}
+
+                                                    {asset.status === 'archived' && (
+                                                        <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground bg-secondary border border-border px-3 py-2 rounded-xl w-full justify-center">
+                                                            <Archive className="w-4.5 h-4.5" />
+                                                            <span>Archived</span>
+                                                        </div>
+                                                    )}
+                                                </>
                                             )}
                                         </div>
                                     </div>
@@ -1039,6 +1318,183 @@ export default function ConnectorsPage() {
                             >
                                 {approveMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
                                 Confirm Route
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* VIEW ASSET MODAL */}
+            {viewingAsset && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
+                    <div className="w-full max-w-lg bg-card border border-border rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200">
+                        <div className="px-6 py-4 border-b border-border bg-secondary/30 flex items-center justify-between">
+                            <h3 className="font-bold text-lg flex items-center gap-2">
+                                <Eye className="w-5 h-5 text-indigo-400" />
+                                Asset Preview
+                            </h3>
+                            <button
+                                onClick={() => setViewingAsset(null)}
+                                className="text-muted-foreground hover:text-foreground font-bold text-lg"
+                            >
+                                &times;
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            {/* Preview */}
+                            <div className="aspect-video bg-muted rounded-xl border border-border flex items-center justify-center overflow-hidden">
+                                {viewingAsset.asset_type === 'thumbnail' || viewingAsset.file_path.match(/\.(jpg|jpeg|png|webp)$/i) ? (
+                                    <img
+                                        src={getAssetPreviewUrl(viewingAsset)}
+                                        alt={viewingAsset.asset_type}
+                                        className="w-full h-full object-contain"
+                                    />
+                                ) : viewingAsset.asset_type === 'footage' || viewingAsset.file_path.match(/\.(mp4|mov|webm)$/i) ? (
+                                    <video
+                                        src={getAssetPreviewUrl(viewingAsset)}
+                                        controls
+                                        className="w-full h-full object-contain"
+                                    />
+                                ) : (
+                                    <div className="text-center p-8">
+                                        <ImageIcon className="w-12 h-12 text-muted-foreground mx-auto mb-2" />
+                                        <span className="text-sm text-muted-foreground">Preview not available for this file type</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Info */}
+                            <div className="grid grid-cols-2 gap-4 text-xs">
+                                <div>
+                                    <span className="font-bold text-muted-foreground block uppercase text-[10px]">ID</span>
+                                    <span className="font-mono">{viewingAsset.id}</span>
+                                </div>
+                                <div>
+                                    <span className="font-bold text-muted-foreground block uppercase text-[10px]">Type</span>
+                                    <span className="capitalize font-semibold">{viewingAsset.asset_type}</span>
+                                </div>
+                                <div>
+                                    <span className="font-bold text-muted-foreground block uppercase text-[10px]">Source</span>
+                                    <span className="font-semibold">{viewingAsset.source}</span>
+                                </div>
+                                <div>
+                                    <span className="font-bold text-muted-foreground block uppercase text-[10px]">Status</span>
+                                    <span className="capitalize font-semibold">{viewingAsset.status}</span>
+                                </div>
+                                <div>
+                                    <span className="font-bold text-muted-foreground block uppercase text-[10px]">Workspace</span>
+                                    <span>{viewingAsset.workspace_id}</span>
+                                </div>
+                                <div>
+                                    <span className="font-bold text-muted-foreground block uppercase text-[10px]">Created At</span>
+                                    <span>{format(new Date(viewingAsset.created_at), 'PPP p')}</span>
+                                </div>
+                            </div>
+
+                            {viewingAsset.metadata && (
+                                <div>
+                                    <span className="font-bold text-muted-foreground block uppercase text-[10px] mb-1">Metadata</span>
+                                    <pre className="text-xs bg-secondary/40 p-3 rounded-xl border border-border font-mono whitespace-pre-wrap break-all max-h-32 overflow-y-auto">
+                                        {viewingAsset.metadata}
+                                    </pre>
+                                </div>
+                            )}
+                        </div>
+                        <div className="px-6 py-4 border-t border-border bg-secondary/10 flex items-center justify-end">
+                            <button
+                                type="button"
+                                onClick={() => setViewingAsset(null)}
+                                className="px-4 py-2 bg-secondary hover:bg-secondary/80 border border-border rounded-xl text-xs font-bold transition-colors"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* PURGE SINGLE ASSET CONFIRMATION MODAL */}
+            {purgingAsset && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
+                    <div className="w-full max-w-md bg-card border border-border rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200">
+                        <div className="px-6 py-4 border-b border-border bg-red-950/20 flex items-center gap-2 text-red-400">
+                            <ShieldAlert className="w-5 h-5" />
+                            <h3 className="font-bold text-lg">Confirm Permanent Purge</h3>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <p className="text-sm text-foreground/90">
+                                Are you sure you want to permanently purge this asset?
+                            </p>
+                            <div className="bg-red-500/10 border border-red-500/25 rounded-xl p-3.5 text-xs text-red-400 space-y-1.5">
+                                <p className="font-bold">This action is irreversible:</p>
+                                <ul className="list-disc pl-4 space-y-1">
+                                    <li>Deletes the asset record from the database.</li>
+                                    <li>Deletes the physical storage file associated with this asset (if not approved).</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div className="px-6 py-4 border-t border-border bg-secondary/10 flex items-center justify-end gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setPurgingAsset(null)}
+                                className="px-4 py-2 border border-border bg-background hover:bg-secondary rounded-xl text-xs font-bold transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    purgeInboxAssetMutation.mutate(purgingAsset.id);
+                                    setPurgingAsset(null);
+                                }}
+                                className="bg-red-600 hover:bg-red-700 active:bg-red-800 text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors shadow-sm"
+                            >
+                                Purge Permanently
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* PURGE ALL IMPORTED/REJECTED ASSETS CONFIRMATION MODAL */}
+            {showPurgeImportedModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
+                    <div className="w-full max-w-md bg-card border border-border rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200">
+                        <div className="px-6 py-4 border-b border-border bg-red-950/20 flex items-center gap-2 text-red-400">
+                            <ShieldAlert className="w-5 h-5" />
+                            <h3 className="font-bold text-lg">Confirm Purge Imported Assets</h3>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <p className="text-sm text-foreground/90">
+                                Are you sure you want to purge all approved and rejected assets from the inbox?
+                            </p>
+                            <div className="bg-red-500/10 border border-red-500/25 rounded-xl p-3.5 text-xs text-red-400 space-y-1.5">
+                                <p className="font-bold">Important Details:</p>
+                                <ul className="list-disc pl-4 space-y-1">
+                                    <li>This removes all <strong className="text-foreground">Approved</strong> and <strong className="text-foreground">Rejected</strong> entries.</li>
+                                    <li>Cleans up database and physical storage files (non-approved ones).</li>
+                                    <li>This does not affect the main Asset Library.</li>
+                                    <li>This action is permanent and irreversible.</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div className="px-6 py-4 border-t border-border bg-secondary/10 flex items-center justify-end gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setShowPurgeImportedModal(false)}
+                                className="px-4 py-2 border border-border bg-background hover:bg-secondary rounded-xl text-xs font-bold transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    purgeImportedInboxAssetsMutation.mutate();
+                                    setShowPurgeImportedModal(false);
+                                }}
+                                className="bg-red-600 hover:bg-red-700 active:bg-red-800 text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors shadow-sm"
+                            >
+                                Purge All
                             </button>
                         </div>
                     </div>

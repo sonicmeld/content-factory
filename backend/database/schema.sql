@@ -182,7 +182,8 @@ CREATE TABLE IF NOT EXISTS asset_inbox (
     status TEXT NOT NULL DEFAULT 'pending', -- pending, approved, rejected, archived
     file_path TEXT NOT NULL,
     metadata TEXT, -- JSON string containing extensible metadata details
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    deleted_at DATETIME
 );
 
 CREATE TABLE IF NOT EXISTS system_settings (
