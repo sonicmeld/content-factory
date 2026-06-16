@@ -662,7 +662,7 @@ export default function ConnectorsPage() {
                                                                     {asset.status !== 'archived' && (
                                                                         <button
                                                                             onClick={() => {
-                                                                                archiveInboxAssetMutation.mutate(asset.id);
+                                                                                archiveMutation.mutate(asset.id);
                                                                                 setActiveDropdownId(null);
                                                                             }}
                                                                             className="w-full text-left px-3.5 py-2 hover:bg-secondary text-foreground flex items-center gap-2"

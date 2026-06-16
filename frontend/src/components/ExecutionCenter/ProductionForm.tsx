@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { Image as ImageIcon, FileText, Loader2, PlayCircle, Settings2, Sliders, ExternalLink } from 'lucide-react';
+import { Image as ImageIcon, FileText, Loader2, PlayCircle, Settings2, Sliders } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     getGenerationCombos,
